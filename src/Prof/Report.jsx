@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Header from "../Components/Header";
 import Sidebar from "../Components/Sidebar";
 
@@ -10,6 +10,17 @@ import "react-day-picker/style.css";
 export default function ProfReport() {
   const [selected, setSelected] = useState(null);
   const [showCalendar, setShowCalendar] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(() => localStorage.getItem('sidebarCollapsed') === 'true');
+
+  // Listen for sidebar state changes
+  useEffect(() => {
+    const handleSidebarToggle = () => {
+      setIsCollapsed(localStorage.getItem('sidebarCollapsed') === 'true');
+    };
+    
+    window.addEventListener('sidebarToggle', handleSidebarToggle);
+    return () => window.removeEventListener('sidebarToggle', handleSidebarToggle);
+  }, []);
 
   const handleDateSelect = (date) => {
     setSelected(date);
@@ -24,7 +35,7 @@ export default function ProfReport() {
   return (
     <div className="flex content_padding">
       <Sidebar />
-      <div className="flex-1">
+      <div className={`flex-1 transition-all duration-300 ${isCollapsed ? 'ml-0' : 'ml-0'}`}>
         <Header />
 
         <main className="p-6 min-h-screen">
@@ -34,16 +45,16 @@ export default function ProfReport() {
           </div>
 
           {/* Calendar with Input */}
-          <div className="mb-6 flex justify-end items-start gap-4">
+          <div className="mb-6 flex flex-col sm:flex-row justify-start items-start gap-4">
             {/* Input + Calendar wrapper */}
-            <div className="relative">
+            <div className="relative w-full sm:w-auto">
               <input
                 type="text"
                 placeholder="Select date (YYYY-MM-DD)"
                 value={formatDate(selected)}
                 onClick={() => setShowCalendar(!showCalendar)}
                 readOnly
-                className="w-[320px] p-1.5 rounded-md border border-gray-200 bg-white focus:ring-2 focus:ring-[#064F32]/30 focus:border-[#064F32]/60 outline-none cursor-pointer"
+                className="w-full sm:w-[240px] md:w-[280px] p-2 md:p-1.5 rounded-md border border-gray-200 bg-white focus:ring-2 focus:ring-[#064F32]/30 focus:border-[#064F32]/60 outline-none cursor-pointer text-sm"
               />
 
               {showCalendar && (
@@ -81,23 +92,23 @@ export default function ProfReport() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
-                    <tr key={i} className="hover:bg-[#F6F7FB]">
-                      <td className="px-4 py-3 text-sm text-gray-700">
-                        202220810-N
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-800">
-                        Jessie Course
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-700">BSIT 4C</td>
-                      <td className="px-4 py-3 text-sm text-gray-700">Present</td>
-                      <td className="px-4 py-3 text-sm text-gray-700">10:00 AM</td>
-                      <td className="px-4 py-3 text-sm text-gray-700">1:00 PM</td>
-                      <td className="px-4 py-3 text-sm text-gray-700">
-                        Aug 8, 2025
-                      </td>
-                    </tr>
-                  ))}
+                   {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+                     <tr key={i} className="hover:bg-[#F6F7FB]">
+                       <td className="px-2 py-2 text-sm text-gray-700">
+                         202220810-N
+                       </td>
+                       <td className="px-2 py-2 text-sm text-gray-800">
+                         Jessie Course
+                       </td>
+                       <td className="px-2 py-2 text-sm text-gray-700">BSIT 4C</td>
+                       <td className="px-2 py-2 text-sm text-gray-700">Present</td>
+                       <td className="px-2 py-2 text-sm text-gray-700">10:00 AM</td>
+                       <td className="px-2 py-2 text-sm text-gray-700">1:00 PM</td>
+                       <td className="px-2 py-2 text-sm text-gray-700">
+                         Aug 8, 2025
+                       </td>
+                     </tr>
+                   ))}
                 </tbody>
               </table>
             </div>

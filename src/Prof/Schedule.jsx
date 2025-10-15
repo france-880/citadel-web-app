@@ -1,12 +1,24 @@
-import { Fragment } from "react";
+import { Fragment, useEffect, useState } from "react";
 import Sidebar from "../Components/Sidebar";
 import Header from "../Components/Header";
 
 export default function Schedule() {
+  const [isCollapsed, setIsCollapsed] = useState(() => localStorage.getItem('sidebarCollapsed') === 'true');
+
+  // Listen for sidebar state changes
+  useEffect(() => {
+    const handleSidebarToggle = () => {
+      setIsCollapsed(localStorage.getItem('sidebarCollapsed') === 'true');
+    };
+    
+    window.addEventListener('sidebarToggle', handleSidebarToggle);
+    return () => window.removeEventListener('sidebarToggle', handleSidebarToggle);
+  }, []);
+
   return (
     <div className="flex content_padding">
       <Sidebar />
-      <div className="flex-1">
+      <div className={`flex-1 transition-all duration-300 ${isCollapsed ? 'ml-0' : 'ml-0'}`}>
         <Header />
 
         <main className="p-6 min-h-screen">
@@ -14,12 +26,12 @@ export default function Schedule() {
             <h1 className="text-2xl font-semibold text-[#064F32]">Schedule</h1>
           </div>
 
-          <div className="space-y-6">
+          <div className="space-y-3 md:space-y-4">
           {/* Schedule Section */}
-            <div className="bg-white rounded-lg shadow p-5 md:p-6">
-            <div className="text-sm text-slate-500">Schedule</div>
-            <div className="mt-3 overflow-x-auto">
-              <table className="w-full text-xs">
+            <div className="bg-white rounded-lg shadow p-2 md:p-3">
+            <div className="text-sm text-slate-500 mb-2">Schedule</div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs md:text-sm">
                 <thead>
                   <tr className="bg-[var(--brand-100)] text-left">
                     <th className="p-2">Time</th>
@@ -41,9 +53,9 @@ export default function Schedule() {
             </div>
 
           {/* Weekly Timetable Section */}
-            <div className="bg-white rounded-lg shadow p-5 md:p-6">
-            <div className="text-sm text-slate-500">Weekly Timetable</div>
-            <div className="mt-3 grid grid-cols-8 gap-2 text-xs">
+            <div className="bg-white rounded-lg shadow p-3 md:p-4">
+            <div className="text-sm text-slate-500 mb-2">Weekly Timetable</div>
+            <div className="grid grid-cols-8 gap-1 md:gap-2 text-xs md:text-sm">
               <div></div>
               {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => (
                 <div key={d} className="text-center text-slate-600">

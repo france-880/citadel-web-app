@@ -8,6 +8,8 @@ export default {
            "./src/index.css",
             "./src/Pages/Login.jsx",
             "./src/Pages/Lading_Page.jsx",
+            "./src/Pages/ForgotPassword.jsx",
+            "./src/Pages/ResetPassword.jsx",
 
    "./src/Dean/Dashboard.jsx",         
     "./src/Dean/Student_Registration.jsx",

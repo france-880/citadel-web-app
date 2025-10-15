@@ -1,12 +1,13 @@
 import { useState } from "react";
+import { Eye, EyeOff } from "lucide-react";
 import { useAuth } from '../Context/AuthContext';
+import { Link } from "react-router-dom";
 
 export default function Login() {
   const { login } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-
 
   const handle = async (e) => {
     e.preventDefault();
@@ -30,7 +31,7 @@ export default function Login() {
               Sign In
             </h1>
             <p className="text-white/80 mt-2 text-xl">
-                 Academic Management Module
+              Academic Management Module
             </p>
           </div>
           <div className="flex items-center gap-2 text-white/80 text-sm">
@@ -73,20 +74,31 @@ export default function Login() {
                 placeholder="Enter your password"
                 className="w-full p-3 border text-black border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#064F32]/30 focus:border-[#064F32]/60 transition-all pr-10"
               />
-              <img
-                src={showPassword ? "/images/hide.png" : "/images/show.png"}
-                alt={showPassword ? "Hide password" : "Show password"}
+              <button
+                type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="w-5 h-5 absolute right-3 top-[46px] opacity-70 cursor-pointer"
-              />
+                className="absolute right-3 top-[46px] text-gray-600 hover:text-[#064F32] transition-colors focus:outline-none"
+                aria-label={showPassword ? "Hide password" : "Show password"}
+              >
+                {showPassword ? (
+                  <EyeOff size={20} />
+                ) : (
+                  <Eye size={20} />
+                )}
+              </button>
             </div>
 
             <div className="flex items-center justify-between mb-6">
               <label className="flex items-center gap-2 text-sm text-gray-600">
-                <input type="checkbox" className="rounded border-gray-300 text-[#064F32]  focus:ring-[#064F32]/30" />
+                <input type="checkbox" className="rounded border-gray-300 text-[#064F32] focus:ring-[#064F32]/30" />
                 Remember me
               </label>
-              <a href="#" className="text-sm text-[#FF7A00] hover:opacity-80">Forgot password?</a>
+              <Link
+                to="/forgot-password"
+                className="text-sm text-[#FF7A00] hover:opacity-80"
+              >
+                Forgot password?
+              </Link>
             </div>
 
             <button

@@ -5,7 +5,7 @@ import Sidebar from "../Components/Sidebar";
 import api from "../api/axios";
 import { useNavigate, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
-import { useAuth } from '../Context/AuthContext'; // ✅ Add this import
+import { useAuth } from '../Context/AuthContext'; 
 
 
 export default function Edit_User() {
@@ -16,8 +16,6 @@ export default function Edit_User() {
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
   const [form, setForm] = useState({
-
-    
     fullname: "",
     department: "",
     dob: "",
@@ -34,7 +32,22 @@ export default function Edit_User() {
   // Fetch existing user details
   useEffect(() => {
     api.get(`/users/${id}`)
-      .then((res) => setForm(res.data)) // auto fill
+      .then((res) => {
+        // Ensure all fields are strings to prevent controlled/uncontrolled input warnings
+        const userData = res.data;
+        setForm({
+          fullname: userData.fullname || "",
+          department: userData.department || "",
+          dob: userData.dob || "",
+          role: userData.role || "",
+          gender: userData.gender || "",
+          address: userData.address || "",
+          contact: userData.contact || "",
+          email: userData.email || "",
+          username: userData.username || "",
+          password: "", // Don't populate password field
+        });
+      })
       .catch((err) => {
         console.error(err);
         toast.error("Failed to fetch user details");
@@ -85,6 +98,8 @@ export default function Edit_User() {
 
   const handleUpdate = async () => {
     console.log('BUTTON CLICKED - handleUpdate started'); // Add this first
+    console.log('Token in localStorage:', localStorage.getItem('token')); // Debug token
+    console.log('Current user from AuthContext:', user); // Debug current user
   
     if (!validateForm()) {
       toast.error("Please complete all required fields before saving.");
@@ -103,7 +118,6 @@ export default function Edit_User() {
         contact: form.contact,
         email: form.email,
         username: form.username,
-        password: form.password,
       };
 
       // ✅ Only include password if user actually typed something
@@ -111,7 +125,7 @@ export default function Edit_User() {
         payload.password = form.password;
       }
 
-      const res = await toast.promise(api.put(`/users/${id}`, form), {
+      const res = await toast.promise(api.put(`/users/${id}`, payload), {
         loading: "Updating user...",
         success: "User updated successfully!",
         error: "Failed to update user.",

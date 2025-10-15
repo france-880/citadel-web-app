@@ -84,35 +84,238 @@ const FacultyLoadSystem = () => {
     return slots;
   };
 
+  // Helper function to convert time string to comparable format
+  const parseTime = (timeString) => {
+    const [time, period] = timeString.split(' ');
+    const [hour, minute] = time.split(':');
+    let hour24 = parseInt(hour);
+    
+    if (period === 'PM' && hour24 !== 12) {
+      hour24 += 12;
+    } else if (period === 'AM' && hour24 === 12) {
+      hour24 = 0;
+    }
+    
+    return hour24 * 60 + parseInt(minute);
+  };
+
+  // Helper function to get day abbreviation
+  const getDayAbbreviation = (dayName) => {
+    const dayMap = {
+      'Monday': 'M',
+      'Tuesday': 'T', 
+      'Wednesday': 'W',
+      'Thursday': 'TH',
+      'Friday': 'F',
+      'Saturday': 'S',
+      'Sunday': 'SUN'
+    };
+    return dayMap[dayName] || dayName;
+  };
+
+  // Helper function to check if a time slot should show a schedule
+  const getScheduleForTimeSlot = (day, timeSlot) => {
+    const dayAbbr = getDayAbbreviation(day);
+    const slotTime = parseTime(timeSlot.displayTime);
+    
+    // Check office hours
+    const officeHour = officeHours.find(oh => {
+      if (!oh.timeAndDate) return false;
+      
+      // Check if day is in the timeAndDate string
+      const dayMatches = oh.timeAndDate.includes(dayAbbr);
+      if (!dayMatches) return false;
+      
+      try {
+        // Extract time range (e.g., "1:00 PM - 4:00 PM")
+        const timeRange = oh.timeAndDate.match(/(\d{1,2}:\d{2} [AP]M) - (\d{1,2}:\d{2} [AP]M)/);
+        if (!timeRange) return false;
+        
+        const startTime = parseTime(timeRange[1]);
+        const endTime = parseTime(timeRange[2]);
+        
+        // Show on the exact start time slot only
+        return slotTime === startTime;
+      } catch (e) {
+        return false;
+      }
+    });
+
+    if (officeHour) {
+      return {
+        type: 'office',
+        title: officeHour.description || 'Office Hours',
+        room: officeHour.room || 'Office',
+        color: 'bg-blue-500'
+      };
+    }
+
+    // Check faculty loads
+    const facultyLoad = facultyLoads.find(load => {
+      if (!load.schedule) return false;
+      
+      // Check if day is mentioned in schedule
+      const dayMatches = load.schedule.toLowerCase().includes(day.toLowerCase().substring(0, 3));
+      if (!dayMatches) return false;
+      
+      try {
+        // Try to parse time from schedule (e.g., "M/W 9:00AM-10:30AM")
+        const timeMatch = load.schedule.match(/(\d{1,2}:\d{2}[AP]M)-(\d{1,2}:\d{2}[AP]M)/i);
+        if (timeMatch) {
+          const startTime = parseTime(timeMatch[1].replace(/(\d{1,2}:\d{2})([AP]M)/i, '$1 $2'));
+          
+          // Show on the exact start time slot only
+          return slotTime === startTime;
+        }
+        
+        // If no specific time, don't show
+        return false;
+      } catch (e) {
+        return false;
+      }
+    });
+
+    if (facultyLoad) {
+      return {
+        type: 'class',
+        title: facultyLoad.subjectCode || 'Subject',
+        room: facultyLoad.room || 'TBA',
+        color: 'bg-green-500'
+      };
+    }
+
+    return null;
+  };
+
   const timeSlots = generateTimeSlots();
   const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
+  // Button functionality handlers
+  const handleSetAcademicYear = () => {
+    // Here you can add logic to save the academic year and semester
+    console.log('Setting Academic Year:', academicYear, 'Semester:', semester);
+    // You might want to show a success message or update some state
+    alert(`Academic Year ${academicYear} and ${semester} semester has been set successfully!`);
+  };
+
+  const handleSearchSubjects = () => {
+    // Enhanced search functionality
+    console.log('Searching for:', searchQuery);
+    console.log('Filters applied:', filters);
+    
+    // You can add more complex search logic here
+    // For example, filtering by multiple criteria
+    const searchResults = facultyLoads.filter(load => {
+      const matchesSearch = load.subjectCode.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                           load.subjectDescription.toLowerCase().includes(searchQuery.toLowerCase());
+      
+      const matchesFilters = (
+        (filters.employeeStatus === 'All' || load.type === filters.employeeStatus) &&
+        (filters.campus === 'All' || load.campus === filters.campus) &&
+        (filters.mode === 'All' || load.mode === filters.mode)
+      );
+      
+      return matchesSearch && matchesFilters;
+    });
+    
+    console.log('Search results:', searchResults);
+    // You could update a separate state for search results
+  };
+
+  const handleEditSubject = (subject) => {
+    console.log('Editing subject:', subject);
+    
+    // Set the form data to the subject being edited
+    setSubjectForm({
+      subjectCode: subject.subjectCode,
+      subjectDescription: subject.subjectDescription,
+      lecHours: subject.lecHours,
+      labHours: subject.labHours,
+      units: subject.units,
+      section: subject.section,
+      schedule: subject.schedule,
+      room: subject.room,
+      type: subject.type
+    });
+    
+    // Set modal title and show modal
+    setModalTitle('Edit Subject');
+    setShowModal(true);
+    
+    // Store the subject ID for updating
+    setSubjectForm(prev => ({ ...prev, id: subject.id }));
+  };
+
+  const handlePrintForm = () => {
+    console.log('Printing Faculty Assignment Form');
+    
+    // Create a print-friendly version of the data
+    const printData = {
+      faculty: facultyName,
+      academicYear: academicYear,
+      semester: semester,
+      officeHours: officeHours,
+      facultyLoads: facultyLoads
+    };
+    
+    console.log('Print data:', printData);
+    
+    // You can implement actual printing logic here
+    // For now, we'll just show an alert
+    alert('Print functionality would open a print dialog with the faculty assignment form');
+    
+    // Alternative: Open a new window with printable content
+    // const printWindow = window.open('', '_blank');
+    // printWindow.document.write(/* HTML content for printing */);
+    // printWindow.print();
+  };
+
+  const handleViewHistory = () => {
+    console.log('Viewing faculty loading history');
+    
+    // You can implement history viewing logic here
+    // This might open a modal or navigate to a history page
+    alert('History viewing functionality - this would show past faculty assignments');
+    
+    // Example of what you might do:
+    // setShowHistoryModal(true);
+    // fetchFacultyHistory();
+  };
+
   // Handle office hours form changes
   const handleOfficeHourChange = (field, value) => {
-    if (field === 'selectedDays') {
-      const updatedDays = officeHourForm.selectedDays.includes(value)
-        ? officeHourForm.selectedDays.filter(day => day !== value)
-        : [...officeHourForm.selectedDays, value];
-      setOfficeHourForm(prev => ({ ...prev, selectedDays: updatedDays }));
-    } else {
-      setOfficeHourForm(prev => ({ ...prev, [field]: value }));
-    }
+    setOfficeHourForm(prev => ({ ...prev, [field]: value }));
   };
 
   // Add office hours
   const addOfficeHours = () => {
+    // Validate that at least one day is selected
+    if (officeHourForm.selectedDays.length === 0) {
+      alert('Please select at least one day for the office hours.');
+      return;
+    }
+
+    // Validate that description is provided
+    if (!officeHourForm.description.trim()) {
+      alert('Please provide a description for the office hours.');
+      return;
+    }
+
     const timeString = `${officeHourForm.fromTime}:${officeHourForm.fromMinutes} ${officeHourForm.fromPeriod} - ${officeHourForm.toTime}:${officeHourForm.toMinutes} ${officeHourForm.toPeriod}`;
-    const daysString = officeHourForm.selectedDays.join(', ') || officeHourForm.dayDropdown;
+    const daysString = officeHourForm.selectedDays.join(', ');
     
     const newOfficeHour = {
       id: Date.now(),
       description: officeHourForm.description,
       timeAndDate: `${daysString} ${timeString}`,
-      room: officeHourForm.room,
+      room: officeHourForm.room || 'Not specified',
       hours: officeHourForm.hours
     };
 
     setOfficeHours(prev => [...prev, newOfficeHour]);
+    
+    // Show success message
+    console.log('Office hours added successfully:', newOfficeHour);
     
     // Reset form
     setOfficeHourForm({
@@ -139,12 +342,23 @@ const FacultyLoadSystem = () => {
   // Add or edit subject
   const handleSubjectSubmit = (e) => {
     e.preventDefault();
-    const newSubject = {
-      id: Date.now(),
-      ...subjectForm
-    };
-
-    setFacultyLoads(prev => [...prev, newSubject]);
+    
+    if (subjectForm.id) {
+      // Edit existing subject
+      setFacultyLoads(prev => prev.map(load => 
+        load.id === subjectForm.id ? { ...subjectForm } : load
+      ));
+      console.log('Subject updated:', subjectForm);
+    } else {
+      // Add new subject
+      const newSubject = {
+        id: Date.now(),
+        ...subjectForm
+      };
+      setFacultyLoads(prev => [...prev, newSubject]);
+      console.log('New subject added:', newSubject);
+    }
+    
     setShowModal(false);
     
     // Reset form
@@ -159,6 +373,9 @@ const FacultyLoadSystem = () => {
       room: '',
       type: 'Part-time'
     });
+    
+    // Reset modal title
+    setModalTitle('Add Subject');
   };
 
   // Remove subject
@@ -207,38 +424,45 @@ const FacultyLoadSystem = () => {
             </nav>
           </div>
 
-          {/* Academic Year and Semester */}
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-6 bg-gray-50 border-b">
-            <div className="flex items-center space-x-4 mb-4 sm:mb-0">
-              <div className="flex items-center space-x-2">
-                <label className="text-sm font-medium text-gray-700">AY:</label>
-                <select
-                  value={academicYear}
-                  onChange={(e) => setAcademicYear(e.target.value)}
-                  className="border border-gray-300 rounded px-3 py-1 text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
+          {/* Academic Year and Semester - Better Balanced */}
+          <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-200 mx-6 mt-6 mb-6">
+            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                <div className="flex items-center space-x-3">
+                  <label className="text-sm font-medium text-gray-700 whitespace-nowrap">Academic Year:</label>
+                  <select
+                    value={academicYear}
+                    onChange={(e) => setAcademicYear(e.target.value)}
+                    className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors min-w-[100px]"
+                  >
+                    <option value="2024">2024</option>
+                    <option value="2023">2023</option>
+                  </select>
+                </div>
+                <div className="flex items-center space-x-3">
+                  <label className="text-sm font-medium text-gray-700 whitespace-nowrap">Semester:</label>
+                  <select
+                    value={semester}
+                    onChange={(e) => setSemester(e.target.value)}
+                    className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors min-w-[120px]"
+                  >
+                    <option value="First">First</option>
+                    <option value="Second">Second</option>
+                    <option value="Summer">Summer</option>
+                  </select>
+                </div>
+                <button 
+                  onClick={handleSetAcademicYear}
+                  className="px-6 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors shadow-sm flex items-center gap-2"
                 >
-                  <option value="2024">2024</option>
-                  <option value="2023">2023</option>
-                </select>
+                  <Calendar className="w-4 h-4" />
+                  Set Period
+                </button>
               </div>
-              <div className="flex items-center space-x-2">
-                <label className="text-sm font-medium text-gray-700">Sem:</label>
-                <select
-                  value={semester}
-                  onChange={(e) => setSemester(e.target.value)}
-                  className="border border-gray-300 rounded px-3 py-1 text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                >
-                  <option value="First">First</option>
-                  <option value="Second">Second</option>
-                  <option value="Summer">Summer</option>
-                </select>
+              <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-3">
+                <div className="text-sm font-medium text-gray-700">Current Faculty:</div>
+                <div className="text-lg font-semibold text-green-700">{facultyName}</div>
               </div>
-              <button className="px-4 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors">
-                Set
-              </button>
-            </div>
-            <div className="text-lg font-semibold text-gray-900">
-              FACULTY: <span className="text-green-600">{facultyName}</span>
             </div>
           </div>
 
@@ -249,130 +473,167 @@ const FacultyLoadSystem = () => {
                 Setup Office / Consultation Hours
               </h3>
               
-              <div className="grid grid-cols-1 lg:grid-cols-8 gap-4 items-end mb-6">
-                <div className="lg:col-span-1">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                  <input
-                    type="text"
-                    value={officeHourForm.description}
-                    onChange={(e) => handleOfficeHourChange('description', e.target.value)}
-                    className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                    placeholder="Enter description"
-                  />
-                </div>
-                
-                <div className="lg:col-span-1">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Room</label>
-                  <select
-                    value={officeHourForm.room}
-                    onChange={(e) => handleOfficeHourChange('room', e.target.value)}
-                    className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  >
-                    <option value="">-select room-</option>
-                    <option value="ROOM 303-N">ROOM 303-N</option>
-                    <option value="ROOM 401-N">ROOM 401-N</option>
-                    <option value="BLENDED">BLENDED</option>
-                  </select>
-                </div>
+              {/* Office Hours Form - Better Balanced Layout */}
+              <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-200 mb-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {/* Description */}
+                  <div className="lg:col-span-1">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                    <input
+                      type="text"
+                      value={officeHourForm.description}
+                      onChange={(e) => handleOfficeHourChange('description', e.target.value)}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors"
+                      placeholder="Enter description"
+                    />
+                  </div>
+                  
+                  {/* Room */}
+                  <div className="lg:col-span-1">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Room</label>
+                    <select
+                      value={officeHourForm.room}
+                      onChange={(e) => handleOfficeHourChange('room', e.target.value)}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors"
+                    >
+                      <option value="">-select room-</option>
+                      <option value="ROOM 303-N">ROOM 303-N</option>
+                      <option value="ROOM 401-N">ROOM 401-N</option>
+                      <option value="BLENDED">BLENDED</option>
+                    </select>
+                  </div>
 
-                <div className="lg:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Days</label>
-                  <div className="flex flex-wrap gap-2 mb-2">
-                    {['M', 'T', 'W', 'TH', 'F', 'S', 'SUN'].map(day => (
-                      <label key={day} className="inline-flex items-center">
-                        <input
-                          type="checkbox"
-                          checked={officeHourForm.selectedDays.includes(day)}
-                          onChange={() => handleOfficeHourChange('selectedDays', day)}
-                          className="rounded border-gray-300 text-green-600 focus:ring-green-500"
-                        />
-                        <span className="ml-1 text-xs">{day}</span>
-                      </label>
-                    ))}
+                  {/* Hours */}
+                  <div className="lg:col-span-1">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Hours</label>
+                    <input
+                      type="number"
+                      value={officeHourForm.hours}
+                      onChange={(e) => handleOfficeHourChange('hours', parseFloat(e.target.value) || 0)}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors"
+                      min="0"
+                      step="0.5"
+                      placeholder="0.0"
+                    />
+                  </div>
+
+                  {/* Days Selection */}
+                  <div className="lg:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Select Days</label>
+                    <div className="grid grid-cols-4 gap-2 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                      {['M', 'T', 'W', 'TH', 'F', 'S', 'SUN'].map(day => (
+                        <label key={day} className="flex items-center cursor-pointer hover:bg-gray-100 p-2 rounded transition-colors">
+                          <input
+                            type="checkbox"
+                            checked={officeHourForm.selectedDays.includes(day)}
+                            onChange={(e) => {
+                              const value = day;
+                              const updatedDays = officeHourForm.selectedDays.includes(value)
+                                ? officeHourForm.selectedDays.filter(d => d !== value)
+                                : [...officeHourForm.selectedDays, value];
+                              setOfficeHourForm(prev => ({ ...prev, selectedDays: updatedDays }));
+                            }}
+                            className="w-4 h-4 rounded border-gray-300 text-green-600 focus:ring-green-500 focus:ring-2"
+                          />
+                          <span className="ml-2 text-sm font-medium text-gray-700">{day}</span>
+                        </label>
+                      ))}
+                    </div>
+                    {officeHourForm.selectedDays.length > 0 && (
+                      <div className="mt-2">
+                        <span className="text-xs text-gray-500">Selected: </span>
+                        <span className="text-xs font-medium text-green-600">
+                          {officeHourForm.selectedDays.join(', ')}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Time Selection */}
+                  <div className="lg:col-span-1">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Time</label>
+                    <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                      <div className="grid grid-cols-2 gap-3">
+                        {/* From Time */}
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-1">From</label>
+                          <div className="flex items-center space-x-1">
+                            <select
+                              value={officeHourForm.fromTime}
+                              onChange={(e) => handleOfficeHourChange('fromTime', e.target.value)}
+                              className="flex-1 border border-gray-300 rounded px-2 py-1 text-xs focus:ring-1 focus:ring-green-500 focus:border-green-500"
+                            >
+                              {[...Array(12)].map((_, i) => (
+                                <option key={i + 1} value={i + 1}>{i + 1}</option>
+                              ))}
+                            </select>
+                            <select
+                              value={officeHourForm.fromMinutes}
+                              onChange={(e) => handleOfficeHourChange('fromMinutes', e.target.value)}
+                              className="flex-1 border border-gray-300 rounded px-2 py-1 text-xs focus:ring-1 focus:ring-green-500 focus:border-green-500"
+                            >
+                              <option value="00">00</option>
+                              <option value="15">15</option>
+                              <option value="30">30</option>
+                              <option value="45">45</option>
+                            </select>
+                            <select
+                              value={officeHourForm.fromPeriod}
+                              onChange={(e) => handleOfficeHourChange('fromPeriod', e.target.value)}
+                              className="flex-1 border border-gray-300 rounded px-2 py-1 text-xs focus:ring-1 focus:ring-green-500 focus:border-green-500"
+                            >
+                              <option value="AM">AM</option>
+                              <option value="PM">PM</option>
+                            </select>
+                          </div>
+                        </div>
+
+                        {/* To Time */}
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-1">To</label>
+                          <div className="flex items-center space-x-1">
+                            <select
+                              value={officeHourForm.toTime}
+                              onChange={(e) => handleOfficeHourChange('toTime', e.target.value)}
+                              className="flex-1 border border-gray-300 rounded px-2 py-1 text-xs focus:ring-1 focus:ring-green-500 focus:border-green-500"
+                            >
+                              {[...Array(12)].map((_, i) => (
+                                <option key={i + 1} value={i + 1}>{i + 1}</option>
+                              ))}
+                            </select>
+                            <select
+                              value={officeHourForm.toMinutes}
+                              onChange={(e) => handleOfficeHourChange('toMinutes', e.target.value)}
+                              className="flex-1 border border-gray-300 rounded px-2 py-1 text-xs focus:ring-1 focus:ring-green-500 focus:border-green-500"
+                            >
+                              <option value="00">00</option>
+                              <option value="15">15</option>
+                              <option value="30">30</option>
+                              <option value="45">45</option>
+                            </select>
+                            <select
+                              value={officeHourForm.toPeriod}
+                              onChange={(e) => handleOfficeHourChange('toPeriod', e.target.value)}
+                              className="flex-1 border border-gray-300 rounded px-2 py-1 text-xs focus:ring-1 focus:ring-green-500 focus:border-green-500"
+                            >
+                              <option value="AM">AM</option>
+                              <option value="PM">PM</option>
+                            </select>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
-                <div className="lg:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Time</label>
-                  <div className="flex items-center space-x-1 text-xs">
-                    <span>FROM</span>
-                    <select
-                      value={officeHourForm.fromTime}
-                      onChange={(e) => handleOfficeHourChange('fromTime', e.target.value)}
-                      className="border border-gray-300 rounded px-1 py-1 text-xs"
-                    >
-                      {[...Array(12)].map((_, i) => (
-                        <option key={i + 1} value={i + 1}>{i + 1}</option>
-                      ))}
-                    </select>
-                    <select
-                      value={officeHourForm.fromMinutes}
-                      onChange={(e) => handleOfficeHourChange('fromMinutes', e.target.value)}
-                      className="border border-gray-300 rounded px-1 py-1 text-xs"
-                    >
-                      <option value="00">00</option>
-                      <option value="15">15</option>
-                      <option value="30">30</option>
-                      <option value="45">45</option>
-                    </select>
-                    <select
-                      value={officeHourForm.fromPeriod}
-                      onChange={(e) => handleOfficeHourChange('fromPeriod', e.target.value)}
-                      className="border border-gray-300 rounded px-1 py-1 text-xs"
-                    >
-                      <option value="AM">AM</option>
-                      <option value="PM">PM</option>
-                    </select>
-                    <span>TO</span>
-                    <select
-                      value={officeHourForm.toTime}
-                      onChange={(e) => handleOfficeHourChange('toTime', e.target.value)}
-                      className="border border-gray-300 rounded px-1 py-1 text-xs"
-                    >
-                      {[...Array(12)].map((_, i) => (
-                        <option key={i + 1} value={i + 1}>{i + 1}</option>
-                      ))}
-                    </select>
-                    <select
-                      value={officeHourForm.toMinutes}
-                      onChange={(e) => handleOfficeHourChange('toMinutes', e.target.value)}
-                      className="border border-gray-300 rounded px-1 py-1 text-xs"
-                    >
-                      <option value="00">00</option>
-                      <option value="15">15</option>
-                      <option value="30">30</option>
-                      <option value="45">45</option>
-                    </select>
-                    <select
-                      value={officeHourForm.toPeriod}
-                      onChange={(e) => handleOfficeHourChange('toPeriod', e.target.value)}
-                      className="border border-gray-300 rounded px-1 py-1 text-xs"
-                    >
-                      <option value="AM">AM</option>
-                      <option value="PM">PM</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div className="lg:col-span-1">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Hours</label>
-                  <input
-                    type="number"
-                    value={officeHourForm.hours}
-                    onChange={(e) => handleOfficeHourChange('hours', parseFloat(e.target.value) || 0)}
-                    className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                    min="0"
-                    step="0.5"
-                  />
-                </div>
-
-                <div className="lg:col-span-1">
+                {/* Add Button */}
+                <div className="flex justify-end mt-6">
                   <button
                     onClick={addOfficeHours}
-                    className="w-full px-4 py-2 bg-orange-500 text-white text-sm rounded hover:bg-orange-600 transition-colors flex items-center justify-center"
+                    className="px-6 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2 shadow-sm"
                   >
-                    <Plus className="w-4 h-4 mr-1" />
-                    Add Time
+                    <Plus className="w-4 h-4" />
+                    Add Office Hours
                   </button>
                 </div>
               </div>
@@ -422,37 +683,41 @@ const FacultyLoadSystem = () => {
                 Setup Faculty Loads
               </h3>
 
-              {/* Search Section */}
-              <div className="mb-6">
-                <div className="flex gap-3 mb-2">
+              {/* Search Section - Better Balanced */}
+              <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200 mb-6">
+                <div className="flex flex-col lg:flex-row gap-4">
                   <div className="flex-1 relative">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                     <input
                       type="text"
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      placeholder="Advance Search"
-                      className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      placeholder="Search subjects by code, description, section..."
+                      className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors"
                     />
                   </div>
-                  <button className="px-6 py-2 bg-orange-500 text-white rounded hover:bg-orange-600 transition-colors">
+                  <button 
+                    onClick={handleSearchSubjects}
+                    className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2 shadow-sm"
+                  >
+                    <Search className="w-4 h-4" />
                     Search
                   </button>
                 </div>
-                <p className="text-xs text-gray-500 italic">
-                  Subject Code | Description | LEC | LAB | UNITS | CREDITED UNITS | Section | Schedule
+                <p className="text-xs text-gray-500 mt-2 italic">
+                  Search by: Subject Code | Description | LEC | LAB | UNITS | Section | Schedule
                 </p>
               </div>
 
-              {/* Filter Section */}
-              <div className="bg-white p-4 rounded border mb-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
+              {/* Filter Section - Better Balanced */}
+              <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-200 mb-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Employee Status</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Employee Status</label>
                     <select
                       value={filters.employeeStatus}
                       onChange={(e) => setFilters(prev => ({ ...prev, employeeStatus: e.target.value }))}
-                      className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors"
                     >
                       <option value="All">All</option>
                       <option value="Full-time">Full-time</option>
@@ -460,11 +725,11 @@ const FacultyLoadSystem = () => {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Campus</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Campus</label>
                     <select
                       value={filters.campus}
                       onChange={(e) => setFilters(prev => ({ ...prev, campus: e.target.value }))}
-                      className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors"
                     >
                       <option value="All">All</option>
                       <option value="North">North</option>
@@ -472,11 +737,11 @@ const FacultyLoadSystem = () => {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Mode</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Mode</label>
                     <select
                       value={filters.mode}
                       onChange={(e) => setFilters(prev => ({ ...prev, mode: e.target.value }))}
-                      className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors"
                     >
                       <option value="All">All</option>
                       <option value="Online">Online</option>
@@ -485,32 +750,33 @@ const FacultyLoadSystem = () => {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Credited Units</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Credited Units</label>
                     <input
                       type="number"
                       value={filters.creditedUnits}
                       onChange={(e) => setFilters(prev => ({ ...prev, creditedUnits: parseInt(e.target.value) || 0 }))}
-                      className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors"
                       min="0"
+                      placeholder="0"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Load Hours</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Load Hours</label>
                     <input
                       type="number"
                       value={filters.loadHours}
                       onChange={(e) => setFilters(prev => ({ ...prev, loadHours: parseInt(e.target.value) || 0 }))}
-                      className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors"
                       min="0"
+                      placeholder="0"
                     />
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">&nbsp;</label>
+                  <div className="flex items-end">
                     <button
                       onClick={() => setShowModal(true)}
-                      className="w-full px-4 py-2 bg-orange-500 text-white rounded hover:bg-orange-600 transition-colors flex items-center justify-center"
+                      className="w-full px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 shadow-sm"
                     >
-                      <Plus className="w-4 h-4 mr-1" />
+                      <Plus className="w-4 h-4" />
                       Add Subject
                     </button>
                   </div>
@@ -554,7 +820,11 @@ const FacultyLoadSystem = () => {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                           <div className="flex space-x-2">
-                            <button className="text-blue-600 hover:text-blue-800">
+                            <button 
+                              onClick={() => handleEditSubject(load)}
+                              className="text-blue-600 hover:text-blue-800"
+                              title="Edit Subject"
+                            >
                               <Edit className="w-4 h-4" />
                             </button>
                             <button
@@ -577,77 +847,111 @@ const FacultyLoadSystem = () => {
               </div>
             </div>
 
-            {/* Timetable Section */}
+            {/* Timetable Section - Better Balanced */}
             <div className="bg-gray-50 rounded-lg p-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-6 border-b-2 border-green-500 pb-2 inline-block">
-                Schedules
+                Weekly Schedule Overview
               </h3>
               
-              <div className="bg-white rounded-lg overflow-auto shadow">
-                <div className="min-w-full">
-                  <div className="grid grid-cols-8 gap-px bg-gray-200">
-                    {/* Corner cell */}
-                    <div className="bg-green-500 text-white p-3 text-xs font-semibold text-center">
-                      Time
-                    </div>
-                    {/* Day headers */}
-                    {days.map(day => (
-                      <div key={day} className="bg-green-500 text-white p-3 text-sm font-semibold text-center">
-                        {day}
+              <div className="bg-white rounded-lg overflow-hidden shadow-sm border border-gray-200">
+                <div className="overflow-x-auto">
+                  <div className="min-w-full">
+                    <div className="grid grid-cols-8 gap-px bg-gray-300">
+                      {/* Corner cell */}
+                      <div className="bg-green-600 text-white p-4 text-sm font-semibold text-center">
+                        Time
                       </div>
-                    ))}
-                    
-                    {/* Time slots */}
-                    {timeSlots.map(slot => (
-                      <React.Fragment key={slot.time}>
-                        {/* Time label */}
-                        <div className="bg-gray-50 p-2 text-xs text-center font-medium text-gray-600 border-r border-gray-200">
-                          {slot.displayTime}
+                      {/* Day headers */}
+                      {days.map(day => (
+                        <div key={day} className="bg-green-600 text-white p-4 text-sm font-semibold text-center">
+                          {day}
                         </div>
-                        {/* Day slots */}
-                        {days.map(day => {
-                          const hasSchedule = facultyLoads.some(load => 
-                            load.schedule.toLowerCase().includes(day.toLowerCase().substring(0, 3))
-                          );
-                          return (
-                            <div
-                              key={`${day}-${slot.time}`}
-                              className={`p-2 min-h-[40px] border-r border-b border-gray-200 cursor-pointer transition-colors ${
-                                hasSchedule 
-                                  ? 'bg-green-100 hover:bg-green-200' 
-                                  : 'bg-white hover:bg-gray-50'
-                              }`}
-                            >
-                              {hasSchedule && (
-                                <div className="bg-green-500 text-white p-1 rounded text-xs">
-                                  <div className="font-medium">Subject</div>
-                                  <div>Room</div>
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </React.Fragment>
-                    ))}
+                      ))}
+                      
+                      {/* Time slots */}
+                      {timeSlots.slice(0, 20).map(slot => (
+                        <React.Fragment key={slot.time}>
+                          {/* Time label */}
+                          <div className="bg-gray-50 p-3 text-xs text-center font-medium text-gray-600 border-r border-gray-300 min-h-[50px] flex items-center justify-center">
+                            {slot.displayTime}
+                          </div>
+                          {/* Day slots */}
+                          {days.map(day => {
+                            const scheduleInfo = getScheduleForTimeSlot(day, slot);
+                            return (
+                              <div
+                                key={`${day}-${slot.time}`}
+                                className={`p-2 min-h-[50px] border-r border-b border-gray-300 cursor-pointer transition-colors flex items-center justify-center ${
+                                  scheduleInfo 
+                                    ? 'hover:opacity-90' 
+                                    : 'bg-white hover:bg-gray-50'
+                                }`}
+                              >
+                                {scheduleInfo && (
+                                  <div className={`${scheduleInfo.color} text-white p-2 rounded text-xs text-center shadow-sm max-w-full`}>
+                                    <div className="font-medium truncate" title={scheduleInfo.title}>
+                                      {scheduleInfo.title}
+                                    </div>
+                                    <div className="text-xs opacity-90 truncate" title={scheduleInfo.room}>
+                                      {scheduleInfo.room}
+                                    </div>
+                                    <div className="text-xs opacity-75">
+                                      {scheduleInfo.type === 'office' ? 'Office' : 'Class'}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </React.Fragment>
+                      ))}
+                    </div>
                   </div>
                 </div>
+              </div>
+              
+              {/* Timetable Legend */}
+              <div className="mt-4 flex flex-wrap gap-4 text-sm">
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 bg-green-500 rounded"></div>
+                  <span className="text-gray-600">Faculty Classes</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 bg-blue-500 rounded"></div>
+                  <span className="text-gray-600">Office Hours</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 bg-white border border-gray-300 rounded"></div>
+                  <span className="text-gray-600">Available Slots</span>
+                </div>
+              </div>
+              
+              {/* Instructions */}
+              <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-sm text-blue-700">
+                  <strong>How to use:</strong> Add office hours and faculty loads above to see them appear in the weekly schedule. 
+                  Office hours will show in blue, classes in green.
+                </p>
               </div>
             </div>
           </div>
 
-          {/* Footer Actions */}
-          <div className="flex flex-col sm:flex-row justify-between items-center p-6 bg-gray-50 border-t">
-            <div className="mb-4 sm:mb-0">
-              <div className="relative">
-                <button className="flex items-center px-4 py-2 text-blue-600 hover:text-blue-800 transition-colors">
-                  <FileText className="w-4 h-4 mr-2" />
-                  Print Faculty Assignment Form
-                  <ChevronDown className="w-4 h-4 ml-2" />
-                </button>
-              </div>
-            </div>
-            <div>
-              <button className="px-4 py-2 text-blue-600 hover:text-blue-800 transition-colors">
+          {/* Footer Actions - Better Balanced */}
+          <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-200 mx-6 mt-6 mb-6">
+            <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
+              <button 
+                onClick={handlePrintForm}
+                className="flex items-center px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm gap-2"
+              >
+                <FileText className="w-4 h-4" />
+                Print Faculty Assignment Form
+                <ChevronDown className="w-4 h-4" />
+              </button>
+              <button 
+                onClick={handleViewHistory}
+                className="flex items-center px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors shadow-sm gap-2"
+              >
+                <Clock className="w-4 h-4" />
                 View History
               </button>
             </div>
@@ -669,7 +973,7 @@ const FacultyLoadSystem = () => {
                 </button>
               </div>
 
-              {/* Modal Form */}
+              {/* Modal Form - Better Balanced */}
               <form onSubmit={handleSubjectSubmit} className="p-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
@@ -681,7 +985,7 @@ const FacultyLoadSystem = () => {
                       required
                       value={subjectForm.subjectCode}
                       onChange={(e) => handleSubjectFormChange('subjectCode', e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                       placeholder="e.g., CS101"
                     />
                   </div>
@@ -695,7 +999,7 @@ const FacultyLoadSystem = () => {
                       required
                       value={subjectForm.subjectDescription}
                       onChange={(e) => handleSubjectFormChange('subjectDescription', e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                       placeholder="Subject description"
                     />
                   </div>
@@ -709,7 +1013,8 @@ const FacultyLoadSystem = () => {
                       min="0"
                       value={subjectForm.lecHours}
                       onChange={(e) => handleSubjectFormChange('lecHours', parseInt(e.target.value) || 0)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                      placeholder="0"
                     />
                   </div>
 
@@ -722,7 +1027,8 @@ const FacultyLoadSystem = () => {
                       min="0"
                       value={subjectForm.labHours}
                       onChange={(e) => handleSubjectFormChange('labHours', parseInt(e.target.value) || 0)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                      placeholder="0"
                     />
                   </div>
 
@@ -736,7 +1042,8 @@ const FacultyLoadSystem = () => {
                       required
                       value={subjectForm.units}
                       onChange={(e) => handleSubjectFormChange('units', parseInt(e.target.value) || 0)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                      placeholder="0"
                     />
                   </div>
 
@@ -749,7 +1056,7 @@ const FacultyLoadSystem = () => {
                       required
                       value={subjectForm.section}
                       onChange={(e) => handleSubjectFormChange('section', e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                       placeholder="e.g., A1, B2"
                     />
                   </div>
@@ -763,7 +1070,7 @@ const FacultyLoadSystem = () => {
                       required
                       value={subjectForm.schedule}
                       onChange={(e) => handleSubjectFormChange('schedule', e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                       placeholder="e.g., M/W 9:00AM-10:30AM"
                     />
                   </div>
@@ -777,7 +1084,7 @@ const FacultyLoadSystem = () => {
                       required
                       value={subjectForm.room}
                       onChange={(e) => handleSubjectFormChange('room', e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                       placeholder="e.g., ROOM 303-N"
                     />
                   </div>
@@ -789,7 +1096,7 @@ const FacultyLoadSystem = () => {
                     <select
                       value={subjectForm.type}
                       onChange={(e) => handleSubjectFormChange('type', e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                     >
                       <option value="Part-time">Part-time</option>
                       <option value="Full-time">Full-time</option>
@@ -798,7 +1105,7 @@ const FacultyLoadSystem = () => {
                 </div>
 
                 {/* Modal Actions */}
-                <div className="flex justify-end space-x-4 mt-8 pt-6 border-t">
+                <div className="flex justify-end gap-4 mt-8 pt-6 border-t border-gray-200">
                   <button
                     type="button"
                     onClick={() => setShowModal(false)}
@@ -808,9 +1115,9 @@ const FacultyLoadSystem = () => {
                   </button>
                   <button
                     type="submit"
-                    className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center"
+                    className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 shadow-sm"
                   >
-                    <Save className="w-4 h-4 mr-2" />
+                    <Save className="w-4 h-4" />
                     Save Subject
                   </button>
                 </div>

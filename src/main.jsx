@@ -10,6 +10,9 @@ import RoleGuard from "./Components/RoleGuard";
 import App from "./App.jsx";
 import Login from "./Pages/Login.jsx";
 import Landing_Page from "./Pages/Landing_Page.jsx";
+import ForgotPassword from "./Pages/ForgotPassword.jsx";
+import ResetPassword from "./Pages/ResetPassword.jsx";
+
 
 import Student_Registration from "./Dean/Student_Registration.jsx";
 import User_Management from "./Dean/User_Management.jsx";
@@ -33,6 +36,16 @@ import Scheduling from "./ProgramHead/Scheduling.jsx";
 import ProfReport from "./Prof/Report.jsx";
 import Program from "./Prof/Program.jsx";
 import Schedule from "./Prof/Schedule.jsx";
+
+// SuperAdmin Dashboard - For Super Admin System Overview
+import SuperAdminDashboard from "./SuperAdmin/Dashboard.jsx";
+import CollegeProgramManagement from "./SuperAdmin/CollegeProgramManagement.jsx";
+import SuperAdminUserManagement from "./SuperAdmin/UserManagement.jsx";
+import RolePermissionManagement from "./SuperAdmin/RolePermissionManagement.jsx";
+import ReportAttendance from "./SuperAdmin/ReportAttendance.jsx";
+
+import ChangePassword from "./Components/ChangePassword.jsx";
+
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
@@ -62,6 +75,36 @@ ReactDOM.createRoot(document.getElementById("root")).render(
         <Dashboard />
       </RoleGuard>
     }
+  />
+
+  {/* FOR SUPER ADMIN - System Overview Dashboard (Temporarily without login for testing) */}
+  <Route
+    path="/super-admin-dashboard"
+    element={<SuperAdminDashboard />}
+  />
+
+  {/* FOR SUPER ADMIN - College & Program Management (Temporarily without login for testing) */}
+  <Route
+    path="/college-program-management"
+    element={<CollegeProgramManagement />}
+  />
+
+  {/* FOR SUPER ADMIN - User Management (Temporarily without login for testing) */}
+  <Route
+    path="/super-admin-user-management"
+    element={<SuperAdminUserManagement />}
+  />
+
+  {/* FOR SUPER ADMIN - Role & Permission Management (Temporarily without login for testing) */}
+  <Route
+    path="/role-permission-management"
+    element={<RolePermissionManagement />}
+  />
+
+  {/* FOR SUPER ADMIN - Reports & Attendance (Temporarily without login for testing) */}
+  <Route
+    path="/super-admin-reports"
+    element={<ReportAttendance />}
   />
 
     <Route
@@ -167,7 +210,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
 <Route
     path="/profile"
     element={
-      <RoleGuard allowed={['dean','super_admin']}>
+      <RoleGuard allowed={['dean', 'prof','program_head',  'super_admin']}>
         <Profile />
       </RoleGuard>
     }
@@ -178,9 +221,9 @@ ReactDOM.createRoot(document.getElementById("root")).render(
   <Route
     path="/scheduling"
     element={
-      <RoleGuard allowed={['program_head','super_admin']}>
+
         <Scheduling />
-      </RoleGuard>
+    
     }
   />
 
@@ -205,6 +248,10 @@ ReactDOM.createRoot(document.getElementById("root")).render(
 
   {/* Catch-all */}
   <Route path="*" element={<Navigate to="/login" replace />} />
+  <Route path="/changepassword" element={<ChangePassword />} />
+  <Route path="/forgot-password" element={<ForgotPassword />} />
+  <Route path="/reset-password/:token" element={<ResetPassword />} />
+
       </Routes>
       </GlobalProvider>
       </AuthProvider>

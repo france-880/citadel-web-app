@@ -100,7 +100,8 @@ export default function Student_Registration() {
     toast.promise(promise, {
       loading: "Deleting student...",
       success: (res) =>
-        res.data?.message || `${ids.length} student(s) deleted successfully!`,
+        res.data?.message || 
+      `${ids.length} student(s) deleted successfully!`,
       error: (err) =>
         err.response?.data?.message || "Failed to delete students.",
     });
@@ -249,22 +250,22 @@ export default function Student_Registration() {
                             onChange={() => handleCheckboxChange(student.id)}
                           />
                         </td>
-                        <td className="px-4 py-3 text-sm text-gray-700">
+                        <td className="px-4 py-3 text-sm text-gray-700 text-center">
                           {student.studentNo}
                         </td>
-                        <td className="px-4 py-3 text-sm text-gray-800">
+                        <td className="px-4 py-3 text-sm text-gray-800 text-center">
                           {student.fullname}
                         </td>
-                        <td className="px-4 py-3 text-sm text-gray-700">
+                        <td className="px-4 py-3 text-sm text-gray-700 text-center">
                           {student.program}
                         </td>
-                        <td className="px-4 py-3 text-sm text-gray-700">
+                        <td className="px-4 py-3 text-sm text-gray-700 text-center">
                           {student.year}
                         </td>
-                        <td className="px-4 py-3 text-sm text-gray-700">
+                        <td className="px-4 py-3 text-sm text-gray-700 text-center">
                           {student.section}
                         </td>
-                        <td className="px-4 py-3 text-sm text-gray-700">
+                        <td className="px-4 py-3 text-sm text-gray-700 text-center">
                           {student.created_at
                             ? new Date(student.created_at).toLocaleDateString(
                                 undefined,

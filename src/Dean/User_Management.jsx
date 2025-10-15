@@ -1,7 +1,9 @@
+// ✅ Corrected and optimized User_Management.jsx
+
 import Header from "../Components/Header";
 import Sidebar from "../Components/Sidebar";
 import { useEffect, useState } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import api from "../api/axios";
 import { Edit, Check } from "lucide-react";
 import toast from "react-hot-toast";
@@ -26,16 +28,22 @@ function CustomCheckbox({ checked, onChange }) {
 
 export default function User_Management() {
   const navigate = useNavigate();
+
   const [users, setUsers] = useState([]);
   const [search, setSearch] = useState("");
   const [role, setRole] = useState("");
-  const [page, setPage] = useState(1);
-  const [lastPage, setLastPage] = useState(1);
   const [selectedIds, setSelectedIds] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  // ✅ Fetch users from backend
+  // Pagination state
+  const [page, setPage] = useState(1);
+  const [lastPage, setLastPage] = useState(1);
+  const [from, setFrom] = useState(0);
+  const [to, setTo] = useState(0);
+  const [total, setTotal] = useState(0);
+
+  // ✅ Fetch users from backend with filter + pagination
   const fetchUsers = async () => {
     try {
       const res = await api.get("/users", {
@@ -47,22 +55,31 @@ export default function User_Management() {
         },
       });
 
-      setUsers(res.data.data);
-      setLastPage(res.data.last_page || 1);
+      const data = res.data;
+      setUsers(data.data || []);
+      setLastPage(data.last_page || 1);
+      setFrom(data.from || 0);
+      setTo(data.to || 0);
+      setTotal(data.total || 0);
     } catch (err) {
       console.error("Error fetching users:", err);
       toast.error("Failed to load users.");
     }
   };
 
-  // auto-refresh when filters/pagination change
+  // ✅ Auto refresh when filters or page change
   useEffect(() => {
     fetchUsers();
   }, [search, role, page]);
 
+  // ✅ Reset to page 1 if filter/search changes
+  useEffect(() => {
+    setPage(1);
+  }, [search, role]);
+
   const handleEdit = (id) => navigate(`/edit_user/${id}`);
 
-  // ✅ Checkbox controls
+  // Checkbox controls
   const handleCheckboxChange = (id) => {
     setSelectedIds((prev) =>
       prev.includes(id)
@@ -86,8 +103,8 @@ export default function User_Management() {
 
   const handleDelete = async (ids) => {
     if (!ids || ids.length === 0) return;
-
     setDeleting(true);
+
     const promise = api.delete("/users/delete-multiple", { data: { ids } });
 
     toast.promise(promise, {
@@ -137,24 +154,18 @@ export default function User_Management() {
                 type="text"
                 placeholder="Search user..."
                 value={search}
-                onChange={(e) => {
-                  setSearch(e.target.value);
-                  setPage(1);
-                }}
+                onChange={(e) => setSearch(e.target.value)}
                 className="shrink-0 w-[300px] p-1.5 rounded-md border border-gray-200 focus:ring-2 focus:ring-[#064F32]/30 focus:border-[#064F32]/60 outline-none"
               />
               <select
                 value={role}
-                onChange={(e) => {
-                  setRole(e.target.value);
-                  setPage(1);
-                }}
+                onChange={(e) => setRole(e.target.value)}
                 className="shrink-0 w-[180px] p-1.5 rounded-md border border-gray-200 text-gray-700 focus:ring-2 focus:ring-[#064F32]/30 focus:border-[#064F32]/60 outline-none"
               >
                 <option value="">All Roles</option>
-                <option value="Program Head">Program Head</option>
-                <option value="Dean">Dean</option>
-                <option value="Professor">Professor</option>
+                <option value="program_head">Program Head</option>
+                <option value="dean">Dean</option>
+                <option value="prof">Professor</option>
               </select>
 
               {selectedIds.length > 0 && (
@@ -211,19 +222,19 @@ export default function User_Management() {
                             onChange={() => handleCheckboxChange(user.id)}
                           />
                         </td>
-                        <td className="px-4 py-3 text-sm text-gray-800">
+                        <td className="px-4 py-3 text-sm text-gray-700 text-center">
                           {user.fullname ?? user.name}
                         </td>
-                        <td className="px-4 py-3 text-sm text-gray-700">
+                        <td className="px-4 py-3 text-sm text-gray-700 text-center">
                           {user.email}
                         </td>
-                        <td className="px-4 py-3 text-sm text-gray-700">
+                        <td className="px-4 py-3 text-sm text-gray-700 text-center">
                           {user.role}
                         </td>
-                        <td className="px-4 py-3 text-sm text-gray-700">
-                          {user.department}
+                        <td className="px-4 py-3 text-sm text-gray-700 text-center">
+                          {user.department ?? "—"}
                         </td>
-                        <td className="px-4 py-3 text-sm text-gray-700">
+                        <td className="px-4 py-3 text-sm text-gray-700 text-center">
                           {user.created_at
                             ? new Date(user.created_at).toLocaleDateString(
                                 undefined,
@@ -253,12 +264,15 @@ export default function User_Management() {
               </table>
             </div>
 
-            {/* Pagination */}
+            {/* ✅ Pagination Section */}
             <div className="flex items-center justify-between p-4 border-t border-gray-100 bg-white">
+              <p className="text-sm text-gray-600">
+                Showing {from}–{to} of {total} users
+              </p>
               <div className="flex gap-2">
                 <button
                   disabled={page === 1}
-                  onClick={() => setPage((p) => p - 1)}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
                   className="px-3 py-1 rounded-md border border-gray-200 text-gray-700 disabled:opacity-50"
                 >
                   Prev
@@ -267,8 +281,8 @@ export default function User_Management() {
                   Page {page} of {lastPage}
                 </span>
                 <button
-                  disabled={page === lastPage}
-                  onClick={() => setPage((p) => p + 1)}
+                  disabled={page >= lastPage}
+                  onClick={() => setPage((p) => Math.min(lastPage, p + 1))}
                   className="px-3 py-1 rounded-md border border-gray-200 text-gray-700 disabled:opacity-50"
                 >
                   Next

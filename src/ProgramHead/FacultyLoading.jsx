@@ -14,7 +14,7 @@ import {
   FileText
 } from 'lucide-react';
 
-const FacultyLoadSystem = () => {
+const FacultyLoading = () => {
   const [activeTab, setActiveTab] = useState('facultyLoad');
   const [academicYear, setAcademicYear] = useState('2024');
   const [semester, setSemester] = useState('First');
@@ -446,38 +446,19 @@ const FacultyLoadSystem = () => {
         <Sidebar />
         <div className="flex-1">
           <Header />
-          <main className="p-6 min-h-screen">
+          <div className="p-6 space-y-8">
+          <div className="flex items-center justify-between mb-6">
+            <h1 className="text-2xl font-semibold text-[#064F32]">
+              Faculty Loading
+            </h1>
+          </div>
 
     <div className="min-h-screen bg-gray-50">
         <div className="bg-white rounded-lg shadow-sm">
           {/* Navigation Tabs */}
-          <div className="border-b border-gray-200">
-            <nav className="flex space-x-8 px-6">
-              <button
-                onClick={() => setActiveTab('facultyLoad')}
-                className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                  activeTab === 'facultyLoad'
-                    ? 'border-green-500 text-green-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
-              >
-                Faculty Load
-              </button>
-              <button
-                onClick={() => setActiveTab('facultyLoading')}
-                className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                  activeTab === 'facultyLoading'
-                    ? 'border-green-500 text-green-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
-              >
-                Faculty Loading
-              </button>
-            </nav>
-          </div>
-
+          <div className="border-b border-gray-200"> </div>
           {/* Academic Year and Semester - Better Balanced */}
-          <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-200 mx-6 mt-6 mb-6">
+          <div className="bg-white rounded-lg  shadow-sm pb-6 mx-6 mt-6 mb-6">
             <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
               <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
                 <div className="flex items-center space-x-3">
@@ -518,10 +499,9 @@ const FacultyLoadSystem = () => {
             </div>
           </div>
 
-          <div className="p-6 space-y-8">
             {/* Office/Consultation Hours Section */}
-            <div className="bg-gray-50 rounded-lg p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-6 border-b-2 border-green-500 pb-2 inline-block">
+            <div className="bg-gray-50 rounded-lg ">
+              <h3 className="text-lg font-semibold text-gray-900 mb-6 mt-6 ml-6 border-b-2 border-green-500 pb-2 inline-block">
                 Setup Office / Consultation Hours
               </h3>
               
@@ -739,8 +719,8 @@ const FacultyLoadSystem = () => {
             </div>
 
             {/* Faculty Loads Section */}
-            <div className="bg-gray-50 rounded-lg p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-6 border-b-2 border-green-500 pb-2 inline-block">
+            <div className="bg-gray-50 rounded-lg ">
+              <h3 className="text-lg font-semibold text-gray-900 mb-6 mt-6 ml-6 border-b-2 border-green-500 pb-2 inline-block">
                 Setup Faculty Loads
               </h3>
 
@@ -916,8 +896,8 @@ const FacultyLoadSystem = () => {
             </div>
 
             {/* Timetable Section - Better Balanced */}
-            <div className="bg-gray-50 rounded-lg p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-6 border-b-2 border-green-500 pb-2 inline-block">
+            <div className="bg-gray-50 rounded-lg ">
+              <h3 className="text-lg font-semibold text-gray-900 mb-6 mt-6 ml-6 border-b-2 border-green-500 pb-2 inline-block">
                 Weekly Schedule Overview
               </h3>
               
@@ -995,7 +975,7 @@ const FacultyLoadSystem = () => {
               </div>
               
               {/* Timetable Legend */}
-              <div className="mt-4 flex flex-wrap gap-4 text-sm">
+              <div className="mt-4 ml-3 mr-3 flex flex-wrap gap-4 text-sm">
                 <div className="flex items-center gap-2">
                   <div className="w-4 h-4 bg-green-500 rounded"></div>
                   <span className="text-gray-600">Faculty Classes</span>
@@ -1011,17 +991,16 @@ const FacultyLoadSystem = () => {
               </div>
               
               {/* Instructions */}
-              <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className=" p-3 bg-blue-50 border ml-3 mr-3 mt-6 border-blue-200 rounded-lg">
                 <p className="text-sm text-blue-700">
                   <strong>How to use:</strong> Add office hours and faculty loads above to see them appear in the weekly schedule. 
                   Office hours will show in blue, classes in green.
                 </p>
               </div>
             </div>
-          </div>
 
           {/* Footer Actions - Better Balanced */}
-          <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-200 mx-6 mt-6 mb-6">
+          <div className="bg-white rounded-lg p-6 shadow-sm mx-6 mb-6">
             <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
               <button 
                 onClick={handlePrintForm}
@@ -1210,10 +1189,10 @@ const FacultyLoadSystem = () => {
           </div>
         )}
     </div>
-    </main>
+    </div>
     </div>
     </div>
   );
 };
 
-export default FacultyLoadSystem;
+export default FacultyLoading;

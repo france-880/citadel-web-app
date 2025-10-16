@@ -30,7 +30,8 @@ import Edit_User from "./Dean/Edit_User.jsx";
 import Edit_Student from "./Dean/Edit_Student.jsx";
 
 
-import Scheduling from "./ProgramHead/Scheduling.jsx";
+import FacultyLoading from "./ProgramHead/FacultyLoading.jsx";
+import FacultyLoad from "./ProgramHead/FacultyLoad.jsx";
 
 
 import ProfReport from "./Prof/Report.jsx";
@@ -219,13 +220,23 @@ ReactDOM.createRoot(document.getElementById("root")).render(
 
   {/* Program Head Routes */}
   <Route
-    path="/scheduling"
+    path="/faculty-loading"
     element={
-
-        <Scheduling />
-    
+      <RoleGuard allowed={['program_head', 'super_admin']}>
+        <FacultyLoading />
+      </RoleGuard>
     }
   />
+
+<Route
+    path="/faculty-load"
+    element={
+      <RoleGuard allowed={['program_head', 'super_admin']}>
+        <FacultyLoad />
+      </RoleGuard>
+    }
+  />
+
 
 <Route
     path="/program"

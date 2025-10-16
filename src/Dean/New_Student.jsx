@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { ChevronDown, Calendar, Loader2 } from "lucide-react";
+import { ChevronDown, Calendar, Loader2, Eye, EyeOff } from "lucide-react";
 import Header from "../Components/Header";
 import Sidebar from "../Components/Sidebar";
 import api from "../api/axios";
@@ -12,6 +12,7 @@ export default function New_Student() {
   const [students, setStudents] = useState([]);
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false); // ✅ loading state
+  const [showPassword, setShowPassword] = useState(false);
   const [form, setForm] = useState({
     fullname: "",
     studentNo: "",
@@ -30,6 +31,38 @@ export default function New_Student() {
     password: "",
   });
 
+  // Password validation
+  const hasUpperCase = /[A-Z]/.test(form.password);
+  const hasLowerCase = /[a-z]/.test(form.password);
+  const hasNumber = /[0-9]/.test(form.password);
+  const hasSpecialChar = /[!@#$%^&*?]/.test(form.password);
+  const hasMinLength = form.password.length >= 8;
+  const isPasswordValid = hasUpperCase && hasLowerCase && hasNumber && hasSpecialChar && hasMinLength;
+
+  // Reusable validation item for password rules
+  const ValidationItem = ({ valid, text }) => (
+    <li className={`flex items-center gap-2 ${valid ? "text-green-600" : "text-red-500"}`}>
+      {valid ? (
+        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+          <path
+            fillRule="evenodd"
+            d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+            clipRule="evenodd"
+          />
+        </svg>
+      ) : (
+        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+          <path
+            fillRule="evenodd"
+            d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+            clipRule="evenodd"
+          />
+        </svg>
+      )}
+      <span>{text}</span>
+    </li>
+  );
+
   useEffect(() => {
     api
       .get("/students")
@@ -38,7 +71,14 @@ export default function New_Student() {
   }, []);
 
   const handleChange = (field) => (e) => {
-    setForm({ ...form, [field]: e.target.value });
+    let value = e.target.value;
+    
+    // Limit contact numbers to 11 digits maximum
+    if ((field === "contact" || field === "guardianContact") && value.length > 11) {
+      value = value.slice(0, 11);
+    }
+    
+    setForm({ ...form, [field]: value });
     if (errors[field]) {
       setErrors((prev) => ({ ...prev, [field]: "" }));
     }
@@ -64,12 +104,16 @@ export default function New_Student() {
     }
     if (currentStep === 2) {
       if (!form.guardianName.trim()) stepErrors.guardianName = "Guardian name is required";
-      if (!form.guardianContact.trim()) stepErrors.guardianContact = "Guardian contact is required";
+      if (!/^(\+63|0)\d{10}$/.test(form.guardianContact)) {
+        stepErrors.guardianContact = "Invalid contact number format";
+      }
       if (!form.guardianAddress.trim()) stepErrors.guardianAddress = "Guardian address is required";
     }
     if (currentStep === 3) {
       if (!form.username.trim()) stepErrors.username = "Username is required";
-      if (!form.password.trim()) stepErrors.password = "Password is required";
+      if (!isPasswordValid) {
+        stepErrors.password = "Password does not meet all requirements";
+      }
     }
     setErrors(stepErrors);
     return Object.keys(stepErrors).length === 0;
@@ -315,7 +359,7 @@ export default function New_Student() {
                     </div>
                     <div>
                       <label className="block text-sm text-gray-700 mb-2">Guardian Contact Number</label>
-                      <input value={form.guardianContact} onChange={handleChange("guardianContact")} className={`w-full p-3 border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#064F32]/30 focus:border-[#064F32]/60 ${errors.guardianContact ? "border-red-500" : "border-gray-300"}`} placeholder="Enter Number" />
+                      <input value={form.guardianContact} onChange={handleChange("guardianContact")} className={`w-full p-3 border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#064F32]/30 focus:border-[#064F32]/60 ${errors.guardianContact ? "border-red-500" : "border-gray-300"}`} placeholder="09" />
                       {errors.guardianContact && <p className="mt-1 text-xs text-red-600">{errors.guardianContact}</p>}
                     </div>
                     <div className="md:col-span-2">
@@ -338,8 +382,46 @@ export default function New_Student() {
                     </div>
                     <div>
                       <label className="block text-sm text-gray-700 mb-2">Password</label>
-                      <input type="password" value={form.password} onChange={handleChange("password")} className={`w-full p-3 border bg-white rounded-lg focus:outline-none focus:ring-2 focus:ring-[#064F32]/30 focus:border-[#064F32]/60 ${errors.password ? "border-red-500" : "border-gray-300"}`} placeholder="Enter password" />
+                      <div className="relative">
+                        <input 
+                          type={showPassword ? "text" : "password"} 
+                          value={form.password} 
+                          onChange={handleChange("password")} 
+                          className={`w-full p-3 pr-12 border bg-white rounded-lg focus:outline-none focus:ring-2 focus:ring-[#064F32]/30 focus:border-[#064F32]/60 ${errors.password ? "border-red-500" : "border-gray-300"}`} 
+                          placeholder="Enter password" 
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700 focus:outline-none"
+                        >
+                          {showPassword ? (
+                            <EyeOff size={20} />
+                          ) : (
+                            <Eye size={20} />
+                          )}
+                        </button>
+                      </div>
                       {errors.password && <p className="mt-1 text-xs text-red-600">{errors.password}</p>}
+                      
+                      <div className="mt-3">
+                        <p className="text-gray-600 font-medium text-sm">
+                          Your password must contain at least:
+                        </p>
+                        <ul className="space-y-2 mt-2 text-sm">
+                          <ValidationItem valid={hasUpperCase} text="1 Upper case" />
+                          <ValidationItem valid={hasLowerCase} text="1 lowercase" />
+                          <ValidationItem valid={hasNumber} text="1 number" />
+                          <ValidationItem
+                            valid={hasSpecialChar}
+                            text="1 special character (example: # ? ! &)"
+                          />
+                          <ValidationItem
+                            valid={hasMinLength}
+                            text="atleast 8 characters"
+                          />
+                        </ul>
+                      </div>
                     </div>
                   </div>
                 </div>

@@ -56,7 +56,7 @@ export default function ChangePassword() {
 
       // Update password via API
       await toast.promise(
-        api.put(`/users/${user.id}/change-password`, {
+        api.put(`/change-password`, {
           current_password: currentPassword,
           password: newPassword,
           password_confirmation: confirmPassword,

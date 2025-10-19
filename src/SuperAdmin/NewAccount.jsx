@@ -6,16 +6,17 @@ import api from "../api/axios";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 
-export default function New_User() {
+export default function New_Account() {
   const navigate = useNavigate();
 
-  // States
-  const [step, setStep] = useState(1); // Stepper state
-  const [loading, setLoading] = useState(false);
+  // States 
+  const [step, setStep] = useState(1); // Stepper state 
+  const [loading, setLoading] = useState(false);    
   const [errors, setErrors] = useState({});
-  const [users, setUsers] = useState([]);
+  const [accounts, setAccounts] = useState([]);
+  const [colleges, setColleges] = useState([]);
   const [form, setForm] = useState({
-    fullname: "",
+    fullname: "",   
     department: "",
     dob: "",
     role: "",
@@ -27,12 +28,23 @@ export default function New_User() {
     password: "",
   });
 
-  // Fetch users (optional)
+  // Fetch users and colleges
   useEffect(() => {
-    api
-      .get("/users")
-      .then((res) => setUsers(res.data))
-      .catch((err) => console.error(err));
+    const fetchData = async () => {
+      try {
+        const [accountsRes, collegesRes] = await Promise.all([
+          api.get("/accounts"),
+          api.get("/colleges")
+        ]);
+        setAccounts(accountsRes.data);
+        setColleges(collegesRes.data);
+      } catch (err) {
+        console.error("Error fetching data:", err);
+        toast.error("Failed to load data");
+      }
+    };
+    
+    fetchData();
   }, []);
 
   // Handle input change
@@ -90,9 +102,9 @@ export default function New_User() {
     const payload = { ...form };
 
     try {
-      const res = await toast.promise(api.post("/users", payload), {
-        loading: "Saving new user...",
-        success: "New user registered successfully!",
+        const res = await toast.promise(api.post("/accounts", payload), {
+        loading: "Saving new account...",
+        success: "New account registered successfully!",
         error: (err) => {
           if (err.response?.status === 422 && err.response.data?.errors) {
             const firstField = Object.keys(err.response.data.errors)[0];
@@ -102,8 +114,8 @@ export default function New_User() {
         },
       });
 
-      setUsers((prev) => [...prev, res.data]);
-      navigate("/user_management", { state: { newUser: res.data } });
+      setAccounts((prev) => [...prev, res.data]);
+      navigate("/account-management", { state: { newAccount: res.data } });
     } catch (err) {
       console.error("Save error:", err);
     } finally {
@@ -173,9 +185,11 @@ export default function New_User() {
                           }`}
                         >
                           <option value="">Select Department</option>
-                          <option>College of Engineering</option>
-                          <option>College of Education</option>
-                          <option>College of Computer Studies</option>
+                          {colleges.map(college => (
+                            <option key={college.id} value={college.college_name}>
+                              {college.college_name}
+                            </option>
+                          ))}
                         </select>
                         <ChevronDown size={20} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
                       </div>
@@ -213,7 +227,11 @@ export default function New_User() {
                           }`}
                         >
                           <option value="">Select Role</option>
-                          <option>Professor</option>
+                          <option>Super Admin</option>
+                          <option>Program Head</option>
+                          <option>Dean</option>
+                          <option>Secretary</option>
+                          <option>Guard</option>
                         </select>
                         <ChevronDown size={20} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
                       </div>

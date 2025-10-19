@@ -13,17 +13,34 @@ export function AuthProvider({ children }) {
     else localStorage.removeItem('user');
   }, [user]);
 
+  // Refresh user data on mount if token exists
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (token && !user) {
+      refreshUser();
+    }
+  }, []);
+
   const login = async (email, password) => {
     const res = await api.post('/login', { email, password });
     localStorage.setItem('token', res.data.token);
-    setUser(res.data.user);
+    
+    // Validate user data before setting
+    const userData = res.data.user;
+    console.log('Login response user data:', userData);
+    
+    if (!userData.fullname || userData.fullname.trim() === '') {
+      console.warn('User fullname is empty or missing in login response');
+    }
+    
+    setUser(userData);
     // redirect by role
     const roleToRoute = {
       guard: '/dashboard',
       program_head: '/faculty-load',
       dean: '/dashboard',
       prof: '/prof_report',
-      super_admin: '/dashboard'
+      super_admin: '/super-admin-dashboard'
     };
     navigate(roleToRoute[res.data.user.role] || '/dashboard');
   };
@@ -33,9 +50,21 @@ export function AuthProvider({ children }) {
   const refreshUser = async () => {
     try {
       const res = await api.get('/user');
-      setUser(res.data);
-      localStorage.setItem('user', JSON.stringify(res.data));
-      console.log('User refreshed:', res.data); // Debug log
+      const userData = res.data;
+      
+      // Ensure user data has required fields
+      if (!userData.fullname || userData.fullname === 'Unknown User') {
+        console.warn('User fullname is missing or invalid:', userData);
+        // Try to get user data from login response if available
+        const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
+        if (storedUser.fullname && storedUser.fullname !== 'Unknown User') {
+          userData.fullname = storedUser.fullname;
+        }
+      }
+      
+      setUser(userData);
+      localStorage.setItem('user', JSON.stringify(userData));
+      console.log('User refreshed:', userData); // Debug log
     } catch (err) {
       console.error('Failed to refresh user:', err);
     }

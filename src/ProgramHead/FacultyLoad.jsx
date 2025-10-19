@@ -1,9 +1,14 @@
 import Header from "../Components/Header";
 import Sidebar from "../Components/Sidebar";
 import { useEffect, useState } from "react";
-import { Search } from "lucide-react";
+import { Search, X, Eye, BookOpen, Users, Clock, Calendar } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import api from "../api/axios";
+import toast from "react-hot-toast";
 
 export default function FacultyLoad() {
+  const navigate = useNavigate();
+  
   // Table State for Faculty List
   const [facultyList, setFacultyList] = useState([]);
   const [search, setSearch] = useState('');
@@ -12,32 +17,61 @@ export default function FacultyLoad() {
   const [from, setFrom] = useState(0);
   const [to, setTo] = useState(0);
   const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(false);
 
-  // Sample faculty data
-  const sampleFacultyData = [
-    { id: 1, code: 'IT101', name: 'Raul Gutierrez' },
-    { id: 2, code: 'IT102', name: 'Raul Gutierrez' },
-    { id: 3, code: 'IT103', name: 'Raul Gutierrez' },
+  // Modal State
+  const [showModal, setShowModal] = useState(false);
+  const [selectedFaculty, setSelectedFaculty] = useState(null);
+  const [facultyLoads, setFacultyLoads] = useState([]);
+  const [loadingLoads, setLoadingLoads] = useState(false);
 
-  ];
+  // Fetch faculty data from API
+  const fetchFacultyData = async () => {
+    setLoading(true);
+    try {
+      const res = await api.get("/users", {
+        params: {
+          search,
+          role: "prof", // Only fetch professors
+          page,
+          per_page: 10,
+        },
+      });
 
-  // Fetch faculty data with pagination
-  const fetchFacultyData = () => {
-    const itemsPerPage = 10;
-    const filteredData = sampleFacultyData.filter(item => 
-      item.code.toLowerCase().includes(search.toLowerCase()) ||
-      item.name.toLowerCase().includes(search.toLowerCase())
-    );
-    
-    const startIndex = (page - 1) * itemsPerPage;
-    const endIndex = startIndex + itemsPerPage;
-    const paginatedData = filteredData.slice(startIndex, endIndex);
-    
-    setFacultyList(paginatedData);
-    setTotal(filteredData.length);
-    setLastPage(Math.ceil(filteredData.length / itemsPerPage));
-    setFrom(startIndex + 1);
-    setTo(Math.min(endIndex, filteredData.length));
+      const data = res.data;
+      setFacultyList(data.data || []);
+      setLastPage(data.last_page || 1);
+      setFrom(data.from || 0);
+      setTo(data.to || 0);
+      setTotal(data.total || 0);
+    } catch (err) {
+      console.error("Error fetching faculty:", err);
+      toast.error("Failed to load faculty data.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fetch faculty loads for a specific faculty
+  const fetchFacultyLoads = async (facultyId) => {
+    setLoadingLoads(true);
+    try {
+      const res = await api.get(`/faculty-loads/${facultyId}`, {
+        params: {
+          academic_year: '2024', // Default academic year
+          semester: 'First' // Default semester
+        }
+      });
+      
+      setFacultyLoads(res.data || []);
+      console.log(`Loaded ${res.data?.length || 0} subjects for faculty ID: ${facultyId}`);
+    } catch (err) {
+      console.error("Error fetching faculty loads:", err);
+      toast.error("Failed to load faculty subjects.");
+      setFacultyLoads([]);
+    } finally {
+      setLoadingLoads(false);
+    }
   };
 
   // Effect to fetch data when search or page changes
@@ -50,6 +84,46 @@ export default function FacultyLoad() {
     setPage(1);
   }, [search]);
 
+  // Modal Functions
+  const openModal = async (faculty) => {
+    // Set faculty data
+    setSelectedFaculty({
+      id: faculty.id,
+      name: faculty.fullname,
+      code: faculty.id, // Using ID as code for now
+      email: faculty.email,
+      department: faculty.department,
+      role: faculty.role,
+      totalUnits: 0,
+      totalHours: 0,
+      subjects: []
+    });
+    
+    // Fetch faculty loads
+    await fetchFacultyLoads(faculty.id);
+    
+    setShowModal(true);
+  };
+
+  const closeModal = () => {
+    setShowModal(false);
+    setSelectedFaculty(null);
+    setFacultyLoads([]);
+  };
+
+  // Navigation function for Faculty Loading
+  const navigateToFacultyLoading = (faculty) => {
+    try {
+      // Store faculty data in sessionStorage to pass to Faculty Loading page
+      sessionStorage.setItem('selectedFaculty', JSON.stringify(faculty));
+      console.log('Navigating to Faculty Loading with faculty:', faculty);
+      navigate('/faculty-loading');
+    } catch (error) {
+      console.error('Error navigating to Faculty Loading:', error);
+      toast.error('Error navigating to Faculty Loading page. Please try again.');
+    }
+  };
+
   return (
     <div className="flex content_padding">
       <Sidebar />
@@ -61,6 +135,9 @@ export default function FacultyLoad() {
             <h1 className="text-2xl font-semibold text-[#064F32]">
               Faculty Load
             </h1>
+            <div className="text-sm text-gray-500">
+              {loading ? "Loading..." : `${total} professors found`}
+            </div>
           </div>
 
           {/* Search Bar */}
@@ -70,7 +147,7 @@ export default function FacultyLoad() {
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                 <input
                   type="text"
-                  placeholder="Search by code or name..."
+                  placeholder="Search by name or email..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   className="w-full pl-10 pr-4 py-2 rounded-md border border-gray-200 focus:ring-2 focus:ring-[#064F32]/30 focus:border-[#064F32]/60 outline-none"
@@ -89,21 +166,33 @@ export default function FacultyLoad() {
                       #
                     </th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                      Code
+                      Name
                     </th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                      Name
+                      Email
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                      Department
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                      Actions
                     </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {facultyList.length === 0 ? (
+                  {loading ? (
                     <tr>
-                      <td
-                        colSpan={3}
-                        className="px-6 py-6 text-center text-sm text-gray-500"
-                      >
-                        No faculty found
+                      <td colSpan={5} className="px-6 py-8 text-center text-sm text-gray-500">
+                        <div className="flex items-center justify-center gap-2">
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[#064F32]"></div>
+                          Loading professors...
+                        </div>
+                      </td>
+                    </tr>
+                  ) : facultyList.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="px-6 py-8 text-center text-sm text-gray-500">
+                        No professors found
                       </td>
                     </tr>
                   ) : (
@@ -112,11 +201,32 @@ export default function FacultyLoad() {
                         <td className="px-6 py-4 text-sm text-gray-700 text-center">
                           {from + index}
                         </td>
-                        <td className="px-6 py-4 text-sm text-gray-700">
-                          {faculty.code}
+                        <td className="px-6 py-4 text-sm text-gray-700 font-medium">
+                          {faculty.fullname}
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-700">
-                          {faculty.name}
+                          {faculty.email}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-700">
+                          {faculty.department || "—"}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-700">
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => openModal(faculty)}
+                              className="flex items-center gap-1 px-3 py-2 bg-[#064F32] text-white rounded-md hover:bg-[#053d27] transition-colors text-sm font-medium"
+                            >
+                              <Eye className="w-3 h-3" />
+                              View Load
+                            </button>
+                            <button
+                              onClick={() => navigateToFacultyLoading(faculty)}
+                              className="flex items-center gap-1 px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm font-medium"
+                            >
+                              <Eye className="w-3 h-3" />
+                              Faculty Loading
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))
@@ -128,7 +238,7 @@ export default function FacultyLoad() {
             {/* Pagination Section */}
             <div className="flex items-center justify-between p-4 border-t border-gray-100 bg-white">
               <p className="text-sm text-gray-600">
-                Showing {from}–{to} of {total} faculty
+                Showing {from}–{to} of {total} professors
               </p>
               <div className="flex gap-2">
                 <button
@@ -153,6 +263,118 @@ export default function FacultyLoad() {
           </div>
         </div>
       </div>
+
+      {/* Faculty Load Modal */}
+      {showModal && selectedFaculty && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          onClick={closeModal}
+        >
+          <div 
+            className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <div>
+                <h2 className="text-2xl font-bold text-[#064F32]">Faculty Load Details</h2>
+                <p className="text-gray-600 mt-1">
+                  {selectedFaculty.name} (Code: {selectedFaculty.code})
+                </p>
+              </div>
+              <button
+                onClick={closeModal}
+                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+              >
+                <X className="w-6 h-6 text-gray-500" />
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6">
+              {/* Faculty Information */}
+              <div className="bg-gray-50 rounded-lg p-6 mb-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Faculty Information</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Name</p>
+                    <p className="text-lg text-gray-900">{selectedFaculty.name}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Email</p>
+                    <p className="text-lg text-gray-900">{selectedFaculty.email}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Department</p>
+                    <p className="text-lg text-gray-900">{selectedFaculty.department || "—"}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Role</p>
+                    <p className="text-lg text-gray-900 capitalize">{selectedFaculty.role}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Faculty Load Summary */}
+              <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900">Subject Load Summary</h3>
+                  <div className="text-right">
+                    <div className="text-2xl font-bold text-green-600">{facultyLoads.length}</div>
+                    <div className="text-sm text-gray-500">Total Subjects</div>
+                    <div className="text-xs text-gray-400 mt-1">
+                      {facultyLoads.reduce((sum, load) => sum + (load.units || 0), 0)} total units
+                    </div>
+                  </div>
+                </div>
+                
+                {loadingLoads ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-green-600 mr-2"></div>
+                    <span className="text-gray-600">Loading faculty subjects...</span>
+                  </div>
+                ) : facultyLoads.length === 0 ? (
+                  <div className="text-center py-8">
+                    <BookOpen className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                    <p className="text-gray-600">No subjects assigned to this faculty</p>
+                    <p className="text-sm text-gray-500 mt-1">Subjects can be assigned in Faculty Loading</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {facultyLoads.map((load, index) => (
+                      <div key={load.id || index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3">
+                            <span className="font-semibold text-blue-900">{load.subject_code}</span>
+                            <span className="text-sm text-gray-600">{load.subject_description}</span>
+                          </div>
+                          <div className="text-xs text-gray-500 mt-1">
+                            {load.section} • {load.schedule} • {load.room}
+                          </div>
+                        </div>
+                        <div className="text-right text-sm">
+                          <div className="font-medium">{load.units} units</div>
+                          <div className="text-gray-500">{load.lec_hours}h LEC, {load.lab_hours}h LAB</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200">
+              <button
+                onClick={closeModal}
+                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

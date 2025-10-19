@@ -8,7 +8,7 @@ import { useAuth } from "../Context/AuthContext"; // optional if you have auth c
 
 export default function Profile() {
   const navigate = useNavigate();
-  const { user } = useAuth() || {}; // current logged-in user if available
+  const { user, refreshUser } = useAuth() || {}; // current logged-in user if available
   const [isSaving, setIsSaving] = useState(false);
   const [previewImage, setPreviewImage] = useState("/api/placeholder/150/150");
 
@@ -17,6 +17,11 @@ export default function Profile() {
     fullname: "",
     email: "",
     contact: "",
+    department: "",
+    dob: "",
+    gender: "",
+    address: "",
+    username: "",
   });
 
   // ✅ Fetch user info (if auth context available)
@@ -24,7 +29,9 @@ export default function Profile() {
     const fetchProfile = async () => {
       try {
         if (!user?.id) return; // only load if logged in
-        const res = await api.get(`/users/${user.id}`);
+        // Use /profile endpoint which works for users from any table
+        const res = await api.get(`/profile`);
+        console.log('Profile API response:', res.data); // Debug log
         setForm({
           fullname: res.data.fullname || "",
           email: res.data.email || "",
@@ -37,6 +44,7 @@ export default function Profile() {
         });
         if (res.data.profileImage) setPreviewImage(res.data.profileImage);
       } catch (error) {
+        console.error('Profile fetch error:', error);
         toast.error("Failed to load profile details");
       }
     };
@@ -83,8 +91,8 @@ const handleSaveChanges = async () => {
     });
     
     // Refresh user data if using auth context
-    if (user?.refreshUser) {
-      await user.refreshUser();
+    if (refreshUser) {
+      await refreshUser();
     }
   } catch (error) {
     console.error('Profile update error:', error);

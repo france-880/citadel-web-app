@@ -12,6 +12,11 @@ export default function ProfReport() {
   const [showCalendar, setShowCalendar] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(() => localStorage.getItem('sidebarCollapsed') === 'true');
 
+  // Debug: Log when component mounts
+  useEffect(() => {
+    console.log('ProfReport component mounted successfully!');
+  }, []);
+
   // Listen for sidebar state changes
   useEffect(() => {
     const handleSidebarToggle = () => {
@@ -38,10 +43,13 @@ export default function ProfReport() {
       <div className={`flex-1 transition-all duration-300 ${isCollapsed ? 'ml-0' : 'ml-0'}`}>
         <Header />
 
-        <main className="p-6 min-h-screen">
+        <main className="p-6 bg-[#F6F7FB] min-h-screen">
           {/* Page header row: Title + Actions */}
           <div className="flex items-center justify-between mb-6">
-            <h1 className="text-2xl font-semibold text-[#064F32]">Report</h1>
+            <h1 className="text-2xl font-semibold text-[#064F32]">Professor Report</h1>
+            <div className="text-sm text-green-600 bg-green-100 px-2 py-1 rounded">
+              Component Loaded Successfully
+            </div>
           </div>
 
           {/* Calendar with Input */}

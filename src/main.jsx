@@ -38,12 +38,16 @@ import ProfReport from "./Prof/Report.jsx";
 import Program from "./Prof/Program.jsx";
 import Schedule from "./Prof/Schedule.jsx";
 
-// SuperAdmin Dashboard - For Super Admin System Overview
+// SuperAdmin Routes
 import SuperAdminDashboard from "./SuperAdmin/Dashboard.jsx";
-import CollegeProgramManagement from "./SuperAdmin/CollegeProgramManagement.jsx";
-import SuperAdminUserManagement from "./SuperAdmin/UserManagement.jsx";
-import RolePermissionManagement from "./SuperAdmin/RolePermissionManagement.jsx";
-import ReportAttendance from "./SuperAdmin/ReportAttendance.jsx";
+import SuperAdminAcademicManagement from "./SuperAdmin/AcademicManagement.jsx";
+import SuperAdminSystemSettings from "./SuperAdmin/SystemSettings.jsx";
+import SuperAdminAuditLogs from "./SuperAdmin/AuditLogs.jsx";
+import AccountManagement from "./SuperAdmin/AccountManagement.jsx";
+import NewAccount from "./SuperAdmin/NewAccount.jsx";
+import ViewAccount from "./SuperAdmin/ViewAccount.jsx";
+import EditAccount from "./SuperAdmin/EditAccount.jsx";
+
 
 import ChangePassword from "./Components/ChangePassword.jsx";
 
@@ -78,34 +82,87 @@ ReactDOM.createRoot(document.getElementById("root")).render(
     }
   />
 
-  {/* FOR SUPER ADMIN - System Overview Dashboard (Temporarily without login for testing) */}
+  {/* SUPER ADMIN */}
   <Route
-    path="/super-admin-dashboard"
-    element={<SuperAdminDashboard />}
+    path="/super-admin-dashboard" 
+    element={
+      <RoleGuard allowed={['super_admin']}>
+        <SuperAdminDashboard />
+      </RoleGuard>
+    }
   />
 
-  {/* FOR SUPER ADMIN - College & Program Management (Temporarily without login for testing) */}
   <Route
-    path="/college-program-management"
-    element={<CollegeProgramManagement />}
+    path="/super-admin-academic" 
+    element={
+      <RoleGuard allowed={['super_admin']}>
+        <SuperAdminAcademicManagement />
+      </RoleGuard>
+    }
   />
 
-  {/* FOR SUPER ADMIN - User Management (Temporarily without login for testing) */}
   <Route
-    path="/super-admin-user-management"
-    element={<SuperAdminUserManagement />}
+    path="/super-admin-account" 
+    element={
+      <RoleGuard allowed={['super_admin']}>
+        <AccountManagement />
+      </RoleGuard>
+    }
   />
 
-  {/* FOR SUPER ADMIN - Role & Permission Management (Temporarily without login for testing) */}
   <Route
-    path="/role-permission-management"
-    element={<RolePermissionManagement />}
+    path="/super-admin-settings" 
+    element={
+      <RoleGuard allowed={['super_admin']}>
+        <SuperAdminSystemSettings />
+      </RoleGuard>
+    }
   />
 
-  {/* FOR SUPER ADMIN - Reports & Attendance (Temporarily without login for testing) */}
   <Route
-    path="/super-admin-reports"
-    element={<ReportAttendance />}
+    path="/super-admin-logs" 
+    element={
+      <RoleGuard allowed={['super_admin']}>
+        <SuperAdminAuditLogs />
+      </RoleGuard>
+    }
+  />
+
+  {/* Super Admin's Account Management - All User Types */}
+  <Route
+    path="/account-management" 
+    element={
+      <RoleGuard allowed={['super_admin']}>
+        <AccountManagement />
+      </RoleGuard>
+    }
+  />
+
+  <Route
+    path="/new-account" 
+    element={
+      <RoleGuard allowed={['super_admin']}>
+        <NewAccount />
+      </RoleGuard>
+    }
+  />
+
+  <Route
+    path="/view-account/:id" 
+    element={
+      <RoleGuard allowed={['super_admin']}>
+        <ViewAccount />
+      </RoleGuard>
+    }
+  />
+
+  <Route
+    path="/edit-account/:id" 
+    element={
+      <RoleGuard allowed={['super_admin']}>
+        <EditAccount />
+      </RoleGuard>
+    }
   />
 
     <Route
@@ -126,6 +183,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
     }
   />
 
+  {/* Dean's User Management - Professors Only */}
   <Route
     path="/user_management"
     element={
@@ -163,6 +221,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
     }
   />
 
+  {/* Dean's New User - Professors Only */}
 <Route
     path="/new_user"
     element={
@@ -222,18 +281,14 @@ ReactDOM.createRoot(document.getElementById("root")).render(
   <Route
     path="/faculty-loading"
     element={
-      <RoleGuard allowed={['program_head', 'super_admin']}>
         <FacultyLoading />
-      </RoleGuard>
     }
   />
 
 <Route
     path="/faculty-load"
     element={
-      <RoleGuard allowed={['program_head', 'super_admin']}>
-        <FacultyLoad />
-      </RoleGuard>
+      <FacultyLoad />
     }
   />
 

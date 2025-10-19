@@ -4,48 +4,44 @@ import React, { useState, useEffect } from 'react';
 import { 
   ChevronDown, 
   Plus, 
-  Search, 
   Edit, 
   Trash2, 
-  Clock, 
   Calendar,
   X,
   Save,
-  FileText
+  FileText,
+  User
 } from 'lucide-react';
+import api from '../api/axios';
+import toast from 'react-hot-toast';
 
 const FacultyLoading = () => {
-  const [activeTab, setActiveTab] = useState('facultyLoad');
   const [academicYear, setAcademicYear] = useState('2024');
   const [semester, setSemester] = useState('First');
-  const [facultyName] = useState('JOBLE, JAYSON P (339)');
-  
-  // Office Hours State
-  const [officeHours, setOfficeHours] = useState([]);
-  const [officeHourForm, setOfficeHourForm] = useState({
-    description: '',
-    room: '',
-    selectedDays: [],
-    dayDropdown: '',
-    fromTime: '7',
-    fromMinutes: '00',
-    fromPeriod: 'AM',
-    toTime: '7',
-    toMinutes: '00',
-    toPeriod: 'PM',
-    comments: '',
-    hours: 0
-  });
+  const [facultyName, setFacultyName] = useState('');
+  const [selectedFaculty, setSelectedFaculty] = useState(null);
 
   // Faculty Loads State
   const [facultyLoads, setFacultyLoads] = useState([]);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [filters, setFilters] = useState({
-    employeeStatus: 'All',
-    campus: 'All',
-    mode: 'All',
-    creditedUnits: 0,
-    loadHours: 0
+  const [loading, setLoading] = useState(false);
+  
+  // Subject Selection State
+  const [selectedSubject, setSelectedSubject] = useState('');
+  const [availableSubjects, setAvailableSubjects] = useState([]);
+  const [isLoadingSubjects, setIsLoadingSubjects] = useState(false);
+  
+  // Add Subject Modal State
+  const [showAddSubjectModal, setShowAddSubjectModal] = useState(false);
+  const [addSubjectForm, setAddSubjectForm] = useState({
+    subjectCode: '',
+    subjectDescription: '',
+    lecHours: 0,
+    labHours: 0,
+    units: 0,
+    section: '',
+    schedule: '',
+    room: '',
+    type: 'Part-time'
   });
 
   // Modal State
@@ -63,28 +59,187 @@ const FacultyLoading = () => {
     type: 'Part-time'
   });
 
-  // Timetable State
-  const [timetable, setTimetable] = useState({});
-
-  // Generate time slots for timetable
-  const generateTimeSlots = () => {
-    const slots = [];
-    for (let hour = 7; hour <= 21; hour++) {
-      for (let minute = 0; minute < 60; minute += 30) {
-        // Skip 9:30 PM slot
-        if (hour === 21 && minute === 30) {
-          continue;
-        }
-        const time = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
-        const displayTime = hour > 12 
-          ? `${(hour - 12).toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')} PM`
-          : hour === 12
-          ? `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')} PM`
-          : `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')} AM`;
-        slots.push({ time, displayTime });
+  // Function to fetch subjects from AcademicManagement API (view-only)
+  const fetchSubjects = async () => {
+    try {
+      setIsLoadingSubjects(true);
+      console.log('Fetching subjects from AcademicManagement API...');
+      const response = await api.get('/subjects');
+      console.log('Subjects API response:', response.data);
+      
+      // Check if response.data is an array
+      if (!Array.isArray(response.data)) {
+        console.error('Invalid response format:', response.data);
+        toast.error('Invalid subjects data format received');
+        setAvailableSubjects([]);
+        return;
       }
+      
+      // Transform the API response to match the expected format (view-only)
+      const transformedSubjects = response.data.map(subject => ({
+        id: subject.id,
+        name: subject.subject_name,
+        code: subject.subject_code,
+        units: 3, // Default units - you might want to add this to your database
+        lecHours: 3, // Default lec hours - you might want to add this to your database
+        labHours: 0, // Default lab hours - you might want to add this to your database
+        type: subject.subject_type || 'Major'
+      }));
+      setAvailableSubjects(transformedSubjects);
+      console.log('Successfully fetched subjects for viewing:', transformedSubjects);
+    } catch (error) {
+      console.error('Error fetching subjects:', error);
+      console.error('Error details:', {
+        message: error.message,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data
+      });
+      
+      if (error.response?.status === 401) {
+        toast.error('Authentication required. Please log in again.');
+      } else if (error.response?.status === 403) {
+        toast.error('Access denied. You do not have permission to view subjects.');
+      } else if (error.response?.status === 404) {
+        toast.error('Subjects API endpoint not found.');
+      } else if (error.response?.status >= 500) {
+        toast.error('Server error. Please try again later.');
+      } else {
+        toast.error(`Failed to load subjects: ${error.response?.data?.message || error.message}`);
+      }
+      
+      // Set empty array on error
+      setAvailableSubjects([]);
+    } finally {
+      setIsLoadingSubjects(false);
     }
-    return slots;
+  };
+
+  // Function to fetch faculty subjects from API
+  const fetchFacultySubjects = async (faculty) => {
+    if (!faculty?.id) return;
+    
+    setLoading(true);
+    try {
+      const response = await api.get(`/faculty-loads/${faculty.id}`, {
+        params: {
+          academic_year: academicYear,
+          semester: semester
+        }
+      });
+      
+      setFacultyLoads(response.data || []);
+      console.log(`Loaded ${response.data?.length || 0} subjects for ${faculty.fullname} (ID: ${faculty.id})`);
+    } catch (error) {
+      console.error('Error fetching faculty subjects:', error);
+      toast.error('Failed to load faculty subjects');
+      setFacultyLoads([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Initialize academic year and semester from sessionStorage on component mount
+  useEffect(() => {
+    const storedAcademicYear = sessionStorage.getItem('currentAcademicYear');
+    const storedSemester = sessionStorage.getItem('currentSemester');
+    
+    if (storedAcademicYear) {
+      setAcademicYear(storedAcademicYear);
+      console.log('Loaded academic year from sessionStorage:', storedAcademicYear);
+    }
+    
+    if (storedSemester) {
+      setSemester(storedSemester);
+      console.log('Loaded semester from sessionStorage:', storedSemester);
+    }
+  }, []);
+
+  // Fetch selected faculty from sessionStorage and subjects from API on component mount
+  useEffect(() => {
+    const fetchSelectedFaculty = async () => {
+      try {
+        const storedFaculty = sessionStorage.getItem('selectedFaculty');
+        if (storedFaculty) {
+          const facultyData = JSON.parse(storedFaculty);
+          setSelectedFaculty(facultyData);
+          // Update faculty name display
+          setFacultyName(`${facultyData.fullname} (ID: ${facultyData.id})`);
+          console.log('Loaded faculty from sessionStorage:', facultyData);
+          
+          // Fetch subjects for this faculty
+          await fetchFacultySubjects(facultyData);
+        } else {
+          console.log('No faculty data found in sessionStorage');
+          toast.error('No faculty selected. Please go back to Faculty Load page and select a faculty.');
+        }
+      } catch (error) {
+        console.error('Error parsing faculty data from sessionStorage:', error);
+        toast.error('Error loading faculty data');
+      }
+    };
+
+    // Fetch subjects from API and faculty data
+    console.log('Component mounted, fetching subjects...');
+    fetchSubjects();
+    fetchSelectedFaculty();
+  }, []);
+
+  // Refresh faculty subjects when academic year or semester changes
+  useEffect(() => {
+    if (selectedFaculty) {
+      fetchFacultySubjects(selectedFaculty);
+    }
+  }, [academicYear, semester]);
+
+  // Generate time slots for timetable - grouped by 3 consecutive slots
+  const generateTimeSlots = () => {
+    const groupedSlots = [];
+    let groupIndex = 0;
+    
+    for (let hour = 7; hour <= 21; hour++) {
+      // Skip 9:30 PM slot
+      if (hour === 21) {
+        continue;
+      }
+      
+      // Create three consecutive times for each hour
+      const time1 = `${hour.toString().padStart(2, '0')}:00`;
+      const time2 = `${hour.toString().padStart(2, '0')}:30`;
+      const time3 = `${hour.toString().padStart(2, '0')}:59`;
+      
+      // Create display times
+      const display1 = hour > 12 
+        ? `${(hour - 12).toString().padStart(2, '0')}:00 PM`
+        : hour === 12
+        ? `12:00 PM`
+        : `${hour.toString().padStart(2, '0')}:00 AM`;
+        
+      const display2 = hour > 12 
+        ? `${(hour - 12).toString().padStart(2, '0')}:30 PM`
+        : hour === 12
+        ? `12:30 PM`
+        : `${hour.toString().padStart(2, '0')}:30 AM`;
+        
+      const display3 = hour > 12 
+        ? `${(hour - 12).toString().padStart(2, '0')}:59 PM`
+        : hour === 12
+        ? `12:59 PM`
+        : `${hour.toString().padStart(2, '0')}:59 AM`;
+      
+      groupedSlots.push({
+        startTime: time1,
+        middleTime: time2,
+        endTime: time3,
+        startDisplay: display1,
+        middleDisplay: display2,
+        endDisplay: display3,
+        groupIndex: groupIndex++
+      });
+    }
+    
+    console.log('Generated grouped time slots:', groupedSlots.slice(0, 5)); // Debug log
+    return groupedSlots;
   };
 
   // Helper function to convert time string to comparable format
@@ -115,170 +270,222 @@ const FacultyLoading = () => {
     return dayMap[dayName] || dayName;
   };
 
-  // Helper function to check if a time slot should show a schedule
-  const getScheduleForTimeSlot = (day, timeSlot) => {
-    const dayAbbr = getDayAbbreviation(day);
-    const slotTime = parseTime(timeSlot.displayTime);
+  // Helper function to check if a time slot group should show a schedule
+  const getScheduleForTimeSlot = (day, timeSlotGroup) => {
+    // Check if any of the three times in the group match
+    const startSlotTime = parseTime(timeSlotGroup.startDisplay);
+    const middleSlotTime = parseTime(timeSlotGroup.middleDisplay);
+    const endSlotTime = parseTime(timeSlotGroup.endDisplay);
     
-    // Check office hours
-    const officeHour = officeHours.find(oh => {
-      if (!oh.timeAndDate) return false;
-      
-      // Check if day is in the timeAndDate string - more flexible matching
-      const dayMatches = oh.timeAndDate.toUpperCase().includes(dayAbbr) || 
-                        oh.timeAndDate.toUpperCase().includes(day.toUpperCase().substring(0, 3));
-      if (!dayMatches) return false;
-      
-      try {
-        // Extract time range (e.g., "1:00 PM - 4:00 PM")
-        const timeRange = oh.timeAndDate.match(/(\d{1,2}:\d{2} [AP]M) - (\d{1,2}:\d{2} [AP]M)/);
-        if (!timeRange) return false;
-        
-        const startTime = parseTime(timeRange[1]);
-        const endTime = parseTime(timeRange[2]);
-        
-        // Show if current slot time is within the range (inclusive of end time)
-        return slotTime >= startTime && slotTime <= endTime;
-      } catch (e) {
-        console.error('Error parsing office hour time range:', e, oh.timeAndDate);
-        return false;
-      }
-    });
-
-    if (officeHour) {
-      // Get the full time range for display
-      const timeRange = officeHour.timeAndDate.match(/(\d{1,2}:\d{2} [AP]M) - (\d{1,2}:\d{2} [AP]M)/);
-      const isStartTime = timeRange ? slotTime === parseTime(timeRange[1]) : false;
-      
-      return {
-        type: 'office',
-        title: officeHour.description || 'Office Hours',
-        room: officeHour.room || 'Office',
-        color: 'bg-blue-500',
-        isStartTime: isStartTime,
-        fullTimeRange: timeRange ? timeRange[0] : ''
-      };
-    }
+    // Simple debug logging
+    console.log(`Checking ${day} at group ${timeSlotGroup.groupIndex} (${timeSlotGroup.startDisplay}, ${timeSlotGroup.middleDisplay}, ${timeSlotGroup.endDisplay}) - Faculty loads:`, facultyLoads.length);
 
     // Check faculty loads
     const facultyLoad = facultyLoads.find(load => {
-      if (!load.schedule) return false;
-      
-      // Check if day is mentioned in schedule
-      const dayMatches = load.schedule.toLowerCase().includes(day.toLowerCase().substring(0, 3));
-      if (!dayMatches) return false;
-      
-      try {
-        // Try to parse time from schedule (e.g., "M/W 9:00AM-10:30AM")
-        const timeMatch = load.schedule.match(/(\d{1,2}:\d{2}[AP]M)-(\d{1,2}:\d{2}[AP]M)/i);
-        if (timeMatch) {
-          const startTime = parseTime(timeMatch[1].replace(/(\d{1,2}:\d{2})([AP]M)/i, '$1 $2'));
-          const endTime = parseTime(timeMatch[2].replace(/(\d{1,2}:\d{2})([AP]M)/i, '$1 $2'));
-          
-          // Show if current slot time is within the range (inclusive of end time)
-          return slotTime >= startTime && slotTime <= endTime;
-        }
-        
-        // If no specific time, don't show
-        return false;
-      } catch (e) {
+      if (!load.schedule) {
+        console.log(`No schedule for ${load.subject_code}`);
         return false;
       }
+      
+      console.log(`Checking ${load.subject_code}: "${load.schedule}"`);
+      
+      // Enhanced day matching for new formats
+      const schedule = load.schedule.toUpperCase();
+      const dayUpper = day.toUpperCase();
+      
+      // Check if the day is mentioned in the schedule
+      const dayMatches = 
+        // Single day format: MONDAY, TUESDAY, etc.
+        schedule.includes(dayUpper) ||
+        // Two day format: MON & TUE
+        (dayUpper.includes('MON') && schedule.includes('MON & TUE')) ||
+        (dayUpper.includes('TUE') && schedule.includes('MON & TUE')) ||
+        (dayUpper.includes('WED') && schedule.includes('WED & THU')) ||
+        (dayUpper.includes('THU') && schedule.includes('WED & THU')) ||
+        (dayUpper.includes('FRI') && schedule.includes('FRI & SAT')) ||
+        (dayUpper.includes('SAT') && schedule.includes('FRI & SAT')) ||
+        // Three or more day format: M/W/F, T/TH, etc.
+        (dayUpper.includes('MON') && schedule.includes('M/W/F')) ||
+        (dayUpper.includes('WED') && schedule.includes('M/W/F')) ||
+        (dayUpper.includes('FRI') && schedule.includes('M/W/F')) ||
+        (dayUpper.includes('TUE') && schedule.includes('T/TH')) ||
+        (dayUpper.includes('THU') && schedule.includes('T/TH')) ||
+        // Additional common patterns
+        (dayUpper.includes('MON') && schedule.includes('M/T/W/TH/F')) ||
+        (dayUpper.includes('TUE') && schedule.includes('M/T/W/TH/F')) ||
+        (dayUpper.includes('WED') && schedule.includes('M/T/W/TH/F')) ||
+        (dayUpper.includes('THU') && schedule.includes('M/T/W/TH/F')) ||
+        (dayUpper.includes('FRI') && schedule.includes('M/T/W/TH/F'));
+      
+      console.log(`Day match for ${load.subject_code}: ${dayMatches}`);
+      
+      if (!dayMatches) return false;
+      
+      // Enhanced time parsing - handle both AM/PM indicators
+      const timeMatch = schedule.match(/(\d{1,2}):?(\d{2})?(AM|PM)\s*-\s*(\d{1,2}):?(\d{2})?(AM|PM)/i);
+      
+      if (timeMatch) {
+        const startHour = parseInt(timeMatch[1]);
+        const startMin = parseInt(timeMatch[2] || '0');
+        const startPeriod = timeMatch[3].toUpperCase();
+        const endHour = parseInt(timeMatch[4]);
+        const endMin = parseInt(timeMatch[5] || '0');
+        const endPeriod = timeMatch[6].toUpperCase();
+        
+        // Convert to 24-hour format for start time
+        let startTime24 = startHour;
+        if (startPeriod === 'PM' && startHour !== 12) startTime24 += 12;
+        if (startPeriod === 'AM' && startHour === 12) startTime24 = 0;
+        
+        // Convert to 24-hour format for end time
+        let endTime24 = endHour;
+        if (endPeriod === 'PM' && endHour !== 12) endTime24 += 12;
+        if (endPeriod === 'AM' && endHour === 12) endTime24 = 0;
+        
+        // Adjust end time to end at :59 instead of :00 of next hour
+        // e.g., 9:00AM-12:00PM becomes 9:00AM-11:59AM
+        if (endMin === 0) {
+          endTime24 = endTime24 - 1; // Go back one hour
+          endMin = 59; // Set to 59 minutes
+        }
+        
+        const startMinutes = startTime24 * 60 + startMin;
+        const endMinutes = endTime24 * 60 + endMin;
+        
+        console.log(`Time range: ${startMinutes}-${endMinutes}`);
+        console.log(`Parsed: ${startHour}:${startMin.toString().padStart(2, '0')}${startPeriod} - ${endHour}:${endMin.toString().padStart(2, '0')}${endPeriod}`);
+        console.log(`Duration: ${endMinutes - startMinutes} minutes, Slots: ${Math.ceil((endMinutes - startMinutes) / 30)}`);
+        
+        // Check if any of the three slot times in the group are in range
+        const isInRange = (startSlotTime >= startMinutes && startSlotTime <= endMinutes) ||
+                         (middleSlotTime >= startMinutes && middleSlotTime <= endMinutes) ||
+                         (endSlotTime >= startMinutes && endSlotTime <= endMinutes);
+        
+        console.log(`Slot times: ${startSlotTime}, ${middleSlotTime}, ${endSlotTime}`);
+        console.log(`In range: ${isInRange}`);
+        
+        return isInRange;
+      }
+      
+      console.log(`No time match found for ${load.subject_code}`);
+      return false;
     });
 
     if (facultyLoad) {
-      // Get the full time range for display
-      const timeMatch = facultyLoad.schedule.match(/(\d{1,2}:\d{2}[AP]M)-(\d{1,2}:\d{2}[AP]M)/i);
-      const isStartTime = timeMatch ? slotTime === parseTime(timeMatch[1].replace(/(\d{1,2}:\d{2})([AP]M)/i, '$1 $2')) : false;
+      console.log(`Found match: ${facultyLoad.subject_code}`);
       
-      return {
-        type: 'class',
-        title: facultyLoad.subjectCode || 'Subject',
-        room: facultyLoad.room || 'TBA',
-        color: 'bg-green-500',
-        isStartTime: isStartTime,
-        fullTimeRange: timeMatch ? timeMatch[0] : ''
-      };
+      // Parse time for display with new format
+      const schedule = facultyLoad.schedule.toUpperCase();
+      const timeMatch = schedule.match(/(\d{1,2}):?(\d{2})?(AM|PM)\s*-\s*(\d{1,2}):?(\d{2})?(AM|PM)/i);
+      
+      // Determine which slot in the group should be the main display
+      let mainSlotTime = middleSlotTime; // Default to middle slot
+      let isStartTime = false;
+      
+      if (timeMatch) {
+        const startHour = parseInt(timeMatch[1]);
+        const startMin = parseInt(timeMatch[2] || '0');
+        const startPeriod = timeMatch[3].toUpperCase();
+        const endHour = parseInt(timeMatch[4]);
+        const endMin = parseInt(timeMatch[5] || '0');
+        const endPeriod = timeMatch[6].toUpperCase();
+        
+        // Adjust end time for display (same logic as parsing)
+        let displayEndHour = endHour;
+        let displayEndMin = endMin;
+        if (endMin === 0) {
+          displayEndHour = endHour - 1;
+          displayEndMin = 59;
+        }
+        
+        let startTime24 = startHour;
+        if (startPeriod === 'PM' && startHour !== 12) startTime24 += 12;
+        if (startPeriod === 'AM' && startHour === 12) startTime24 = 0;
+        
+        const classStartMinutes = startTime24 * 60 + startMin;
+        
+        // If the class starts at the beginning of this group, use start slot
+        if (classStartMinutes === startSlotTime) {
+          mainSlotTime = startSlotTime;
+          isStartTime = true;
+        } else if (classStartMinutes === middleSlotTime) {
+          mainSlotTime = middleSlotTime;
+          isStartTime = true;
+        } else if (classStartMinutes === endSlotTime) {
+          mainSlotTime = endSlotTime;
+          isStartTime = true;
+        }
+        
+        // Create adjusted display time range
+        const adjustedEndPeriod = displayEndHour > 12 ? 'PM' : displayEndHour === 12 ? 'PM' : 'AM';
+        const displayEndHour12 = displayEndHour > 12 ? displayEndHour - 12 : displayEndHour === 0 ? 12 : displayEndHour;
+        
+        const adjustedTimeRange = `${startHour}:${startMin.toString().padStart(2, '0')}${startPeriod}-${displayEndHour12}:${displayEndMin.toString().padStart(2, '0')}${adjustedEndPeriod}`;
+        
+        return {
+          type: 'class',
+          title: facultyLoad.subject_code || 'Subject',
+          room: facultyLoad.room || 'TBA',
+          color: 'bg-green-500',
+          isStartTime: isStartTime,
+          fullTimeRange: adjustedTimeRange,
+          subjectDescription: facultyLoad.subject_description || '',
+          section: facultyLoad.section || '',
+          lecHours: facultyLoad.lec_hours || 0,
+          labHours: facultyLoad.lab_hours || 0,
+          units: facultyLoad.units || 0,
+          // Group information
+          startTime: timeSlotGroup.startDisplay,
+          middleTime: timeSlotGroup.middleDisplay,
+          endTime: timeSlotGroup.endDisplay,
+          mainSlotTime: mainSlotTime
+        };
+      }
     }
 
     return null;
   };
 
-  // Helper function to calculate span for schedule items
-  const getScheduleSpan = (day, startSlot, scheduleInfo) => {
-    if (!scheduleInfo || !scheduleInfo.fullTimeRange) return 1;
-    
-    try {
-      let startTime, endTime;
-      
-      if (scheduleInfo.type === 'office') {
-        const timeRange = scheduleInfo.fullTimeRange.match(/(\d{1,2}:\d{2} [AP]M) - (\d{1,2}:\d{2} [AP]M)/);
-        if (timeRange) {
-          startTime = parseTime(timeRange[1]);
-          endTime = parseTime(timeRange[2]);
-        }
-      } else {
-        const timeMatch = scheduleInfo.fullTimeRange.match(/(\d{1,2}:\d{2}[AP]M)-(\d{1,2}:\d{2}[AP]M)/i);
-        if (timeMatch) {
-          startTime = parseTime(timeMatch[1].replace(/(\d{1,2}:\d{2})([AP]M)/i, '$1 $2'));
-          endTime = parseTime(timeMatch[2].replace(/(\d{1,2}:\d{2})([AP]M)/i, '$1 $2'));
-        }
-      }
-      
-      if (startTime && endTime) {
-        // Calculate how many 30-minute slots this spans
-        const durationMinutes = endTime - startTime;
-        return Math.max(1, Math.ceil(durationMinutes / 30));
-      }
-    } catch (e) {
-      console.error('Error calculating schedule span:', e);
-    }
-    
-    return 1;
-  };
 
   const timeSlots = generateTimeSlots();
   const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
   // Button functionality handlers
   const handleSetAcademicYear = () => {
-    // Here you can add logic to save the academic year and semester
-    console.log('Setting Academic Year:', academicYear, 'Semester:', semester);
-    // You might want to show a success message or update some state
-    alert(`Academic Year ${academicYear} and ${semester} semester has been set successfully!`);
-  };
-
-  const handleSearchSubjects = () => {
-    // Enhanced search functionality
-    console.log('Searching for:', searchQuery);
-    console.log('Filters applied:', filters);
+    // Store academic year and semester in sessionStorage for other components to access
+    sessionStorage.setItem('currentAcademicYear', academicYear);
+    sessionStorage.setItem('currentSemester', semester);
     
-    // You can add more complex search logic here
-    // For example, filtering by multiple criteria
-    const searchResults = facultyLoads.filter(load => {
-      const matchesSearch = load.subjectCode.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                           load.subjectDescription.toLowerCase().includes(searchQuery.toLowerCase());
-      
-      const matchesFilters = (
-        (filters.employeeStatus === 'All' || load.type === filters.employeeStatus) &&
-        (filters.campus === 'All' || load.campus === filters.campus) &&
-        (filters.mode === 'All' || load.mode === filters.mode)
-      );
-      
-      return matchesSearch && matchesFilters;
+    console.log('Setting Academic Year:', academicYear, 'Semester:', semester);
+    console.log('Stored in sessionStorage:', {
+      currentAcademicYear: sessionStorage.getItem('currentAcademicYear'),
+      currentSemester: sessionStorage.getItem('currentSemester')
     });
     
-    console.log('Search results:', searchResults);
-    // You could update a separate state for search results
+    toast.success(`Academic Year ${academicYear} and ${semester} semester has been set successfully!`);
+    
+    // Refresh faculty subjects with new academic year/semester
+    if (selectedFaculty) {
+      fetchFacultySubjects(selectedFaculty);
+    }
   };
+
 
   const handleEditSubject = (subject) => {
     console.log('Editing subject:', subject);
     
-    // Set the form data to the subject being edited
+    // Set the form data to the subject being edited - map database fields to form fields
     setSubjectForm({
-      ...subject,
-      id: subject.id
+      id: subject.id,
+      subjectCode: subject.subject_code,
+      subjectDescription: subject.subject_description,
+      lecHours: subject.lec_hours,
+      labHours: subject.lab_hours,
+      units: subject.units,
+      section: subject.section,
+      schedule: subject.schedule,
+      room: subject.room,
+      type: subject.type
     });
     
     // Set modal title and show modal
@@ -294,15 +501,13 @@ const FacultyLoading = () => {
       faculty: facultyName,
       academicYear: academicYear,
       semester: semester,
-      officeHours: officeHours,
       facultyLoads: facultyLoads
     };
     
     console.log('Print data:', printData);
     
     // You can implement actual printing logic here
-    // For now, we'll just show an alert
-    alert('Print functionality would open a print dialog with the faculty assignment form');
+    toast.success('Print functionality would open a print dialog with the faculty assignment form');
     
     // Alternative: Open a new window with printable content
     // const printWindow = window.open('', '_blank');
@@ -310,104 +515,148 @@ const FacultyLoading = () => {
     // printWindow.print();
   };
 
-  const handleViewHistory = () => {
-    console.log('Viewing faculty loading history');
-    
-    // You can implement history viewing logic here
-    // This might open a modal or navigate to a history page
-    alert('History viewing functionality - this would show past faculty assignments');
-    
-    // Example of what you might do:
-    // setShowHistoryModal(true);
-    // fetchFacultyHistory();
-  };
 
-  // Handle office hours form changes
-  const handleOfficeHourChange = (field, value) => {
-    setOfficeHourForm(prev => ({ ...prev, [field]: value }));
-  };
-
-  // Validate office hours form
-  const validateOfficeHours = () => {
-    if (officeHourForm.selectedDays.length === 0) {
-      alert('Please select at least one day for the office hours.');
-      return false;
-    }
-
-    if (!officeHourForm.description.trim()) {
-      alert('Please provide a description for the office hours.');
-      return false;
-    }
-
-    return true;
-  };
-
-  // Reset office hours form
-  const resetOfficeHoursForm = () => {
-    setOfficeHourForm({
-      description: '',
-      room: '',
-      selectedDays: [],
-      dayDropdown: '',
-      fromTime: '7',
-      fromMinutes: '00',
-      fromPeriod: 'AM',
-      toTime: '8',
-      toMinutes: '00',
-      toPeriod: 'AM',
-      comments: '',
-      hours: 0
-    });
-  };
-
-  // Add office hours
-  const addOfficeHours = () => {
-    if (!validateOfficeHours()) return;
-
-    const timeString = `${officeHourForm.fromTime}:${officeHourForm.fromMinutes} ${officeHourForm.fromPeriod} - ${officeHourForm.toTime}:${officeHourForm.toMinutes} ${officeHourForm.toPeriod}`;
-    const daysString = officeHourForm.selectedDays.join(', ');
-    
-    const newOfficeHour = {
-      id: Date.now(),
-      description: officeHourForm.description.trim(),
-      timeAndDate: `${daysString} ${timeString}`,
-      room: officeHourForm.room || 'Not specified',
-      hours: officeHourForm.hours
-    };
-
-    setOfficeHours(prev => [...prev, newOfficeHour]);
-    console.log('Office hours added successfully:', newOfficeHour);
-    console.log('Full timeAndDate string:', newOfficeHour.timeAndDate);
-    resetOfficeHoursForm();
-  };
 
   // Handle subject form changes
   const handleSubjectFormChange = (field, value) => {
     setSubjectForm(prev => ({ ...prev, [field]: value }));
   };
 
-  // Add or edit subject
-  const handleSubjectSubmit = (e) => {
+  // Handle opening Add Subject modal
+  const openAddSubjectModal = () => {
+    if (!selectedFaculty) {
+      toast.error('No faculty selected.');
+      return;
+    }
+    setShowAddSubjectModal(true);
+  };
+
+  // Handle closing Add Subject modal
+  const closeAddSubjectModal = () => {
+    setShowAddSubjectModal(false);
+    resetAddSubjectForm();
+  };
+
+  // Reset add subject form
+  const resetAddSubjectForm = () => {
+    setAddSubjectForm({
+      subjectCode: '',
+      subjectDescription: '',
+      lecHours: 0,
+      labHours: 0,
+      units: 0,
+      section: '',
+      schedule: '',
+      room: '',
+      type: 'Part-time'
+    });
+  };
+
+  // Handle add subject form changes
+  const handleAddSubjectFormChange = (field, value) => {
+    setAddSubjectForm(prev => ({ ...prev, [field]: value }));
+  };
+
+  // Handle adding subject to faculty load
+  const handleAddSubjectToFaculty = async (e) => {
     e.preventDefault();
     
-    if (subjectForm.id) {
-      // Edit existing subject
-      setFacultyLoads(prev => prev.map(load => 
-        load.id === subjectForm.id ? { ...subjectForm } : load
-      ));
-      console.log('Subject updated:', subjectForm);
-    } else {
-      // Add new subject
-      const newSubject = {
-        id: Date.now(),
-        ...subjectForm
-      };
-      setFacultyLoads(prev => [...prev, newSubject]);
-      console.log('New subject added:', newSubject);
+    if (!selectedFaculty) {
+      toast.error('No faculty selected.');
+      return;
     }
+
+    try {
+      // Save to database
+      const response = await api.post('/faculty-loads', {
+        faculty_id: selectedFaculty.id,
+        subject_id: null, // Manual subject entry
+        subject_code: addSubjectForm.subjectCode,
+        subject_description: addSubjectForm.subjectDescription,
+        lec_hours: addSubjectForm.lecHours,
+        lab_hours: addSubjectForm.labHours,
+        units: addSubjectForm.units,
+        section: addSubjectForm.section,
+        schedule: addSubjectForm.schedule,
+        room: addSubjectForm.room,
+        type: addSubjectForm.type,
+        academic_year: academicYear,
+        semester: semester
+      });
+
+      // Add to local state
+      const newLoad = response.data.data;
+      setFacultyLoads(prev => [...prev, newLoad]);
+      
+      toast.success(`Subject ${addSubjectForm.subjectCode} added to ${selectedFaculty.fullname}'s load`);
+      console.log('Subject added to faculty load:', newLoad);
+      
+      closeAddSubjectModal();
+    } catch (error) {
+      console.error('Error adding subject:', error);
+      toast.error(error.response?.data?.message || 'Failed to add subject');
+    }
+  };
+
+  // Add or edit subject
+  const handleSubjectSubmit = async (e) => {
+    e.preventDefault();
     
-    setShowModal(false);
-    resetSubjectForm();
+    try {
+      if (subjectForm.id) {
+        // Edit existing subject
+        const response = await api.put(`/faculty-loads/${subjectForm.id}`, {
+          subject_code: subjectForm.subjectCode,
+          subject_description: subjectForm.subjectDescription,
+          lec_hours: subjectForm.lecHours,
+          lab_hours: subjectForm.labHours,
+          units: subjectForm.units,
+          section: subjectForm.section,
+          schedule: subjectForm.schedule,
+          room: subjectForm.room,
+          type: subjectForm.type,
+          academic_year: academicYear,
+          semester: semester
+        });
+
+        // Update local state
+        const updatedLoad = response.data.data;
+        setFacultyLoads(prev => prev.map(load => 
+          load.id === subjectForm.id ? updatedLoad : load
+        ));
+        toast.success('Subject updated successfully');
+        console.log('Subject updated:', updatedLoad);
+      } else {
+        // Add new subject manually (not from dropdown)
+        const response = await api.post('/faculty-loads', {
+          faculty_id: selectedFaculty.id,
+          subject_id: null, // Manual subject entry - no existing subject
+          subject_code: subjectForm.subjectCode,
+          subject_description: subjectForm.subjectDescription,
+          lec_hours: subjectForm.lecHours,
+          lab_hours: subjectForm.labHours,
+          units: subjectForm.units,
+          section: subjectForm.section,
+          schedule: subjectForm.schedule,
+          room: subjectForm.room,
+          type: subjectForm.type,
+          academic_year: academicYear,
+          semester: semester
+        });
+
+        // Add to local state
+        const newLoad = response.data.data;
+        setFacultyLoads(prev => [...prev, newLoad]);
+        toast.success('Subject added successfully');
+        console.log('New subject added:', newLoad);
+      }
+      
+      setShowModal(false);
+      resetSubjectForm();
+    } catch (error) {
+      console.error('Error saving subject:', error);
+      toast.error(error.response?.data?.message || 'Failed to save subject');
+    }
   };
 
   // Reset subject form
@@ -427,19 +676,20 @@ const FacultyLoading = () => {
   };
 
   // Remove subject
-  const removeSubject = (id) => {
-    setFacultyLoads(prev => prev.filter(subject => subject.id !== id));
+  const removeSubject = async (id) => {
+    const subjectToRemove = facultyLoads.find(load => load.id === id);
+    if (!subjectToRemove) return;
+
+    try {
+      await api.delete(`/faculty-loads/${id}`);
+      setFacultyLoads(prev => prev.filter(subject => subject.id !== id));
+      toast.success(`Subject ${subjectToRemove.subject_code} removed from faculty load`);
+    } catch (error) {
+      console.error('Error removing subject:', error);
+      toast.error('Failed to remove subject');
+    }
   };
 
-  // Filter faculty loads based on search query
-  const filteredFacultyLoads = facultyLoads.filter(load => {
-    const query = searchQuery.toLowerCase();
-    return load.subjectCode.toLowerCase().includes(query) ||
-           load.subjectDescription.toLowerCase().includes(query) ||
-           load.section.toLowerCase().includes(query) ||
-           load.schedule.toLowerCase().includes(query) ||
-           load.room.toLowerCase().includes(query);
-  });
 
   return ( 
         <div className="flex content_padding">
@@ -469,7 +719,9 @@ const FacultyLoading = () => {
                     className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors min-w-[100px]"
                   >
                     <option value="2024">2024</option>
-                    <option value="2023">2023</option>
+                    <option value="2025">2025</option>
+                    <option value="2026">2026</option>
+                    <option value="2027">2027</option>
                   </select>
                 </div>
                 <div className="flex items-center space-x-3">
@@ -494,229 +746,21 @@ const FacultyLoading = () => {
               </div>
               <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-3">
                 <div className="text-sm font-medium text-gray-700">Current Faculty:</div>
-                <div className="text-lg font-semibold text-green-700">{facultyName}</div>
+                <div className="text-lg font-semibold text-green-700">
+                  {facultyName || 'No faculty selected'}
+                </div>
+                {selectedFaculty && (
+                  <div className="text-xs text-gray-600 mt-1">
+                    Department: {selectedFaculty.department || 'N/A'} | Email: {selectedFaculty.email}
+                  </div>
+                )}
+                <div className="text-xs text-gray-600 mt-1">
+                  Academic Year: {academicYear} | Semester: {semester}
+                </div>
               </div>
             </div>
           </div>
 
-            {/* Office/Consultation Hours Section */}
-            <div className="bg-gray-50 rounded-lg ">
-              <h3 className="text-lg font-semibold text-gray-900 mb-6 mt-6 ml-6 border-b-2 border-green-500 pb-2 inline-block">
-                Setup Office / Consultation Hours
-              </h3>
-              
-              {/* Office Hours Form - Better Balanced Layout */}
-              <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-200 mb-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {/* Description */}
-                  <div className="lg:col-span-1">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
-                    <input
-                      type="text"
-                      value={officeHourForm.description}
-                      onChange={(e) => handleOfficeHourChange('description', e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors"
-                      placeholder="Enter description"
-                    />
-                  </div>
-                  
-                  {/* Room */}
-                  <div className="lg:col-span-1">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Room</label>
-                    <select
-                      value={officeHourForm.room}
-                      onChange={(e) => handleOfficeHourChange('room', e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors"
-                    >
-                      <option value="">-select room-</option>
-                      <option value="ROOM 301">ROOM 301</option>
-                      <option value="ROOM 302">ROOM 302</option>
-                      <option value="ROOM 303">ROOM 303</option>
-                      <option value="ROOM 304">ROOM 304</option>
-                      <option value="BLENDED">BLENDED</option>
-                    </select>
-                  </div>
-
-                  {/* Hours */}
-                  <div className="lg:col-span-1">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Hours</label>
-                    <input
-                      type="number"
-                      value={officeHourForm.hours}
-                      onChange={(e) => handleOfficeHourChange('hours', parseFloat(e.target.value) || 0)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors"
-                      min="0"
-                      step="0.5"
-                      placeholder="0.0"
-                    />
-                  </div>
-
-                  {/* Days Selection */}
-                  <div className="lg:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Select Days</label>
-                    <div className="grid grid-cols-3 gap-1 p-2 bg-gray-50 rounded-lg border border-gray-200">
-                      {['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'].map(day => (
-                        <label key={day} className="flex items-center cursor-pointer hover:bg-gray-100 p-2 rounded-lg transition-all duration-200 hover:shadow-sm">
-                          <input
-                            type="checkbox"
-                            checked={officeHourForm.selectedDays.includes(day)}
-                            onChange={(e) => {
-                              const value = day;
-                              const updatedDays = officeHourForm.selectedDays.includes(value)
-                                ? officeHourForm.selectedDays.filter(d => d !== value)
-                                : [...officeHourForm.selectedDays, value];
-                              setOfficeHourForm(prev => ({ ...prev, selectedDays: updatedDays }));
-                            }}
-                            className="w-4 h-4 rounded border-gray-300 text-green-600 focus:ring-green-500 focus:ring-2"
-                          />
-                          <span className="ml-3 text-sm font-medium text-gray-700">{day}</span>
-                        </label>
-                      ))}
-                    </div>
-                    {officeHourForm.selectedDays.length > 0 && (
-                      <div className="mt-3 p-2 bg-green-50 border border-green-200 rounded-lg">
-                        <span className="text-xs text-gray-600 font-medium">Selected Days: </span>
-                        <span className="text-sm font-semibold text-green-700">
-                          {officeHourForm.selectedDays.join(', ')}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Time Selection */}
-                  <div className="lg:col-span-1">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Time Range</label>
-                    <div className="bg-gray-50 rounded-lg p-2 border border-gray-200">
-                      <div className="grid grid-cols-2 gap-2 p-2">
-                        {/* From Time */}
-                        <div>
-                          <label className="block text-xs font-medium text-gray-600 mb-2">From</label>
-                          <div className="flex items-center space-x-1">
-                            <select
-                              value={officeHourForm.fromTime}
-                              onChange={(e) => handleOfficeHourChange('fromTime', e.target.value)}
-                              className="flex-1 border border-gray-300 rounded-lg px-2 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors"
-                            >
-                              {[...Array(12)].map((_, i) => (
-                                <option key={i + 1} value={i + 1}>{i + 1}</option>
-                              ))}
-                            </select>
-                            <select
-                              value={officeHourForm.fromMinutes}
-                              onChange={(e) => handleOfficeHourChange('fromMinutes', e.target.value)}
-                              className="flex-1 border border-gray-300 rounded-lg px-2 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors"
-                            >
-                              <option value="00">00</option>
-                              <option value="15">15</option>
-                              <option value="30">30</option>
-                              <option value="45">45</option>
-                            </select>
-                            <select
-                              value={officeHourForm.fromPeriod}
-                              onChange={(e) => handleOfficeHourChange('fromPeriod', e.target.value)}
-                              className="flex-1 border border-gray-300 rounded-lg px-2 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors"
-                            >
-                              <option value="AM">AM</option>
-                              <option value="PM">PM</option>
-                            </select>
-                          </div>
-                        </div>
-
-                        {/* To Time */}
-                        <div>
-                          <label className="block text-xs font-medium text-gray-600 mb-2">To</label>
-                          <div className="flex items-center space-x-1">
-                            <select
-                              value={officeHourForm.toTime}
-                              onChange={(e) => handleOfficeHourChange('toTime', e.target.value)}
-                              className="flex-1 border border-gray-300 rounded-lg px-2 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors"
-                            >
-                              {[...Array(12)].map((_, i) => (
-                                <option key={i + 1} value={i + 1}>{i + 1}</option>
-                              ))}
-                            </select>
-                            <select
-                              value={officeHourForm.toMinutes}
-                              onChange={(e) => handleOfficeHourChange('toMinutes', e.target.value)}
-                              className="flex-1 border border-gray-300 rounded-lg px-2 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors"
-                            >
-                              <option value="00">00</option>
-                              <option value="15">15</option>
-                              <option value="30">30</option>
-                              <option value="45">45</option>
-                            </select>
-                            <select
-                              value={officeHourForm.toPeriod}
-                              onChange={(e) => handleOfficeHourChange('toPeriod', e.target.value)}
-                              className="flex-1 border border-gray-300 rounded-lg px-2 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors"
-                            >
-                              <option value="AM">AM</option>
-                              <option value="PM">PM</option>
-                            </select>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Add Button */}
-                <div className="flex justify-end mt-6">
-                  <button
-                    onClick={addOfficeHours}
-                    className="px-8 py-3 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-all duration-200 flex items-center gap-2 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
-                  >
-                    <Plus className="w-4 h-4" />
-                    Add Office Hours
-                  </button>
-                </div>
-              </div>
-
-              {/* Office Hours Table */}
-              <div className="bg-white rounded-lg overflow-hidden shadow-lg border border-gray-200">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gradient-to-r from-green-50 to-green-100">
-                    <tr>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Description</th>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Time & Date</th>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Room</th>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Hours</th>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {officeHours.map(hour => (
-                      <tr key={hour.id} className="hover:bg-gray-50 transition-colors duration-150">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{hour.description}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{hour.timeAndDate}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{hour.room}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{hour.hours}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                          <button
-                            onClick={() => setOfficeHours(prev => prev.filter(h => h.id !== hour.id))}
-                            className="text-red-600 hover:text-red-800 transition-colors duration-150 p-1 rounded hover:bg-red-50"
-                            title="Remove office hours"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                    {officeHours.length === 0 && (
-                      <tr>
-                        <td colSpan={5} className="px-6 py-12 text-center">
-                          <div className="flex flex-col items-center text-gray-500">
-                            <Clock className="w-8 h-8 mb-2 opacity-50" />
-                            <p className="text-sm">No office hours added yet</p>
-                            <p className="text-xs text-gray-400 mt-1">Add your office hours using the form above</p>
-                          </div>
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
 
             {/* Faculty Loads Section */}
             <div className="bg-gray-50 rounded-lg ">
@@ -724,105 +768,135 @@ const FacultyLoading = () => {
                 Setup Faculty Loads
               </h3>
 
-              {/* Search Section - Better Balanced */}
-              <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200 mb-6">
-                <div className="flex flex-col lg:flex-row gap-4">
-                  <div className="flex-1 relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                    <input
-                      type="text"
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      placeholder="Search subjects by code, description, section..."
-                      className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors"
-                    />
+
+              {/* Faculty Subjects Info */}
+              <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-200 mb-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="text-lg font-semibold text-gray-900 mb-2">Faculty Load Summary</h4>
+                    <p className="text-sm text-gray-600">
+                      {selectedFaculty ? `Subjects assigned to ${selectedFaculty.fullname}` : 'No faculty selected'}
+                    </p>
                   </div>
-                  <button 
-                    onClick={handleSearchSubjects}
-                    className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2 shadow-sm"
-                  >
-                    <Search className="w-4 h-4" />
-                    Search
-                  </button>
+                  <div className="text-right">
+                    <div className="text-2xl font-bold text-green-600">{facultyLoads.length}</div>
+                    <div className="text-sm text-gray-500">Total Subjects</div>
+                    <div className="text-xs text-gray-400 mt-1">
+                      {facultyLoads.reduce((sum, load) => sum + (load.units || 0), 0)} total units
+                    </div>
+                  </div>
                 </div>
-                <p className="text-xs text-gray-500 mt-2 italic">
-                  Search by: Subject Code | Description | LEC | LAB | UNITS | Section | Schedule
-                </p>
               </div>
 
-              {/* Filter Section - Better Balanced */}
+              {/* Available Subjects Section (View Only Dropdown) */}
               <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-200 mb-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Employee Status</label>
-                    <select
-                      value={filters.employeeStatus}
-                      onChange={(e) => setFilters(prev => ({ ...prev, employeeStatus: e.target.value }))}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors"
-                    >
-                      <option value="All">All</option>
-                      <option value="Full-time">Full-time</option>
-                      <option value="Part-time">Part-time</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Campus</label>
-                    <select
-                      value={filters.campus}
-                      onChange={(e) => setFilters(prev => ({ ...prev, campus: e.target.value }))}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors"
-                    >
-                      <option value="All">All</option>
-                      <option value="North">North</option>
-                      <option value="South">South</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Mode</label>
-                    <select
-                      value={filters.mode}
-                      onChange={(e) => setFilters(prev => ({ ...prev, mode: e.target.value }))}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors"
-                    >
-                      <option value="All">All</option>
-                      <option value="Online">Online</option>
-                      <option value="Blended">Blended</option>
-                      <option value="Face-to-face">Face-to-face</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Credited Units</label>
-                    <input
-                      type="number"
-                      value={filters.creditedUnits}
-                      onChange={(e) => setFilters(prev => ({ ...prev, creditedUnits: parseInt(e.target.value) || 0 }))}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors"
-                      min="0"
-                      placeholder="0"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Load Hours</label>
-                    <input
-                      type="number"
-                      value={filters.loadHours}
-                      onChange={(e) => setFilters(prev => ({ ...prev, loadHours: parseInt(e.target.value) || 0 }))}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors"
-                      min="0"
-                      placeholder="0"
-                    />
-                  </div>
-                  <div className="flex items-end">
-                    <button
-                      onClick={() => setShowModal(true)}
-                      className="w-full px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-all duration-200 flex items-center justify-center gap-2 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
-                    >
-                      <Plus className="w-4 h-4" />
-                      Add Subject
-                    </button>
+                <div className="flex items-center justify-between mb-4">
+                  <h4 className="text-lg font-semibold text-gray-900">Available Subjects</h4>
+                  <div className="text-sm text-gray-500">
+                    {isLoadingSubjects ? 'Loading...' : `${availableSubjects.length} subjects available`}
                   </div>
                 </div>
+                
+                <div className="relative">
+                  <select
+                    value={selectedSubject}
+                    onChange={(e) => setSelectedSubject(e.target.value)}
+                    disabled={isLoadingSubjects}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors disabled:bg-gray-100 disabled:cursor-not-allowed appearance-none bg-white"
+                  >
+                    <option value="">
+                      {isLoadingSubjects ? 'Loading subjects...' : 
+                       availableSubjects.length === 0 ? 'No subjects available' :
+                       '-- Select a subject to view details --'}
+                    </option>
+                    {availableSubjects.map(subject => (
+                      <option key={subject.id} value={subject.id}>
+                        {subject.code} - {subject.name} ({subject.units} units) - {subject.type}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                    <ChevronDown className="w-4 h-4 text-gray-400" />
+                  </div>
+                </div>
+                
+                {/* Selected Subject Details */}
+                {selectedSubject && (
+                  <div className="mt-3 p-4 bg-green-50 border border-green-200 rounded-lg">
+                    {(() => {
+                      const subject = availableSubjects.find(s => s.id.toString() === selectedSubject);
+                      return subject ? (
+                        <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <h5 className="font-semibold text-green-800">{subject.code}</h5>
+                            <span className={`px-2 py-1 text-xs rounded-full ${
+                              subject.type === 'Major' ? 'bg-blue-100 text-blue-800' :
+                              subject.type === 'General Education' ? 'bg-green-100 text-green-800' :
+                              subject.type === 'Minor' ? 'bg-yellow-100 text-yellow-800' :
+                              'bg-gray-100 text-gray-800'
+                            }`}>
+                              {subject.type}
+                            </span>
+                          </div>
+                          <p className="text-sm text-green-700 mb-2">{subject.name}</p>
+                          <div className="flex items-center justify-between text-xs text-green-600 mb-3">
+                            <span>{subject.units} units</span>
+                            <span>{subject.lecHours}h LEC</span>
+                            {subject.labHours > 0 && <span>{subject.labHours}h LAB</span>}
+                          </div>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => {
+                                // Pre-fill the add subject form with selected subject data
+                                setAddSubjectForm({
+                                  subjectCode: subject.code,
+                                  subjectDescription: subject.name,
+                                  lecHours: subject.lecHours,
+                                  labHours: subject.labHours,
+                                  units: subject.units,
+                                  section: '',
+                                  schedule: '',
+                                  room: '',
+                                  type: 'Part-time'
+                                });
+                                setShowAddSubjectModal(true);
+                              }}
+                              className="px-3 py-1 bg-green-600 text-white text-xs rounded-md hover:bg-green-700 transition-colors flex items-center gap-1"
+                            >
+                              <Plus className="w-3 h-3" />
+                              Add Subject
+                            </button>
+                            <button
+                              onClick={() => setSelectedSubject('')}
+                              className="px-3 py-1 bg-gray-500 text-white text-xs rounded-md hover:bg-gray-600 transition-colors"
+                            >
+                              Clear
+                            </button>
+                          </div>
+                        </div>
+                      ) : null;
+                    })()}
+                  </div>
+                )}
+
+                {availableSubjects.length > 0 && (
+                  <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                    <div className="text-sm text-blue-700">
+                      <strong>Note:</strong> Select a subject above to view its details. 
+                      To add subjects to faculty load, use the "Add Subject" button below.
+                    </div>
+                  </div>
+                )}
+                
+                {availableSubjects.length === 0 && !isLoadingSubjects && (
+                  <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                    <div className="text-sm text-yellow-700">
+                      <strong>No subjects found.</strong> Subjects need to be created in Academic Management first.
+                    </div>
+                  </div>
+                )}
               </div>
+
 
               {/* Faculty Loads Table */}
               <div className="bg-white rounded-lg overflow-hidden shadow-lg border border-gray-200">
@@ -841,12 +915,12 @@ const FacultyLoading = () => {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {filteredFacultyLoads.map(load => (
+                    {facultyLoads.map(load => (
                       <tr key={load.id} className="hover:bg-gray-50 transition-colors duration-150">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-blue-900">{load.subjectCode}</td>
-                        <td className="px-6 py-4 text-sm text-gray-700">{load.subjectDescription}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{load.lecHours}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{load.labHours}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-blue-900">{load.subject_code}</td>
+                        <td className="px-6 py-4 text-sm text-gray-700">{load.subject_description}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{load.lec_hours}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{load.lab_hours}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{load.units}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{load.section}</td>
                         <td className="px-6 py-4 text-sm text-gray-700">{load.schedule}</td>
@@ -879,17 +953,28 @@ const FacultyLoading = () => {
                         </td>
                       </tr>
                     ))}
-                    {filteredFacultyLoads.length === 0 && (
+                    {loading ? (
                       <tr>
                         <td colSpan={9} className="px-6 py-12 text-center">
                           <div className="flex flex-col items-center text-gray-500">
-                            <FileText className="w-8 h-8 mb-2 opacity-50" />
-                            <p className="text-sm">No subjects added yet</p>
-                            <p className="text-xs text-gray-400 mt-1">Add subjects using the 'Add Subject' button above</p>
+                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mb-2"></div>
+                            <p className="text-sm">Loading faculty subjects...</p>
                           </div>
                         </td>
                       </tr>
-                    )}
+                    ) : facultyLoads.length === 0 ? (
+                      <tr>
+                        <td colSpan={9} className="px-6 py-12 text-center">
+                          <div className="flex flex-col items-center text-gray-500">
+                            <User className="w-8 h-8 mb-2 opacity-50" />
+                            <p className="text-sm">No subjects assigned to this faculty</p>
+                            <p className="text-xs text-gray-400 mt-1">
+                              {selectedFaculty ? 'Add subjects using the dropdown above' : 'Please select a faculty first'}
+                            </p>
+                          </div>
+                        </td>
+                      </tr>
+                    ) : null}
                   </tbody>
                 </table>
               </div>
@@ -901,76 +986,80 @@ const FacultyLoading = () => {
                 Weekly Schedule Overview
               </h3>
               
+              
               <div className="bg-white rounded-lg overflow-hidden shadow-sm border border-gray-200">
                 <div className="overflow-x-auto">
-                  <div className="min-w-full">
-                    <div className="grid grid-cols-7 gap-px bg-gray-300">
-                      {/* Corner cell */}
-                      <div className="bg-gradient-to-r from-green-600 to-green-700 text-white p-4 text-sm font-bold text-center shadow-sm">
-                        Time
-                      </div>
-                      {/* Day headers */}
-                      {days.map(day => (
-                        <div key={day} className="bg-gradient-to-r from-green-600 to-green-700 text-white p-4 text-sm font-bold text-center shadow-sm">
-                          {day}
-                        </div>
-                      ))}
-                      
-                      {/* Time slots */}
-                      {timeSlots.map(slot => (
-                        <React.Fragment key={slot.time}>
-                          {/* Time label */}
-                          <div className="bg-gradient-to-r from-gray-50 to-gray-100 text-xs text-center font-semibold text-gray-700 border-r border-gray-300 min-h-[50px] flex items-center justify-center shadow-sm">
-                            {slot.displayTime}
-                          </div>
+                  <table className="min-w-full">
+                    <thead>
+                      <tr>
+                        <th className="bg-gradient-to-r from-green-600 to-green-700 text-white p-4 text-sm font-bold text-center shadow-sm border border-gray-400">
+                          Time
+                        </th>
+                        {days.map(day => (
+                          <th key={day} className="bg-gradient-to-r from-green-600 to-green-700 text-white p-4 text-sm font-bold text-center shadow-sm border border-gray-400">
+                            {day}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {timeSlots.map(slotGroup => (
+                        <tr key={slotGroup.groupIndex}>
+                          {/* Time label - grouped display */}
+                          <td className="bg-gradient-to-r from-gray-50 to-gray-100 text-xs text-center font-semibold text-gray-700 border border-gray-400 min-h-[80px] w-24">
+                            <div className="flex flex-col justify-center h-full">
+                              <div className="text-xs opacity-70">{slotGroup.startDisplay}</div>
+                              <div className="text-sm font-bold text-gray-800">{slotGroup.middleDisplay}</div>
+                              <div className="text-xs opacity-70">{slotGroup.endDisplay}</div>
+                            </div>
+                          </td>
                           {/* Day slots */}
                           {days.map(day => {
-                            const scheduleInfo = getScheduleForTimeSlot(day, slot);
-                            const span = getScheduleSpan(day, slot, scheduleInfo);
+                            const scheduleInfo = getScheduleForTimeSlot(day, slotGroup);
                             
-                            return (
-                              <div
-                                key={`${day}-${slot.time}`}
-                                className={`relative p-1 min-h-[50px] border-r border-b border-gray-300 cursor-pointer transition-all duration-150 ${
-                                  scheduleInfo 
-                                    ? 'hover:opacity-90 hover:shadow-md' 
-                                    : 'bg-white hover:bg-gray-50 hover:shadow-sm'
-                                }`}
-                              >
-                                {scheduleInfo && scheduleInfo.isStartTime && (
+                            if (scheduleInfo) {
+                              return (
+                                <td
+                                  key={`${day}-${slotGroup.groupIndex}`}
+                                  className="p-1 border border-gray-400 cursor-pointer transition-all duration-150 hover:opacity-90 hover:shadow-md"
+                                >
                                   <div 
-                                    className={`${scheduleInfo.color} text-white p-2 rounded-lg text-xs text-center shadow-lg max-w-full transform hover:scale-105 transition-transform duration-150 absolute inset-1 flex flex-col justify-center z-10`}
-                                    style={{ 
-                                      height: `${(span * 50)}px`,
-                                      minHeight: `${(span * 50)}px`
-                                    }}
+                                    className={`${scheduleInfo.color} text-white p-2 rounded-lg text-xs text-center shadow-lg w-full h-full flex flex-col justify-center min-h-[80px] border border-gray-300`}
                                   >
                                     <div className="font-semibold truncate" title={scheduleInfo.title}>
                                       {scheduleInfo.title}
                                     </div>
-                                    <div className="text-xs opacity-90 truncate" title={scheduleInfo.room}>
-                                      {scheduleInfo.room}
+                                    <div className="text-xs opacity-90 truncate" title={scheduleInfo.subjectDescription}>
+                                      {scheduleInfo.subjectDescription}
                                     </div>
                                     <div className="text-xs opacity-80 font-medium">
-                                      {scheduleInfo.type === 'office' ? 'Office' : 'Class'}
+                                      {scheduleInfo.section} • {scheduleInfo.room}
                                     </div>
-                                    {scheduleInfo.fullTimeRange && (
-                                      <div className="text-xs opacity-75 mt-1">
-                                        {scheduleInfo.fullTimeRange}
+                                    <div className="text-xs opacity-75">
+                                      Class • {scheduleInfo.fullTimeRange}
+                                    </div>
+                                    {scheduleInfo.type === 'class' && (
+                                      <div className="text-xs opacity-70 mt-1">
+                                        LEC: {scheduleInfo.lecHours}h • LAB: {scheduleInfo.labHours}h • Units: {scheduleInfo.units}
                                       </div>
                                     )}
                                   </div>
-                                )}
-                                {scheduleInfo && !scheduleInfo.isStartTime && (
-                                  <div className={`w-full h-full ${scheduleInfo.color.replace('bg-500', 'bg-300')} opacity-30 rounded`}></div>
-                                )}
-                              </div>
-                            );
+                                </td>
+                              );
+                            } else {
+                              return (
+                                <td
+                                  key={`${day}-${slotGroup.groupIndex}`}
+                                  className="p-1 border border-gray-400 cursor-pointer transition-all duration-150 bg-white hover:bg-gray-50 hover:shadow-sm min-h-[80px]"
+                                >
+                                </td>
+                              );
+                            }
                           })}
-                        </React.Fragment>
+                        </tr>
                       ))}
-                    </div>
-                  </div>
+                    </tbody>
+                  </table>
                 </div>
               </div>
               
@@ -981,22 +1070,11 @@ const FacultyLoading = () => {
                   <span className="text-gray-600">Faculty Classes</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 bg-blue-500 rounded"></div>
-                  <span className="text-gray-600">Office Hours</span>
-                </div>
-                <div className="flex items-center gap-2">
                   <div className="w-4 h-4 bg-white border border-gray-300 rounded"></div>
                   <span className="text-gray-600">Available Slots</span>
                 </div>
               </div>
               
-              {/* Instructions */}
-              <div className=" p-3 bg-blue-50 border ml-3 mr-3 mt-6 border-blue-200 rounded-lg">
-                <p className="text-sm text-blue-700">
-                  <strong>How to use:</strong> Add office hours and faculty loads above to see them appear in the weekly schedule. 
-                  Office hours will show in blue, classes in green.
-                </p>
-              </div>
             </div>
 
           {/* Footer Actions - Better Balanced */}
@@ -1010,16 +1088,185 @@ const FacultyLoading = () => {
                 Print Faculty Assignment Form
                 <ChevronDown className="w-4 h-4" />
               </button>
-              <button 
-                onClick={handleViewHistory}
-                className="flex items-center px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors shadow-sm gap-2"
-              >
-                <Clock className="w-4 h-4" />
-                View History
-              </button>
             </div>
           </div>
         </div>
+
+        {/* Add Subject Modal */}
+        {showAddSubjectModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+              {/* Modal Header */}
+              <div className="flex justify-between items-center p-6 border-b">
+                <h3 className="text-lg font-semibold text-gray-900">Add Subject to Faculty Load</h3>
+                <button
+                  onClick={closeAddSubjectModal}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              {/* Modal Form */}
+              <form onSubmit={handleAddSubjectToFaculty} className="p-6">
+                <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                  <p className="text-sm text-blue-700">
+                    <strong>Faculty:</strong> {selectedFaculty?.fullname} | 
+                    <strong> Academic Year:</strong> {academicYear} | 
+                    <strong> Semester:</strong> {semester}
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Subject Code *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={addSubjectForm.subjectCode}
+                      onChange={(e) => handleAddSubjectFormChange('subjectCode', e.target.value)}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors"
+                      placeholder="e.g., CS 101"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Description *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={addSubjectForm.subjectDescription}
+                      onChange={(e) => handleAddSubjectFormChange('subjectDescription', e.target.value)}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors"
+                      placeholder="Subject description"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      LEC Hours
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={addSubjectForm.lecHours}
+                      onChange={(e) => handleAddSubjectFormChange('lecHours', parseInt(e.target.value) || 0)}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors"
+                      placeholder="0"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      LAB Hours
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={addSubjectForm.labHours}
+                      onChange={(e) => handleAddSubjectFormChange('labHours', parseInt(e.target.value) || 0)}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors"
+                      placeholder="0"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Units *
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      required
+                      value={addSubjectForm.units}
+                      onChange={(e) => handleAddSubjectFormChange('units', parseInt(e.target.value) || 0)}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors"
+                      placeholder="0"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Year & Section *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={addSubjectForm.section}
+                      onChange={(e) => handleAddSubjectFormChange('section', e.target.value)}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors"
+                      placeholder="e.g., BSIT 4A, BSCS 4B"
+                    />
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Schedule *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={addSubjectForm.schedule}
+                      onChange={(e) => handleAddSubjectFormChange('schedule', e.target.value)}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors"
+                      placeholder="e.g., MONDAY 9:00AM-1:00PM"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Room *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={addSubjectForm.room}
+                      onChange={(e) => handleAddSubjectFormChange('room', e.target.value)}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors"
+                      placeholder="e.g., ROOM 303"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Type
+                    </label>
+                    <select
+                      value={addSubjectForm.type}
+                      onChange={(e) => handleAddSubjectFormChange('type', e.target.value)}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors"
+                    >
+                      <option value="Part-time">Part-time</option>
+                      <option value="Full-time">Full-time</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Modal Actions */}
+                <div className="flex justify-end gap-4 mt-8 pt-6 border-t border-gray-200">
+                  <button
+                    type="button"
+                    onClick={closeAddSubjectModal}
+                    className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2 shadow-sm"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Add Subject
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
 
         {/* Subject Modal */}
         {showModal && (
@@ -1134,7 +1381,7 @@ const FacultyLoading = () => {
                       value={subjectForm.schedule}
                       onChange={(e) => handleSubjectFormChange('schedule', e.target.value)}
                       className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                      placeholder="e.g., MON/WED 9:00AM-10:30AM"
+                      placeholder="e.g., MONDAY 9:00AM-1:00PM"
                     />
                   </div>
 

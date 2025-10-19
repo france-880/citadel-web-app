@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import Header from "../Components/Header";
-import SuperAdminSidebar from "../Components/SuperAdminSidebar";
+import Sidebar from "../Components/Sidebar";    
 import { 
   Users, 
   GraduationCap, 
@@ -115,7 +115,7 @@ export default function Dashboard() {
   if (isLoading) {
     return (
       <div className="flex" style={{ paddingLeft: '260px', paddingTop: '70px' }}>
-        <SuperAdminSidebar />
+        <Sidebar />
         <div className="flex-1">
           <Header />
           <main className="p-6 min-h-screen">
@@ -170,9 +170,25 @@ export default function Dashboard() {
     );
   };
 
+  if (isLoading) {
+    return (
+      <div className="flex" style={{ paddingLeft: '260px', paddingTop: '70px' }}>
+        <Sidebar />
+        <div className="flex-1">
+          <Header />
+          <main className="p-6 min-h-screen">
+            <div className="flex items-center justify-center h-96">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#064F32]"></div>
+            </div>
+          </main>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex" style={{ paddingLeft: '300px', paddingTop: '70px' }}>
-      <SuperAdminSidebar />
+    <div className="flex" style={{ paddingLeft: '260px', paddingTop: '70px' }}>
+      <Sidebar />
       <div className="flex-1">
         <Header />
         <main className="p-6 min-h-screen bg-gray-50">

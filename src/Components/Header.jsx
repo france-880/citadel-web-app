@@ -7,6 +7,9 @@ export default function Header() {
   const [isOpen, setIsOpen] = useState(false);
   const { user } = useAuth();
 
+  // Debug: Log user data
+  console.log('Header - User data:', user);
+
   return (
     <header className="fixed top-0 left-0 right-0 h-[70px] bg-[#064F32] shadow-md flex items-center justify-between px-6 z-50">
       <div className="flex items-center text-ml font-semibold">
@@ -17,9 +20,14 @@ export default function Header() {
       <div className="relative flex items-center">
         <div className="flex items-center">
           <img className="h-10 w-10 rounded-full mr-3" src="/images/user.png" alt="User" />
-          <span className="text-white font-medium">
-            {user?.fullname || "Guest"}
-          </span>
+          <div className="text-white">
+            <div className="font-medium text-sm">
+              {user?.fullname && user.fullname !== 'Unknown User' ? user.fullname : "Guest"}
+            </div>
+            <div className="text-xs text-gray-300">
+              {user?.role ? user.role.replace('_', ' ').toUpperCase() : "GUEST"}
+            </div>
+          </div>
         </div>
 
         <button onClick={() => setIsOpen(!isOpen)} className="ml-2 focus:outline-none">

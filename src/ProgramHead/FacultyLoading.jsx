@@ -329,7 +329,7 @@ const FacultyLoading = () => {
         const startMin = parseInt(timeMatch[2] || '0');
         const startPeriod = timeMatch[3].toUpperCase();
         const endHour = parseInt(timeMatch[4]);
-        const endMin = parseInt(timeMatch[5] || '0');
+        let endMin = parseInt(timeMatch[5] || '0');
         const endPeriod = timeMatch[6].toUpperCase();
         
         // Convert to 24-hour format for start time
@@ -387,7 +387,7 @@ const FacultyLoading = () => {
         const startMin = parseInt(timeMatch[2] || '0');
         const startPeriod = timeMatch[3].toUpperCase();
         const endHour = parseInt(timeMatch[4]);
-        const endMin = parseInt(timeMatch[5] || '0');
+        let endMin = parseInt(timeMatch[5] || '0');
         const endPeriod = timeMatch[6].toUpperCase();
         
         // Adjust end time for display (same logic as parsing)
@@ -506,13 +506,854 @@ const FacultyLoading = () => {
     
     console.log('Print data:', printData);
     
-    // You can implement actual printing logic here
-    toast.success('Print functionality would open a print dialog with the faculty assignment form');
+    // Create HTML content for printing - PDF Style
+    const printContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Faculty Assignment Form - ${facultyName}</title>
+          <style>
+            @page {
+              size: A4;
+              margin: 0.5in;
+            }
+            
+            body {
+              font-family: 'Times New Roman', serif;
+              margin: 0;
+              padding: 0;
+              color: #000;
+              background: white;
+              line-height: 1.2;
+            }
+            
+            .document {
+              width: 100%;
+              max-width: 8.5in;
+              margin: 0 auto;
+              background: white;
+              position: relative;
+            }
+            
+            .watermark {
+              position: absolute;
+              top: 50%;
+              left: 50%;
+              transform: translate(-50%, -50%) rotate(-45deg);
+              font-size: 72px;
+              color: rgba(0, 0, 0, 0.1);
+              z-index: -1;
+              font-weight: bold;
+              white-space: nowrap;
+            }
+            
+            .header {
+              text-align: center;
+              margin-bottom: 30px;
+              border-bottom: 3px solid #000;
+              padding-bottom: 15px;
+            }
+            
+            .university-name {
+              font-size: 16px;
+              font-weight: bold;
+              margin-bottom: 5px;
+              text-transform: uppercase;
+            }
+            
+            .university-address {
+              font-size: 12px;
+              margin-bottom: 20px;
+            }
+            
+            .form-title {
+              font-size: 24px;
+              font-weight: bold;
+              margin: 20px 0;
+              text-transform: uppercase;
+              letter-spacing: 2px;
+            }
+            
+            .faculty-info {
+              margin-bottom: 25px;
+              border: 2px solid #000;
+              padding: 15px;
+            }
+            
+            .info-row {
+              display: flex;
+              margin-bottom: 8px;
+              font-size: 14px;
+            }
+            
+            .info-label {
+              font-weight: bold;
+              width: 150px;
+              text-transform: uppercase;
+            }
+            
+            .info-value {
+              flex: 1;
+              border-bottom: 1px solid #000;
+              padding-bottom: 2px;
+              margin-left: 10px;
+            }
+            
+            .subjects-table {
+              width: 100%;
+              border-collapse: collapse;
+              margin: 20px 0;
+              font-size: 12px;
+            }
+            
+            .subjects-table th {
+              background-color: #f0f0f0;
+              border: 2px solid #000;
+              padding: 8px;
+              text-align: center;
+              font-weight: bold;
+              text-transform: uppercase;
+            }
+            
+            .subjects-table td {
+              border: 1px solid #000;
+              padding: 6px;
+              text-align: left;
+            }
+            
+            .subjects-table tr:nth-child(even) {
+              background-color: #f9f9f9;
+            }
+            
+            .total-row {
+              font-weight: bold;
+              background-color: #e0e0e0 !important;
+            }
+            
+            .signature-section {
+              margin-top: 30px;
+              display: flex;
+              justify-content: space-between;
+            }
+            
+            .signature-box {
+              width: 200px;
+              text-align: center;
+            }
+            
+            .signature-line {
+              border-bottom: 1px solid #000;
+              height: 40px;
+              margin-bottom: 5px;
+            }
+            
+            .signature-label {
+              font-size: 12px;
+              font-weight: bold;
+              text-transform: uppercase;
+            }
+            
+            .footer {
+              margin-top: 40px;
+              text-align: center;
+              font-size: 10px;
+              border-top: 1px solid #000;
+              padding-top: 10px;
+            }
+            
+            @media print {
+              body { margin: 0; }
+              .no-print { display: none; }
+              .document { box-shadow: none; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="document">
+            <div class="watermark">UNIVERSITY OF THE CORDILLERAS</div>
+            
+            <div class="header">
+              <div class="university-name">UNIVERSITY OF THE CORDILLERAS</div>
+              <div class="university-address">GOV. PACK RD., BAGUIO CITY, PHILIPPINES</div>
+              <div class="form-title">Faculty Assignment Form</div>
+            </div>
+            
+            <div class="faculty-info">
+              <div class="info-row">
+                <div class="info-label">FACULTY NAME:</div>
+                <div class="info-value">${facultyName || '_________________________'}</div>
+              </div>
+              <div class="info-row">
+                <div class="info-label">ACADEMIC YEAR:</div>
+                <div class="info-value">${academicYear}</div>
+              </div>
+              <div class="info-row">
+                <div class="info-label">SEMESTER:</div>
+                <div class="info-value">${semester}</div>
+              </div>
+              <div class="info-row">
+                <div class="info-label">DATE:</div>
+                <div class="info-value">${new Date().toLocaleDateString()}</div>
+              </div>
+              <div class="info-row">
+                <div class="info-label">TOTAL SUBJECTS:</div>
+                <div class="info-value">${facultyLoads.length}</div>
+              </div>
+            </div>
+            
+            <table class="subjects-table">
+              <thead>
+                <tr>
+                  <th style="width: 12%;">SUBJECT CODE</th>
+                  <th style="width: 25%;">DESCRIPTION</th>
+                  <th style="width: 8%;">LEC</th>
+                  <th style="width: 8%;">LAB</th>
+                  <th style="width: 8%;">UNITS</th>
+                  <th style="width: 15%;">YEAR & SECTION</th>
+                  <th style="width: 15%;">SCHEDULE</th>
+                  <th style="width: 9%;">TYPE</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${facultyLoads.length > 0 ? facultyLoads.map(load => `
+                  <tr>
+                    <td>${load.subject_code || ''}</td>
+                    <td>${load.subject_description || ''}</td>
+                    <td style="text-align: center;">${load.lec_hours || 0}</td>
+                    <td style="text-align: center;">${load.lab_hours || 0}</td>
+                    <td style="text-align: center;">${load.units || 0}</td>
+                    <td>${load.section || ''}</td>
+                    <td>${load.schedule || ''}</td>
+                    <td>${load.type || ''}</td>
+                  </tr>
+                `).join('') : `
+                  <tr>
+                    <td colspan="8" style="text-align: center; font-style: italic;">No subjects assigned</td>
+                  </tr>
+                `}
+                <tr class="total-row">
+                  <td colspan="4" style="text-align: right; font-weight: bold;">TOTAL UNITS:</td>
+                  <td style="text-align: center; font-weight: bold;">${facultyLoads.reduce((sum, load) => sum + (parseInt(load.units) || 0), 0)}</td>
+                  <td colspan="3"></td>
+                </tr>
+              </tbody>
+            </table>
+            
+            <div class="signature-section">
+              <div class="signature-box">
+                <div class="signature-line"></div>
+                <div class="signature-label">Program Head Signature</div>
+              </div>
+              <div class="signature-box">
+                <div class="signature-line"></div>
+                <div class="signature-label">Dean Signature</div>
+              </div>
+              <div class="signature-box">
+                <div class="signature-line"></div>
+                <div class="signature-label">Faculty Signature</div>
+              </div>
+            </div>
+            
+            <div class="footer">
+              <p>Generated on: ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}</p>
+              <p>Faculty Loading System - University of the Cordilleras</p>
+            </div>
+          </div>
+        </body>
+      </html>
+    `;
     
-    // Alternative: Open a new window with printable content
-    // const printWindow = window.open('', '_blank');
-    // printWindow.document.write(/* HTML content for printing */);
-    // printWindow.print();
+    // Create PDF content using HTML to PDF conversion
+    const pdfContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Faculty Assignment Form - ${facultyName}</title>
+          <style>
+            * {
+              margin: 0;
+              padding: 0;
+              box-sizing: border-box;
+            }
+            
+            body {
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+              background: #525659;
+              color: #333;
+              overflow: hidden;
+            }
+            
+            .pdf-viewer {
+              display: flex;
+              flex-direction: column;
+              height: 100vh;
+            }
+            
+            .pdf-toolbar {
+              background: #323639;
+              border-bottom: 1px solid #5f6368;
+              padding: 8px 16px;
+              display: flex;
+              align-items: center;
+              justify-content: space-between;
+              color: white;
+              font-size: 14px;
+            }
+            
+            .toolbar-left {
+              display: flex;
+              align-items: center;
+              gap: 16px;
+            }
+            
+            .toolbar-right {
+              display: flex;
+              align-items: center;
+              gap: 16px;
+            }
+            
+            .toolbar-button {
+              background: none;
+              border: none;
+              color: white;
+              cursor: pointer;
+              padding: 6px 12px;
+              border-radius: 4px;
+              font-size: 14px;
+              display: flex;
+              align-items: center;
+              gap: 6px;
+              transition: background-color 0.2s;
+            }
+            
+            .toolbar-button:hover {
+              background: rgba(255, 255, 255, 0.1);
+            }
+            
+            .page-info {
+              font-size: 14px;
+              color: #e8eaed;
+            }
+            
+            .zoom-controls {
+              display: flex;
+              align-items: center;
+              gap: 8px;
+            }
+            
+            .zoom-button {
+              background: none;
+              border: none;
+              color: white;
+              cursor: pointer;
+              padding: 4px 8px;
+              border-radius: 4px;
+              font-size: 16px;
+            }
+            
+            .zoom-button:hover {
+              background: rgba(255, 255, 255, 0.1);
+            }
+            
+            .zoom-level {
+              font-size: 14px;
+              color: #e8eaed;
+              min-width: 60px;
+              text-align: center;
+            }
+            
+            .pdf-content {
+              flex: 1;
+              overflow: auto;
+              background: #525659;
+              padding: 20px;
+              display: flex;
+              justify-content: center;
+            }
+            
+            .document-page {
+              background: white;
+              box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+              width: 210mm;
+              min-height: 297mm;
+              padding: 25mm;
+              position: relative;
+              transform-origin: top center;
+              transition: transform 0.2s ease;
+            }
+            
+            @media print {
+              body { background: white; }
+              .pdf-toolbar { display: none; }
+              .pdf-content { padding: 0; background: white; }
+              .document-page { box-shadow: none; }
+            }
+            
+            .watermark {
+              position: absolute;
+              top: 50%;
+              left: 50%;
+              transform: translate(-50%, -50%) rotate(-45deg);
+              font-size: 72px;
+              color: rgba(0, 0, 0, 0.1);
+              z-index: -1;
+              font-weight: bold;
+              white-space: nowrap;
+            }
+            
+            .header {
+              text-align: center;
+              margin-bottom: 30px;
+              border-bottom: 3px solid #000;
+              padding-bottom: 15px;
+            }
+            
+            .university-name {
+              font-size: 16px;
+              font-weight: bold;
+              margin-bottom: 5px;
+              text-transform: uppercase;
+              font-family: 'Times New Roman', serif;
+            }
+            
+            .university-address {
+              font-size: 12px;
+              margin-bottom: 20px;
+              font-family: 'Times New Roman', serif;
+            }
+            
+            .form-title {
+              font-size: 24px;
+              font-weight: bold;
+              margin: 20px 0;
+              text-transform: uppercase;
+              letter-spacing: 2px;
+              font-family: 'Times New Roman', serif;
+            }
+            
+            .faculty-info {
+              margin-bottom: 25px;
+              border: 2px solid #000;
+              padding: 15px;
+            }
+            
+            .info-row {
+              display: flex;
+              margin-bottom: 8px;
+              font-size: 14px;
+              font-family: 'Times New Roman', serif;
+            }
+            
+            .info-label {
+              font-weight: bold;
+              width: 150px;
+              text-transform: uppercase;
+            }
+            
+            .info-value {
+              flex: 1;
+              border-bottom: 1px solid #000;
+              padding-bottom: 2px;
+              margin-left: 10px;
+            }
+            
+            .subjects-table {
+              width: 100%;
+              border-collapse: collapse;
+              margin: 20px 0;
+              font-size: 12px;
+              font-family: 'Times New Roman', serif;
+            }
+            
+            .subjects-table th {
+              background-color: #f0f0f0;
+              border: 2px solid #000;
+              padding: 8px;
+              text-align: center;
+              font-weight: bold;
+              text-transform: uppercase;
+            }
+            
+            .subjects-table td {
+              border: 1px solid #000;
+              padding: 6px;
+              text-align: left;
+            }
+            
+            .subjects-table tr:nth-child(even) {
+              background-color: #f9f9f9;
+            }
+            
+            .total-row {
+              font-weight: bold;
+              background-color: #e0e0e0 !important;
+            }
+            
+            .signature-section {
+              margin-top: 30px;
+              display: flex;
+              justify-content: space-between;
+            }
+            
+            .signature-box {
+              width: 200px;
+              text-align: center;
+            }
+            
+            .signature-line {
+              border-bottom: 1px solid #000;
+              height: 40px;
+              margin-bottom: 5px;
+            }
+            
+            .signature-label {
+              font-size: 12px;
+              font-weight: bold;
+              text-transform: uppercase;
+              font-family: 'Times New Roman', serif;
+            }
+            
+            .footer {
+              margin-top: 40px;
+              text-align: center;
+              font-size: 10px;
+              border-top: 1px solid #000;
+              padding-top: 10px;
+              font-family: 'Times New Roman', serif;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="pdf-viewer">
+            <div class="pdf-toolbar">
+              <div class="toolbar-left">
+                <button class="toolbar-button" onclick="printDocument()">
+                  🖨️ Print
+                </button>
+                <button class="toolbar-button" onclick="downloadDocument()">
+                  💾 Download
+                </button>
+                <button class="toolbar-button" onclick="closeWindow()">
+                  ❌ Close
+                </button>
+              </div>
+              
+              <div class="page-info">
+                Page 1 of 1
+              </div>
+              
+              <div class="toolbar-right">
+                <div class="zoom-controls">
+                  <button class="zoom-button" onclick="zoomOut()">−</button>
+                  <span class="zoom-level" id="zoomLevel">100%</span>
+                  <button class="zoom-button" onclick="zoomIn()">+</button>
+                </div>
+                <button class="toolbar-button" onclick="fitToWidth()">
+                  📏 Fit to Width
+                </button>
+              </div>
+            </div>
+            
+            <div class="pdf-content">
+              <div class="document-page" id="documentPage">
+                <div class="watermark">UNIVERSITY OF THE CORDILLERAS</div>
+                
+                <div class="header">
+                  <div class="university-name">UNIVERSITY OF THE CORDILLERAS</div>
+                  <div class="university-address">GOV. PACK RD., BAGUIO CITY, PHILIPPINES</div>
+                  <div class="form-title">Faculty Assignment Form</div>
+                </div>
+                
+                <div class="faculty-info">
+                  <div class="info-row">
+                    <div class="info-label">FACULTY NAME:</div>
+                    <div class="info-value">${facultyName || '_________________________'}</div>
+                  </div>
+                  <div class="info-row">
+                    <div class="info-label">ACADEMIC YEAR:</div>
+                    <div class="info-value">${academicYear}</div>
+                  </div>
+                  <div class="info-row">
+                    <div class="info-label">SEMESTER:</div>
+                    <div class="info-value">${semester}</div>
+                  </div>
+                  <div class="info-row">
+                    <div class="info-label">DATE:</div>
+                    <div class="info-value">${new Date().toLocaleDateString()}</div>
+                  </div>
+                  <div class="info-row">
+                    <div class="info-label">TOTAL SUBJECTS:</div>
+                    <div class="info-value">${facultyLoads.length}</div>
+                  </div>
+                </div>
+                
+                <table class="subjects-table">
+                  <thead>
+                    <tr>
+                      <th style="width: 12%;">SUBJECT CODE</th>
+                      <th style="width: 25%;">DESCRIPTION</th>
+                      <th style="width: 8%;">LEC</th>
+                      <th style="width: 8%;">LAB</th>
+                      <th style="width: 8%;">UNITS</th>
+                      <th style="width: 15%;">YEAR & SECTION</th>
+                      <th style="width: 15%;">SCHEDULE</th>
+                      <th style="width: 9%;">TYPE</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${facultyLoads.length > 0 ? facultyLoads.map(load => `
+                      <tr>
+                        <td>${load.subject_code || ''}</td>
+                        <td>${load.subject_description || ''}</td>
+                        <td style="text-align: center;">${load.lec_hours || 0}</td>
+                        <td style="text-align: center;">${load.lab_hours || 0}</td>
+                        <td style="text-align: center;">${load.units || 0}</td>
+                        <td>${load.section || ''}</td>
+                        <td>${load.schedule || ''}</td>
+                        <td>${load.type || ''}</td>
+                      </tr>
+                    `).join('') : `
+                      <tr>
+                        <td colspan="8" style="text-align: center; font-style: italic;">No subjects assigned</td>
+                      </tr>
+                    `}
+                    <tr class="total-row">
+                      <td colspan="4" style="text-align: right; font-weight: bold;">TOTAL UNITS:</td>
+                      <td style="text-align: center; font-weight: bold;">${facultyLoads.reduce((sum, load) => sum + (parseInt(load.units) || 0), 0)}</td>
+                      <td colspan="3"></td>
+                    </tr>
+                  </tbody>
+                </table>
+                
+                <div class="signature-section">
+                  <div class="signature-box">
+                    <div class="signature-line"></div>
+                    <div class="signature-label">Program Head Signature</div>
+                  </div>
+                  <div class="signature-box">
+                    <div class="signature-line"></div>
+                    <div class="signature-label">Dean Signature</div>
+                  </div>
+                  <div class="signature-box">
+                    <div class="signature-line"></div>
+                    <div class="signature-label">Faculty Signature</div>
+                  </div>
+                </div>
+                
+                <div class="footer">
+                  <p>Generated on: ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}</p>
+                  <p>Faculty Loading System - University of the Cordilleras</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <script>
+            let currentZoom = 100;
+            
+            function printDocument() {
+              window.print();
+            }
+            
+            function downloadDocument() {
+              // Create a new window for printing to PDF
+              const printWindow = window.open('', '_blank');
+              
+              const htmlContent = '<!DOCTYPE html>' +
+                '<html>' +
+                '<head>' +
+                '<title>Faculty Assignment Form - ' + facultyName + '</title>' +
+                '<style>' +
+                '@page { size: A4; margin: 0.5in; }' +
+                'body { font-family: "Times New Roman", serif; margin: 0; padding: 0; color: #000; background: white; line-height: 1.2; }' +
+                '.document-page { width: 100%; max-width: 8.5in; margin: 0 auto; background: white; position: relative; }' +
+                '.watermark { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-45deg); font-size: 72px; color: rgba(0, 0, 0, 0.1); z-index: -1; font-weight: bold; white-space: nowrap; }' +
+                '.header { text-align: center; margin-bottom: 30px; border-bottom: 3px solid #000; padding-bottom: 15px; }' +
+                '.university-name { font-size: 16px; font-weight: bold; margin-bottom: 5px; text-transform: uppercase; }' +
+                '.university-address { font-size: 12px; margin-bottom: 20px; }' +
+                '.form-title { font-size: 24px; font-weight: bold; margin: 20px 0; text-transform: uppercase; letter-spacing: 2px; }' +
+                '.faculty-info { margin-bottom: 25px; border: 2px solid #000; padding: 15px; }' +
+                '.info-row { display: flex; margin-bottom: 8px; font-size: 14px; }' +
+                '.info-label { font-weight: bold; width: 150px; text-transform: uppercase; }' +
+                '.info-value { flex: 1; border-bottom: 1px solid #000; padding-bottom: 2px; margin-left: 10px; }' +
+                '.subjects-table { width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 12px; }' +
+                '.subjects-table th { background-color: #f0f0f0; border: 2px solid #000; padding: 8px; text-align: center; font-weight: bold; text-transform: uppercase; }' +
+                '.subjects-table td { border: 1px solid #000; padding: 6px; text-align: left; }' +
+                '.subjects-table tr:nth-child(even) { background-color: #f9f9f9; }' +
+                '.total-row { font-weight: bold; background-color: #e0e0e0 !important; }' +
+                '.signature-section { margin-top: 30px; display: flex; justify-content: space-between; }' +
+                '.signature-box { width: 200px; text-align: center; }' +
+                '.signature-line { border-bottom: 1px solid #000; height: 40px; margin-bottom: 5px; }' +
+                '.signature-label { font-size: 12px; font-weight: bold; text-transform: uppercase; }' +
+                '.footer { margin-top: 40px; text-align: center; font-size: 10px; border-top: 1px solid #000; padding-top: 10px; }' +
+                '</style>' +
+                '</head>' +
+                '<body>' +
+                '<div class="document-page">' +
+                '<div class="watermark">UNIVERSITY OF THE CORDILLERAS</div>' +
+                '<div class="header">' +
+                '<div class="university-name">UNIVERSITY OF THE CORDILLERAS</div>' +
+                '<div class="university-address">GOV. PACK RD., BAGUIO CITY, PHILIPPINES</div>' +
+                '<div class="form-title">Faculty Assignment Form</div>' +
+                '</div>' +
+                '<div class="faculty-info">' +
+                '<div class="info-row">' +
+                '<div class="info-label">FACULTY NAME:</div>' +
+                '<div class="info-value">' + (facultyName || '_________________________') + '</div>' +
+                '</div>' +
+                '<div class="info-row">' +
+                '<div class="info-label">ACADEMIC YEAR:</div>' +
+                '<div class="info-value">' + academicYear + '</div>' +
+                '</div>' +
+                '<div class="info-row">' +
+                '<div class="info-label">SEMESTER:</div>' +
+                '<div class="info-value">' + semester + '</div>' +
+                '</div>' +
+                '<div class="info-row">' +
+                '<div class="info-label">DATE:</div>' +
+                '<div class="info-value">' + new Date().toLocaleDateString() + '</div>' +
+                '</div>' +
+                '<div class="info-row">' +
+                '<div class="info-label">TOTAL SUBJECTS:</div>' +
+                '<div class="info-value">' + facultyLoads.length + '</div>' +
+                '</div>' +
+                '</div>' +
+                '<table class="subjects-table">' +
+                '<thead>' +
+                '<tr>' +
+                '<th style="width: 12%;">SUBJECT CODE</th>' +
+                '<th style="width: 25%;">DESCRIPTION</th>' +
+                '<th style="width: 8%;">LEC</th>' +
+                '<th style="width: 8%;">LAB</th>' +
+                '<th style="width: 8%;">UNITS</th>' +
+                '<th style="width: 15%;">YEAR & SECTION</th>' +
+                '<th style="width: 15%;">SCHEDULE</th>' +
+                '<th style="width: 9%;">TYPE</th>' +
+                '</tr>' +
+                '</thead>' +
+                '<tbody>' +
+                (facultyLoads.length > 0 ? facultyLoads.map(load => 
+                  '<tr>' +
+                  '<td>' + (load.subject_code || '') + '</td>' +
+                  '<td>' + (load.subject_description || '') + '</td>' +
+                  '<td style="text-align: center;">' + (load.lec_hours || 0) + '</td>' +
+                  '<td style="text-align: center;">' + (load.lab_hours || 0) + '</td>' +
+                  '<td style="text-align: center;">' + (load.units || 0) + '</td>' +
+                  '<td>' + (load.section || '') + '</td>' +
+                  '<td>' + (load.schedule || '') + '</td>' +
+                  '<td>' + (load.type || '') + '</td>' +
+                  '</tr>'
+                ).join('') : 
+                  '<tr><td colspan="8" style="text-align: center; font-style: italic;">No subjects assigned</td></tr>') +
+                '<tr class="total-row">' +
+                '<td colspan="4" style="text-align: right; font-weight: bold;">TOTAL UNITS:</td>' +
+                '<td style="text-align: center; font-weight: bold;">' + facultyLoads.reduce((sum, load) => sum + (parseInt(load.units) || 0), 0) + '</td>' +
+                '<td colspan="3"></td>' +
+                '</tr>' +
+                '</tbody>' +
+                '</table>' +
+                '<div class="signature-section">' +
+                '<div class="signature-box">' +
+                '<div class="signature-line"></div>' +
+                '<div class="signature-label">Program Head Signature</div>' +
+                '</div>' +
+                '<div class="signature-box">' +
+                '<div class="signature-line"></div>' +
+                '<div class="signature-label">Dean Signature</div>' +
+                '</div>' +
+                '<div class="signature-box">' +
+                '<div class="signature-line"></div>' +
+                '<div class="signature-label">Faculty Signature</div>' +
+                '</div>' +
+                '</div>' +
+                '<div class="footer">' +
+                '<p>Generated on: ' + new Date().toLocaleDateString() + ' at ' + new Date().toLocaleTimeString() + '</p>' +
+                '<p>Faculty Loading System - University of the Cordilleras</p>' +
+                '</div>' +
+                '</div>' +
+                '<script>' +
+                'window.onload = function() { setTimeout(() => { window.print(); }, 500); };' +
+                '</script>' +
+                '</body>' +
+                '</html>';
+              
+              printWindow.document.write(htmlContent);
+              printWindow.document.close();
+            }
+            
+            function closeWindow() {
+              window.close();
+            }
+            
+            function zoomIn() {
+              currentZoom = Math.min(currentZoom + 25, 200);
+              updateZoom();
+            }
+            
+            function zoomOut() {
+              currentZoom = Math.max(currentZoom - 25, 50);
+              updateZoom();
+            }
+            
+            function fitToWidth() {
+              currentZoom = 100;
+              updateZoom();
+            }
+            
+            function updateZoom() {
+              const documentPage = document.getElementById('documentPage');
+              const zoomLevel = document.getElementById('zoomLevel');
+              
+              documentPage.style.transform = \`scale(\${currentZoom / 100})\`;
+              zoomLevel.textContent = \`\${currentZoom}%\`;
+            }
+            
+            // Keyboard shortcuts
+            document.addEventListener('keydown', function(e) {
+              if (e.ctrlKey) {
+                switch(e.key) {
+                  case 'p':
+                    e.preventDefault();
+                    printDocument();
+                    break;
+                  case 's':
+                    e.preventDefault();
+                    downloadDocument();
+                    break;
+                  case '=':
+                  case '+':
+                    e.preventDefault();
+                    zoomIn();
+                    break;
+                  case '-':
+                    e.preventDefault();
+                    zoomOut();
+                    break;
+                  case '0':
+                    e.preventDefault();
+                    fitToWidth();
+                    break;
+                }
+              }
+            });
+          </script>
+        </body>
+      </html>
+    `;
+    
+    // Create a blob with HTML content for Google Docs Viewer style
+    const blob = new Blob([pdfContent], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    
+    // Open in new tab - simple Google Docs Viewer style
+    window.open(url, '_blank');
+    
+    // Clean up URL after delay
+    setTimeout(() => {
+      URL.revokeObjectURL(url);
+    }, 10000);
+    
+    toast.success('Faculty Assignment Form opened in new tab');
   };
 
 
@@ -1085,7 +1926,7 @@ const FacultyLoading = () => {
                 className="flex items-center px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm gap-2"
               >
                 <FileText className="w-4 h-4" />
-                Print Faculty Assignment Form
+                Open Faculty Assignment Form
                 <ChevronDown className="w-4 h-4" />
               </button>
             </div>

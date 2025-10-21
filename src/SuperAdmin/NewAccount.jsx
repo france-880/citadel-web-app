@@ -49,7 +49,14 @@ export default function New_Account() {
 
   // Handle input change
   const handleChange = (field) => (e) => {
-    setForm((prev) => ({ ...prev, [field]: e.target.value }));
+    let value = e.target.value;
+    
+    // Limit contact numbers to 11 digits maximum
+    if (field === "contact" && value.length > 11) {
+      value = value.slice(0, 11);
+    }
+    
+    setForm((prev) => ({ ...prev, [field]: value }));
     if (errors[field]) setErrors((prev) => ({ ...prev, [field]: "" }));
   };
 

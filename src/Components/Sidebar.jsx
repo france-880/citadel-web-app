@@ -1,6 +1,7 @@
 import { NavLink, useNavigate } from "react-router-dom";
 import { useEffect, useState } from 'react';
 import { useAuth } from '../Context/AuthContext';
+import api from '../api/axios';
 
 import { 
   LayoutDashboardIcon,
@@ -22,6 +23,8 @@ export default function Sidebar() {
   const [selectedProgram, setSelectedProgram] = useState(() => localStorage.getItem('selectedProgram') || 'BSIT-4A');
   const [showPrograms, setShowPrograms] = useState(true);
   const [isCollapsed, setIsCollapsed] = useState(() => localStorage.getItem('sidebarCollapsed') === 'true');
+  const [dynamicSections, setDynamicSections] = useState([]);
+  const [loadingSections, setLoadingSections] = useState(false);
 
   useEffect(() => {
     localStorage.setItem('selectedProgram', selectedProgram);
@@ -32,6 +35,41 @@ export default function Sidebar() {
     // Dispatch custom event for components to listen to
     window.dispatchEvent(new Event('sidebarToggle'));
   }, [isCollapsed]);
+
+  // Fetch dynamic sections for professors
+  const fetchDynamicSections = async () => {
+    if (user?.role !== 'prof') return;
+    
+    setLoadingSections(true);
+    try {
+      const academicYear = sessionStorage.getItem('currentAcademicYear') || '2024';
+      const semester = sessionStorage.getItem('currentSemester') || 'First';
+      
+      // For professors, get sections assigned to them
+      const response = await api.get(`/faculty-loads/${user.id}/sections`, {
+        params: {
+          academic_year: academicYear,
+          semester: semester
+        }
+      });
+      
+      setDynamicSections(response.data || []);
+      console.log('Loaded dynamic sections for professor:', response.data);
+    } catch (error) {
+      console.error('Error fetching dynamic sections:', error);
+      // Fallback to static sections if API fails
+      setDynamicSections(['BSIT-3A', 'BSIT-3B', 'BSIT-4A', 'BSIT-4C']);
+    } finally {
+      setLoadingSections(false);
+    }
+  };
+
+  // Fetch sections when component mounts or user changes
+  useEffect(() => {
+    if (user?.role === 'prof') {
+      fetchDynamicSections();
+    }
+  }, [user?.role, user?.id]);
   
 
   const menuItems = [
@@ -152,23 +190,32 @@ export default function Sidebar() {
                 </button>
                 {showPrograms && !isCollapsed && (
                   <div className="mt-2 space-y-1 ml-4">
-                    {['BSIT-3A','BSIT-3B','BSIT-4A','BSIT-4C'].map((prog) => (
-                      <button
-                      key={prog}
-                      onClick={() => {
-                        setSelectedProgram(prog);
-                        navigate('/program');
-                      }}
-                      className={`w-full px-3 py-2 rounded-md text-sm transition-colors ${
-                        selectedProgram === prog
-                          ? 'bg-[#1C4F06]/30 text-[#064F32]'
-                          : 'text-gray-600 hover:text-[#064F32] hover:bg-[#064F32]/5'
-                      }`}
-                    >
-                      {prog.replace('-', ' ')}
-                    </button>
-                    
-                    ))}
+                    {loadingSections ? (
+                      <div className="px-3 py-2 text-sm text-gray-500">
+                        Loading sections...
+                      </div>
+                    ) : dynamicSections.length > 0 ? (
+                      dynamicSections.map((prog) => (
+                        <button
+                          key={prog}
+                          onClick={() => {
+                            setSelectedProgram(prog);
+                            navigate('/program');
+                          }}
+                          className={`w-full px-3 py-2 rounded-md text-sm transition-colors ${
+                            selectedProgram === prog
+                              ? 'bg-[#1C4F06]/30 text-[#064F32]'
+                              : 'text-gray-600 hover:text-[#064F32] hover:bg-[#064F32]/5'
+                          }`}
+                        >
+                          {prog.replace('-', ' ')}
+                        </button>
+                      ))
+                    ) : (
+                      <div className="px-3 py-2 text-sm text-gray-500">
+                        No sections assigned
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

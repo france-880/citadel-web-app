@@ -121,42 +121,18 @@ export default function Sidebar() {
       roles: ["super_admin"],
     },
 
-    // Dean specific menu items
-    {
-      label: "Dashboard",
-      path: "/dashboard",
-      icon: LayoutDashboardIcon,
-      description: "Overview of activities",
-      roles: ["dean"],
-    },
-    {
-      label: "Daily Attendance",
-      path: "/daily_attendance",
-      icon: LayoutDashboardIcon,
-      description: "Manage daily attendance",
-      roles: ["dean"],
-    },
-    {
-      label: "Student Registration",
-      path: "/student_registration",
-      icon: Users,
-      description: "Manage student registrations",
-      roles: ["dean"],
-    },
-    {
-      label: "User Management",
-      path: "/user_management",
-      icon: Users,
-      description: "Manage college users",
-      roles: ["dean"],
-    },
-    {
-      label: "Report",
-      path: "/report",
-      icon: BarChart3,
-      description: "Generate reports",
-      roles: ["dean"],
-    },
+    // Other role menu items (keeping existing structure for non-super-admin users)
+    { label: "Dashboard", path: "/dashboard", icon: LayoutDashboardIcon, roles: ["guard","dean"] },
+    { label: "Daily Attendance", path: "/daily_attendance", icon: LayoutDashboardIcon, roles: ["dean"] },
+    { label: "Student Registration", path: "/student_registration", icon: Users, roles: ["dean"] },
+    { label: "User Management", path: "/user_management", icon: Users, roles: ["dean"] },
+    { label: "Faculty List", path: "/faculty-load", icon: Users, roles: ["program_head"] },
+    { label: "Section Offering", path: "/section-offering", icon: Users, roles: ["program_head"] },
+    { label: "Report", path: "/report", icon: BarChart3, roles: ["dean"] },
+    { label: "Report", path: "/prof_report", icon: BarChart3, roles: ["prof"] },
+    { label: "Program", path: "/program", icon: GraduationCap, roles: ["prof"] },
+    { label: "Schedule", path: "/schedule", icon: Settings, roles: ["prof"] },
+  ];
 
     // Program Head specific menu items
     {

@@ -16,8 +16,11 @@ import api from '../api/axios';
 import toast from 'react-hot-toast';
 
 const FacultyLoading = () => {
-  const [academicYear, setAcademicYear] = useState('2024');
-  const [semester, setSemester] = useState('First');
+  const [course, setCourse] = useState('');
+  const [academicYear, setAcademicYear] = useState('2526');
+  const [semester, setSemester] = useState('Second');
+  const [yearLevel, setYearLevel] = useState('First Year');
+  const [parentSection, setParentSection] = useState('A-NORTH');
   const [facultyName, setFacultyName] = useState('');
   const [selectedFaculty, setSelectedFaculty] = useState(null);
 
@@ -1540,7 +1543,7 @@ const FacultyLoading = () => {
           <div className="p-6 space-y-8">
           <div className="flex items-center justify-between mb-6">
             <h1 className="text-2xl font-semibold text-[#064F32]">
-              Faculty Loading
+              Section Offering
             </h1>
           </div>
 
@@ -1548,55 +1551,83 @@ const FacultyLoading = () => {
         <div className="bg-white rounded-lg shadow-sm">
           {/* Navigation Tabs */}
           <div className="border-b border-gray-200"> </div>
-          {/* Academic Year and Semester - Better Balanced */}
-          <div className="bg-white rounded-lg  shadow-sm pb-6 mx-6 mt-6 mb-6">
-            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-                <div className="flex items-center space-x-3">
-                  <label className="text-sm font-medium text-gray-700 whitespace-nowrap">Academic Year:</label>
+          {/* Filters Section - Course, Academic Year, Semester, Year Level, Parent Section */}
+          <div className="bg-white rounded-lg shadow-sm pb-6 mx-6 mt-6 mb-6">
+            <div className="space-y-4">
+              {/* Course - First Row */}
+              <div className="flex flex-col">
+                <label className="text-sm font-medium text-gray-700 mb-2 whitespace-nowrap">Course</label>
+                <select
+                  value={course}
+                  onChange={(e) => setCourse(e.target.value)}
+                  className="border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors"
+                >
+                  <option value="">Select Course</option>
+                  <option value="BSIT">BSIT - BACHELOR OF SCIENCE IN INFORMATION TECHNOLOGY</option>
+                  <option value="BSCS">BSCS - BACHELOR OF SCIENCE IN COMPUTER SCIENCE</option>
+                  <option value="BSIS">BSIS - BACHELOR OF SCIENCE IN INFORMATION SYSTEMS</option>
+                </select>
+              </div>
+
+              {/* Academic Year, Semester, Year Level, Parent Section - Second Row */}
+              <div className="flex flex-nowrap gap-3 items-end overflow-x-auto">
+                {/* Academic Year */}
+                <div className="flex flex-col min-w-[140px] flex-1">
+                  <label className="text-sm font-medium text-gray-700 mb-2 whitespace-nowrap">Academic Year</label>
                   <select
                     value={academicYear}
                     onChange={(e) => setAcademicYear(e.target.value)}
-                    className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors min-w-[100px]"
+                    className="border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors w-full"
                   >
-                    <option value="2024">2024</option>
-                    <option value="2025">2025</option>
-                    <option value="2026">2026</option>
-                    <option value="2027">2027</option>
+                    <option value="2524">2524</option>
+                    <option value="2525">2525</option>
+                    <option value="2526">2526</option>
+                    <option value="2527">2527</option>
                   </select>
                 </div>
-                <div className="flex items-center space-x-3">
-                  <label className="text-sm font-medium text-gray-700 whitespace-nowrap">Semester:</label>
+
+                {/* Semester */}
+                <div className="flex flex-col min-w-[120px] flex-1">
+                  <label className="text-sm font-medium text-gray-700 mb-2 whitespace-nowrap">Semester</label>
                   <select
                     value={semester}
                     onChange={(e) => setSemester(e.target.value)}
-                    className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors min-w-[120px]"
+                    className="border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors w-full"
                   >
                     <option value="First">First</option>
                     <option value="Second">Second</option>
                     <option value="Summer">Summer</option>
                   </select>
                 </div>
-                <button 
-                  onClick={handleSetAcademicYear}
-                  className="px-6 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors shadow-sm flex items-center gap-2"
-                >
-                  <Calendar className="w-4 h-4" />
-                  Set Period
-                </button>
-              </div>
-              <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-3">
-                <div className="text-sm font-medium text-gray-700">Current Faculty:</div>
-                <div className="text-lg font-semibold text-green-700">
-                  {facultyName || 'No faculty selected'}
+
+                {/* Year Level */}
+                <div className="flex flex-col min-w-[140px] flex-1">
+                  <label className="text-sm font-medium text-gray-700 mb-2 whitespace-nowrap">Year Level</label>
+                  <select
+                    value={yearLevel}
+                    onChange={(e) => setYearLevel(e.target.value)}
+                    className="border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors w-full"
+                  >
+                    <option value="First Year">First Year</option>
+                    <option value="Second Year">Second Year</option>
+                    <option value="Third Year">Third Year</option>
+                    <option value="Fourth Year">Fourth Year</option>
+                  </select>
                 </div>
-                {selectedFaculty && (
-                  <div className="text-xs text-gray-600 mt-1">
-                    Department: {selectedFaculty.department || 'N/A'} | Email: {selectedFaculty.email}
-                  </div>
-                )}
-                <div className="text-xs text-gray-600 mt-1">
-                  Academic Year: {academicYear} | Semester: {semester}
+
+                {/* Parent Section */}
+                <div className="flex flex-col min-w-[140px] flex-1">
+                  <label className="text-sm font-medium text-gray-700 mb-2 whitespace-nowrap">Parent Section</label>
+                  <select
+                    value={parentSection}
+                    onChange={(e) => setParentSection(e.target.value)}
+                    className="border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors w-full"
+                  >
+                    <option value="A-NORTH">A-NORTH</option>
+                    <option value="B-SOUTH">B-SOUTH</option>
+                    <option value="C-EAST">C-EAST</option>
+                    <option value="D-WEST">D-WEST</option>
+                  </select>
                 </div>
               </div>
             </div>
@@ -1605,141 +1636,7 @@ const FacultyLoading = () => {
 
             {/* Faculty Loads Section */}
             <div className="bg-gray-50 rounded-lg ">
-              <h3 className="text-lg font-semibold text-gray-900 mb-6 mt-6 ml-6 border-b-2 border-green-500 pb-2 inline-block">
-                Setup Faculty Loads
-              </h3>
-
-
               {/* Faculty Subjects Info */}
-              <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-200 mb-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="text-lg font-semibold text-gray-900 mb-2">Faculty Load Summary</h4>
-                    <p className="text-sm text-gray-600">
-                      {selectedFaculty ? `Subjects assigned to ${selectedFaculty.fullname}` : 'No faculty selected'}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-2xl font-bold text-green-600">{facultyLoads.length}</div>
-                    <div className="text-sm text-gray-500">Total Subjects</div>
-                    <div className="text-xs text-gray-400 mt-1">
-                      {facultyLoads.reduce((sum, load) => sum + (load.units || 0), 0)} total units
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Available Subjects Section (View Only Dropdown) */}
-              <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-200 mb-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h4 className="text-lg font-semibold text-gray-900">Available Subjects</h4>
-                  <div className="text-sm text-gray-500">
-                    {isLoadingSubjects ? 'Loading...' : `${availableSubjects.length} subjects available`}
-                  </div>
-                </div>
-                
-                <div className="relative">
-                  <select
-                    value={selectedSubject}
-                    onChange={(e) => setSelectedSubject(e.target.value)}
-                    disabled={isLoadingSubjects}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors disabled:bg-gray-100 disabled:cursor-not-allowed appearance-none bg-white"
-                  >
-                    <option value="">
-                      {isLoadingSubjects ? 'Loading subjects...' : 
-                       availableSubjects.length === 0 ? 'No subjects available' :
-                       '-- Select a subject to view details --'}
-                    </option>
-                    {availableSubjects.map(subject => (
-                      <option key={subject.id} value={subject.id}>
-                        {subject.code} - {subject.name} ({subject.units} units) - {subject.type}
-                      </option>
-                    ))}
-                  </select>
-                  <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                    <ChevronDown className="w-4 h-4 text-gray-400" />
-                  </div>
-                </div>
-                
-                {/* Selected Subject Details */}
-                {selectedSubject && (
-                  <div className="mt-3 p-4 bg-green-50 border border-green-200 rounded-lg">
-                    {(() => {
-                      const subject = availableSubjects.find(s => s.id.toString() === selectedSubject);
-                      return subject ? (
-                        <div>
-                          <div className="flex items-center justify-between mb-2">
-                            <h5 className="font-semibold text-green-800">{subject.code}</h5>
-                            <span className={`px-2 py-1 text-xs rounded-full ${
-                              subject.type === 'Major' ? 'bg-blue-100 text-blue-800' :
-                              subject.type === 'General Education' ? 'bg-green-100 text-green-800' :
-                              subject.type === 'Minor' ? 'bg-yellow-100 text-yellow-800' :
-                              'bg-gray-100 text-gray-800'
-                            }`}>
-                              {subject.type}
-                            </span>
-                          </div>
-                          <p className="text-sm text-green-700 mb-2">{subject.name}</p>
-                          <div className="flex items-center justify-between text-xs text-green-600 mb-3">
-                            <span>{subject.units} units</span>
-                            <span>{subject.lecHours}h LEC</span>
-                            {subject.labHours > 0 && <span>{subject.labHours}h LAB</span>}
-                          </div>
-                          <div className="flex gap-2">
-                            <button
-                              onClick={() => {
-                                // Pre-fill the add subject form with selected subject data
-                                setAddSubjectForm({
-                                  subjectCode: subject.code,
-                                  subjectDescription: subject.name,
-                                  lecHours: subject.lecHours,
-                                  labHours: subject.labHours,
-                                  units: subject.units,
-                                  section: '',
-                                  schedule: '',
-                                  room: '',
-                                  type: 'Part-time'
-                                });
-                                setShowAddSubjectModal(true);
-                              }}
-                              className="px-3 py-1 bg-green-600 text-white text-xs rounded-md hover:bg-green-700 transition-colors flex items-center gap-1"
-                            >
-                              <Plus className="w-3 h-3" />
-                              Add Subject
-                            </button>
-                            <button
-                              onClick={() => setSelectedSubject('')}
-                              className="px-3 py-1 bg-gray-500 text-white text-xs rounded-md hover:bg-gray-600 transition-colors"
-                            >
-                              Clear
-                            </button>
-                          </div>
-                        </div>
-                      ) : null;
-                    })()}
-                  </div>
-                )}
-
-                {availableSubjects.length > 0 && (
-                  <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                    <div className="text-sm text-blue-700">
-                      <strong>Note:</strong> Select a subject above to view its details. 
-                      To add subjects to faculty load, use the "Add Subject" button below.
-                    </div>
-                  </div>
-                )}
-                
-                {availableSubjects.length === 0 && !isLoadingSubjects && (
-                  <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                    <div className="text-sm text-yellow-700">
-                      <strong>No subjects found.</strong> Subjects need to be created in Academic Management first.
-                    </div>
-                  </div>
-                )}
-              </div>
-
-
-              {/* Faculty Loads Table */}
               <div className="bg-white rounded-lg overflow-hidden shadow-lg border border-gray-200">
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gradient-to-r from-blue-50 to-blue-100">

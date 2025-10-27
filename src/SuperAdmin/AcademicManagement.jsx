@@ -1,396 +1,427 @@
 import React, { useState, useEffect } from "react";
 import Header from "../Components/Header";
 import Sidebar from "../Components/Sidebar";
-import api from "../api/axios";
-import { 
-  Plus, 
-  Edit, 
-  Trash2, 
-  UserPlus, 
-  Users, 
-  Building2, 
+import { collegeAPI, programAPI, subjectAPI } from "../api/axios";
+import {
+  Plus,
+  Edit,
+  Trash2,
+  Users,
+  Building2,
   GraduationCap,
   BookOpen,
-  ToggleLeft,
-  ToggleRight,
   Search,
-  Filter,
-  MoreVertical,
-  Eye,
-  EyeOff
 } from "lucide-react";
 
 export default function AcademicManagement() {
   const [isLoading, setIsLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('colleges');
-  const [searchTerm, setSearchTerm] = useState('');
+  const [activeTab, setActiveTab] = useState("colleges");
+  const [searchTerm, setSearchTerm] = useState("");
   const [showModal, setShowModal] = useState(false);
-  const [modalType, setModalType] = useState(''); // 'add-college', 'edit-college', 'add-program', 'edit-program', 'add-subject', 'edit-subject'
+  const [modalType, setModalType] = useState("");
   const [selectedCollege, setSelectedCollege] = useState(null);
   const [selectedProgram, setSelectedProgram] = useState(null);
   const [selectedSubject, setSelectedSubject] = useState(null);
-  const [selectedCollegeForProgram, setSelectedCollegeForProgram] = useState(null);
-  const [selectedProgramForSubject, setSelectedProgramForSubject] = useState(null);
+  const [selectedCollegeForProgram, setSelectedCollegeForProgram] =
+    useState(null);
   const [error, setError] = useState(null);
   const [successMessage, setSuccessMessage] = useState(null);
 
-  // API Service Functions
-  const collegeAPI = {
-    getAll: () => api.get('/colleges'),
-    create: (data) => api.post('/colleges', data),
-    update: (id, data) => api.put(`/colleges/${id}`, data),
-    delete: (id) => api.delete(`/colleges/${id}`),
-    getById: (id) => api.get(`/colleges/${id}`)
-  };
-
-  const programAPI = {
-    getAll: () => api.get('/programs'),
-    create: (data) => api.post('/programs', data),
-    update: (id, data) => api.put(`/programs/${id}`, data),
-    delete: (id) => api.delete(`/programs/${id}`),
-    getById: (id) => api.get(`/programs/${id}`)
-  };
-
-  const subjectAPI = {
-    getAll: () => api.get('/subjects'),
-    create: (data) => api.post('/subjects', data),
-    update: (id, data) => api.put(`/subjects/${id}`, data),
-    delete: (id) => api.delete(`/subjects/${id}`),
-    getById: (id) => api.get(`/subjects/${id}`)
-  };
-
-  const userAPI = {
-    getDeans: () => api.get('/accounts?role=dean'),
-    getProgramHeads: () => api.get('/accounts?role=program_head')
-  };
-
-  // State for data from backend
+  // Backend data states
   const [colleges, setColleges] = useState([]);
   const [programs, setPrograms] = useState([]);
   const [subjects, setSubjects] = useState([]);
   const [availableDeans, setAvailableDeans] = useState([]);
-  const [availableProgramHeads, setAvailableProgramHeads] = useState([]);
+  const [availableProgramHeads, setAvailableProgramHeads] = useState([]); // ✅ SEPARATE STATE FOR PROGRAM HEADS
+  const [selectedDeanId, setSelectedDeanId] = useState("");
+  const [selectedProgramHeadId, setSelectedProgramHeadId] = useState(""); // ✅ SEPARATE STATE FOR PROGRAM HEAD
 
   const [formData, setFormData] = useState({
-    name: '',
-    code: '',
-    dean: '',
-    deanId: '',
-    programHead: '',
-    programHeadId: '',
-    type: 'Major'
+    name: "",
+    code: "",
+    type: "Major",
   });
 
-  // Data fetching functions
-  const fetchColleges = async () => {
-    try {
-      const response = await collegeAPI.getAll();
-      setColleges(response.data || []);
-    } catch (error) {
-      console.error('Error fetching colleges:', error);
-      setColleges([]);
-      setError('Failed to fetch colleges');
-    }
-  };
-
-  const fetchPrograms = async () => {
-    try {
-      const response = await programAPI.getAll();
-      setPrograms(response.data || []);
-    } catch (error) {
-      console.error('Error fetching programs:', error);
-      setPrograms([]);
-      setError('Failed to fetch programs');
-    }
-  };
-
-  const fetchSubjects = async () => {
-    try {
-      const response = await subjectAPI.getAll();
-      setSubjects(response.data || []);
-    } catch (error) {
-      console.error('Error fetching subjects:', error);
-      setSubjects([]);
-      setError('Failed to fetch subjects');
-    }
-  };
-
-  const fetchDeans = async () => {
-    try {
-      const response = await userAPI.getDeans();
-      setAvailableDeans(response.data || []);
-    } catch (error) {
-      console.error('Error fetching deans:', error);
-      setAvailableDeans([]);
-      setError('Failed to fetch deans');
-    }
-  };
-
-  const fetchProgramHeads = async () => {
-    try {
-      const response = await userAPI.getProgramHeads();
-      setAvailableProgramHeads(response.data || []);
-    } catch (error) {
-      console.error('Error fetching program heads:', error);
-      setAvailableProgramHeads([]);
-      setError('Failed to fetch program heads');
-    }
-  };
-
+  // Load data from backend
   useEffect(() => {
-    const loadData = async () => {
-      setIsLoading(true);
-      try {
-        await Promise.all([
-          fetchColleges(),
-          fetchPrograms(),
-          fetchSubjects(),
-          fetchDeans(),
-          fetchProgramHeads()
-        ]);
-      } catch (error) {
-        console.error('Error loading data:', error);
-        setError('Failed to load data');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
     loadData();
   }, []);
 
-  const toggleCollegeStatus = (collegeId) => {
-    setColleges(prev => prev.map(college => 
-      college.id === collegeId 
-        ? { ...college, college_status: college.college_status === 'Active' ? 'Inactive' : 'Active' }
-        : college
-    ));
+  const loadData = async () => {
+    try {
+      setIsLoading(true);
+      const [collegesRes, programsRes, subjectsRes] = await Promise.all([
+        collegeAPI.getAll(),
+        programAPI.getAll(),
+        subjectAPI.getAll(),
+      ]);
+
+      if (collegesRes.data.success) setColleges(collegesRes.data.data);
+      if (programsRes.data.success) setPrograms(programsRes.data.data);
+      if (subjectsRes.data.success) setSubjects(subjectsRes.data.data);
+    } catch (error) {
+      console.error("Error loading data:", error);
+      setError("Failed to load data");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const toggleProgramStatus = (collegeId, programId) => {
-    setColleges(prev => prev.map(college => 
-      college.id === collegeId 
-        ? {
-            ...college,
-            programs: college.programs.map(program =>
-              program.id === programId
-                ? { ...program, status: program.status === 'active' ? 'inactive' : 'active' }
-                : program
-            )
-          }
-        : college
-    ));
+  // ✅ UPDATED: Fetch available deans (users with role 'dean' and not assigned to any college)
+  const loadAvailableDeans = async () => {
+    try {
+      console.log("🔄 Fetching available deans...");
+      const response = await collegeAPI.getAvailableDeans();
+      console.log("📦 Full API response:", response);
+      console.log("📊 Response data:", response.data);
+
+      if (response.data.success) {
+        console.log("✅ Available deans:", response.data.data);
+        setAvailableDeans(response.data.data);
+      } else {
+        console.log("❌ API returned success: false");
+        setError("Failed to load available deans");
+      }
+    } catch (error) {
+      console.error("💥 Error loading deans:", error);
+      console.error("Error response:", error.response);
+      setError(
+        "Failed to load available deans: " +
+          (error.response?.data?.message || error.message)
+      );
+    }
   };
 
-  const openModal = (type, college = null, program = null, subject = null) => {
+  // ✅ UPDATED: Fetch available program heads (users with role 'program_head' and not assigned to any program)
+  const loadAvailableProgramHeads = async () => {
+    try {
+      const response = await programAPI.getAvailableProgramHeads();
+      if (response.data.success) {
+        setAvailableProgramHeads(response.data.data);
+        console.log("Available program heads:", response.data.data); // Debug log
+      }
+    } catch (error) {
+      console.error("Error loading program heads:", error);
+      setError("Failed to load available program heads");
+    }
+  };
+
+  const openModal = async (
+    type,
+    college = null,
+    program = null,
+    subject = null
+  ) => {
     setModalType(type);
     setSelectedCollege(college);
     setSelectedProgram(program);
     setSelectedSubject(subject);
-    
-    if (type.includes('college')) {
-      setFormData({
-        name: college?.college_name || '',
-        code: college?.college_code || '',
-        dean: college?.dean?.fullname || '',
-        deanId: college?.college_dean_id || '',
-        programHead: '',
-        programHeadId: '',
-        type: 'Major'
-      });
-    } else if (type.includes('program')) {
-      setFormData({
-        name: program?.program_name || '',
-        code: program?.program_code || '',
-        dean: '',
-        deanId: '',
-        programHead: program?.head?.fullname || '',
-        programHeadId: program?.program_head_id || '',
-        type: 'Major'
-      });
-    } else if (type.includes('subject')) {
-      setFormData({
-        name: subject?.subject_name || '',
-        code: subject?.subject_code || '',
-        dean: '',
-        deanId: '',
-        programHead: '',
-        programHeadId: '',
-        type: subject?.subject_type || 'Major'
-      });
+
+    setFormData({
+      name:
+        college?.college_name ||
+        program?.program_name ||
+        subject?.subject_name ||
+        "",
+      code:
+        college?.college_code ||
+        program?.program_code ||
+        subject?.subject_code ||
+        "",
+      type: subject?.subject_type || "Major",
+    });
+
+    if (type === "assign-dean") {
+      setSelectedDeanId(college?.dean?.id || "");
+      await loadAvailableDeans(); // ✅ LOAD DEANS WHEN MODAL OPENS
     }
-    
+
+    if (type === "assign-head") {
+      setSelectedProgramHeadId(program?.program_head?.id || "");
+      await loadAvailableProgramHeads(); // ✅ LOAD PROGRAM HEADS WHEN MODAL OPENS
+    }
+
     setShowModal(true);
   };
 
   const closeModal = () => {
     setShowModal(false);
-    setModalType('');
+    setModalType("");
     setSelectedCollege(null);
     setSelectedProgram(null);
     setSelectedSubject(null);
     setSelectedCollegeForProgram(null);
-    setSelectedProgramForSubject(null);
-    setFormData({ name: '', code: '', dean: '', deanId: '', programHead: '', programHeadId: '', type: 'Major' });
+    setFormData({ name: "", code: "", type: "Major" });
     setError(null);
     setSuccessMessage(null);
+    setAvailableDeans([]);
+    setAvailableProgramHeads([]);
+    setSelectedDeanId("");
+    setSelectedProgramHeadId("");
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
     setSuccessMessage(null);
-    
-    // Basic form validation
-    if (!formData.name.trim()) {
-      setError('Name is required');
+
+    // Validate required fields
+    if (!formData.name.trim() || !formData.code.trim()) {
+      setError("Name and Code are required");
       return;
     }
-    if (!formData.code.trim()) {
-      setError('Code is required');
+    if (modalType === "add-program" && !selectedCollegeForProgram?.id) {
+      setError("Please select a college for the program.");
       return;
     }
-    
+
     try {
-      if (modalType === 'add-college') {
-        const collegeData = {
+      // Log payload for debugging
+      if (modalType === "add-college") {
+        const payload = {
           college_name: formData.name,
           college_code: formData.code,
-          college_dean_id: formData.deanId || null,
-          college_status: 'Active'
         };
-        await collegeAPI.create(collegeData);
-        await fetchColleges();
-        setSuccessMessage('College created successfully!');
-      } else if (modalType === 'edit-college' && selectedCollege) {
-        const collegeData = {
+        console.log("Add College Payload:", payload);
+        const response = await collegeAPI.create(payload);
+        if (response.data.success) {
+          setColleges((prev) => [response.data.data, ...prev]);
+          setSuccessMessage("College created successfully!");
+        } else {
+          setError(response.data.message || "Failed to create college");
+        }
+      } else if (modalType === "edit-college" && selectedCollege) {
+        const payload = {
           college_name: formData.name,
           college_code: formData.code,
-          college_dean_id: formData.deanId || null,
-          college_status: selectedCollege.college_status
         };
-        await collegeAPI.update(selectedCollege.id, collegeData);
-        await fetchColleges();
-        setSuccessMessage('College updated successfully!');
-      } else if (modalType === 'add-program') {
-        const programData = {
+        console.log("Edit College Payload:", payload);
+        const response = await collegeAPI.update(selectedCollege.id, payload);
+        if (response.data.success) {
+          setColleges((prev) =>
+            prev.map((c) =>
+              c.id === selectedCollege.id ? response.data.data : c
+            )
+          );
+          setSuccessMessage("College updated successfully!");
+        } else {
+          setError(response.data.message || "Failed to update college");
+        }
+      } else if (modalType === "add-program") {
+        const payload = {
           program_name: formData.name,
           program_code: formData.code,
-          program_head_id: formData.programHeadId || null,
-          program_status: 'Active'
+          college_id: selectedCollegeForProgram?.id,
         };
-        await programAPI.create(programData);
-        await fetchPrograms();
-        setSuccessMessage('Program created successfully!');
-      } else if (modalType === 'edit-program' && selectedProgram) {
-        const programData = {
+        console.log("Add Program Payload:", payload);
+        const response = await programAPI.create(payload);
+        if (response.data.success) {
+          setPrograms((prev) => [response.data.data, ...prev]);
+          setSuccessMessage("Program created successfully!");
+        } else {
+          setError(response.data.message || "Failed to create program");
+        }
+      } else if (modalType === "edit-program" && selectedProgram) {
+        const payload = {
           program_name: formData.name,
           program_code: formData.code,
-          program_head_id: formData.programHeadId || null,
-          program_status: selectedProgram.program_status
+          college_id: selectedProgram.college_id,
         };
-        await programAPI.update(selectedProgram.id, programData);
-        await fetchPrograms();
-        setSuccessMessage('Program updated successfully!');
-      } else if (modalType === 'add-subject') {
-        const subjectData = {
+        console.log("Edit Program Payload:", payload);
+        const response = await programAPI.update(selectedProgram.id, payload);
+        if (response.data.success) {
+          setPrograms((prev) =>
+            prev.map((p) =>
+              p.id === selectedProgram.id ? response.data.data : p
+            )
+          );
+          setSuccessMessage("Program updated successfully!");
+        } else {
+          setError(response.data.message || "Failed to update program");
+        }
+      } else if (modalType === "add-subject") {
+        const payload = {
           subject_name: formData.name,
           subject_code: formData.code,
-          subject_type: formData.type
+          subject_type: formData.type,
         };
-        await subjectAPI.create(subjectData);
-        await fetchSubjects();
-        setSuccessMessage('Subject created successfully!');
-      } else if (modalType === 'edit-subject' && selectedSubject) {
-        const subjectData = {
+        console.log("Add Subject Payload:", payload);
+        const response = await subjectAPI.create(payload);
+        if (response.data.success) {
+          setSubjects((prev) => [response.data.data, ...prev]);
+          setSuccessMessage("Subject created successfully!");
+        } else {
+          setError(response.data.message || "Failed to create subject");
+        }
+      } else if (modalType === "edit-subject" && selectedSubject) {
+        const payload = {
           subject_name: formData.name,
           subject_code: formData.code,
-          subject_type: formData.type
+          subject_type: formData.type,
         };
-        await subjectAPI.update(selectedSubject.id, subjectData);
-        await fetchSubjects();
-        setSuccessMessage('Subject updated successfully!');
+        console.log("Edit Subject Payload:", payload);
+        const response = await subjectAPI.update(selectedSubject.id, payload);
+        if (response.data.success) {
+          setSubjects((prev) =>
+            prev.map((s) =>
+              s.id === selectedSubject.id ? response.data.data : s
+            )
+          );
+          setSuccessMessage("Subject updated successfully!");
+        } else {
+          setError(response.data.message || "Failed to update subject");
+        }
       }
-      
-      // Clear success message after 3 seconds
-      setTimeout(() => {
-        setSuccessMessage(null);
-      }, 3000);
-      
+
+      setTimeout(() => setSuccessMessage(null), 2500);
       closeModal();
     } catch (error) {
-      console.error('Error submitting form:', error);
-      
-      // Handle validation errors
-      if (error.response?.data?.errors) {
-        const errors = error.response.data.errors;
-        const firstError = Object.values(errors)[0][0];
-        setError(firstError);
-      } else if (error.response?.data?.message) {
-        setError(error.response.data.message);
-      } else {
-        setError('An error occurred while saving. Please try again.');
-      }
+      console.error("Error submitting form:", error);
+      // Show backend error message if available
+      setError(
+        error.response?.data?.message || error.message || "Something went wrong"
+      );
     }
   };
 
-  const deleteCollege = async (collegeId) => {
-    if (window.confirm('Are you sure you want to delete this college? This will also delete all its programs.')) {
-      try {
-        await collegeAPI.delete(collegeId);
-        await fetchColleges();
-      } catch (error) {
-        console.error('Error deleting college:', error);
-        setError('Failed to delete college');
+  const handleAssignDean = async (e) => {
+    e.preventDefault();
+    setError(null);
+
+    if (!selectedCollege || !selectedDeanId) {
+      setError("Please select a dean to assign");
+      return;
+    }
+
+    try {
+      const response = await collegeAPI.update(selectedCollege.id, {
+        dean_id: selectedDeanId,
+      });
+
+      if (response.data.success) {
+        setColleges((prev) =>
+          prev.map((c) =>
+            c.id === selectedCollege.id ? response.data.data : c
+          )
+        );
+        setSuccessMessage("Dean assigned successfully!");
+        setTimeout(() => setSuccessMessage(null), 2000);
+        closeModal();
       }
+    } catch (error) {
+      console.error("Error assigning dean:", error);
+      setError(error.response?.data?.message || "Failed to assign dean");
     }
   };
 
-  const deleteProgram = async (programId) => {
-    if (window.confirm('Are you sure you want to delete this program?')) {
-      try {
-        await programAPI.delete(programId);
-        await fetchPrograms();
-      } catch (error) {
-        console.error('Error deleting program:', error);
-        setError('Failed to delete program');
+  const handleAssignHead = async (e) => {
+    e.preventDefault();
+    setError(null);
+
+    if (!selectedProgram || !selectedProgramHeadId) {
+      setError("Please select a program head to assign");
+      return;
+    }
+
+    try {
+      const response = await programAPI.update(selectedProgram.id, {
+        program_head_id: selectedProgramHeadId,
+      });
+
+      if (response.data.success) {
+        setPrograms((prev) =>
+          prev.map((p) =>
+            p.id === selectedProgram.id ? response.data.data : p
+          )
+        );
+        setSuccessMessage("Program head assigned successfully!");
+        setTimeout(() => setSuccessMessage(null), 2000);
+        closeModal();
       }
+    } catch (error) {
+      console.error("Error assigning program head:", error);
+      setError(
+        error.response?.data?.message || "Failed to assign program head"
+      );
     }
   };
 
-  const deleteSubject = async (subjectId) => {
-    if (window.confirm('Are you sure you want to delete this subject?')) {
-      try {
-        await subjectAPI.delete(subjectId);
-        await fetchSubjects();
-      } catch (error) {
-        console.error('Error deleting subject:', error);
-        setError('Failed to delete subject');
+  const deleteCollege = async (id) => {
+    if (!window.confirm("Are you sure you want to delete this college?"))
+      return;
+
+    try {
+      const response = await collegeAPI.delete(id);
+      if (response.data.success) {
+        setColleges((prev) => prev.filter((c) => c.id !== id));
+        setSuccessMessage("College deleted successfully!");
+        setTimeout(() => setSuccessMessage(null), 2000);
       }
+    } catch (error) {
+      console.error("Error deleting college:", error);
+      setError(error.response?.data?.message || "Failed to delete college");
     }
   };
 
-  const filteredColleges = colleges.filter(college =>
-    college.college_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    college.college_code?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    college.dean?.fullname?.toLowerCase().includes(searchTerm.toLowerCase())
+  const deleteProgram = async (id) => {
+    if (!window.confirm("Are you sure you want to delete this program?"))
+      return;
+
+    try {
+      const response = await programAPI.delete(id);
+      if (response.data.success) {
+        setPrograms((prev) => prev.filter((p) => p.id !== id));
+        setSuccessMessage("Program deleted successfully!");
+        setTimeout(() => setSuccessMessage(null), 2000);
+      }
+    } catch (error) {
+      console.error("Error deleting program:", error);
+      setError(error.response?.data?.message || "Failed to delete program");
+    }
+  };
+
+  const deleteSubject = async (id) => {
+    if (!window.confirm("Are you sure you want to delete this subject?"))
+      return;
+
+    try {
+      const response = await subjectAPI.delete(id);
+      if (response.data.success) {
+        setSubjects((prev) => prev.filter((s) => s.id !== id));
+        setSuccessMessage("Subject deleted successfully!");
+        setTimeout(() => setSuccessMessage(null), 2000);
+      }
+    } catch (error) {
+      console.error("Error deleting subject:", error);
+      setError(error.response?.data?.message || "Failed to delete subject");
+    }
+  };
+
+  // Filter functions (keep as is)
+  const filteredColleges = colleges.filter((c) =>
+    [c.college_name, c.college_code, c.dean?.fullname]
+      .filter(Boolean)
+      .some((val) => val.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
-  const filteredPrograms = programs.filter(program =>
-    program.program_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    program.program_code?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    program.head?.fullname?.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredPrograms = programs.filter((p) =>
+    [p.program_name, p.program_code, p.program_head?.fullname]
+      .filter(Boolean)
+      .some((val) => val.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
-  const filteredSubjects = subjects.filter(subject =>
-    subject.subject_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    subject.subject_code?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    subject.subject_type?.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredSubjects = subjects.filter((s) =>
+    [s.subject_name, s.subject_code, s.subject_type]
+      .filter(Boolean)
+      .some((val) => val.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   if (isLoading) {
     return (
-      <div className="flex" style={{ paddingLeft: '260px', paddingTop: '70px' }}>
+      <div
+        className="flex"
+        style={{ paddingLeft: "260px", paddingTop: "70px" }}
+      >
         <Sidebar />
         <div className="flex-1">
           <Header />
@@ -405,15 +436,19 @@ export default function AcademicManagement() {
   }
 
   return (
-    <div className="flex" style={{ paddingLeft: '260px', paddingTop: '70px' }}>
+    <div className="flex" style={{ paddingLeft: "260px", paddingTop: "70px" }}>
       <Sidebar />
       <div className="flex-1">
         <Header />
         <main className="p-6 min-h-screen bg-gray-50">
           {/* Header */}
           <div className="mb-8">
-            <h1 className="text-3xl font-bold text-[#064F32] mb-2">Academic Management</h1>
-            <p className="text-gray-600">Manage colleges, programs, subjects, and assign administrators</p>
+            <h1 className="text-3xl font-bold text-[#064F32] mb-2">
+              Academic Management
+            </h1>
+            <p className="text-gray-600">
+              Manage colleges, programs, subjects, and assign administrators
+            </p>
           </div>
 
           {/* Error Display */}
@@ -435,34 +470,34 @@ export default function AcademicManagement() {
             <div className="border-b border-gray-200">
               <nav className="-mb-px flex space-x-8">
                 <button
-                  onClick={() => setActiveTab('colleges')}
+                  onClick={() => setActiveTab("colleges")}
                   className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                    activeTab === 'colleges'
-                      ? 'border-[#064F32] text-[#064F32]'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    activeTab === "colleges"
+                      ? "border-[#064F32] text-[#064F32]"
+                      : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
                   }`}
                 >
                   Colleges ({colleges.length})
                 </button>
                 <button
-                  onClick={() => setActiveTab('programs')}
+                  onClick={() => setActiveTab("programs")}
                   className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                    activeTab === 'programs'
-                      ? 'border-[#064F32] text-[#064F32]'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    activeTab === "programs"
+                      ? "border-[#064F32] text-[#064F32]"
+                      : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
                   }`}
                 >
-                  All Programs ({programs.length})
+                  Programs ({programs.length})
                 </button>
                 <button
-                  onClick={() => setActiveTab('subjects')}
+                  onClick={() => setActiveTab("subjects")}
                   className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                    activeTab === 'subjects'
-                      ? 'border-[#064F32] text-[#064F32]'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    activeTab === "subjects"
+                      ? "border-[#064F32] text-[#064F32]"
+                      : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
                   }`}
                 >
-                  All Subjects ({subjects.length})
+                  Subjects ({subjects.length})
                 </button>
               </nav>
             </div>
@@ -480,36 +515,41 @@ export default function AcademicManagement() {
                 className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#064F32] w-96"
               />
             </div>
-            
+
             {/* Dynamic Add Button based on active tab */}
-            {activeTab === 'colleges' && (
+            {activeTab === "colleges" && (
               <button
-                onClick={() => openModal('add-college')}
+                onClick={() => openModal("add-college")}
                 className="bg-[#064F32] text-white px-4 py-2 rounded-lg hover:bg-[#053d27] transition-colors flex items-center gap-2"
               >
                 <Plus className="w-4 h-4" />
                 Add College
               </button>
             )}
-            
-            {activeTab === 'programs' && (
+
+            {activeTab === "programs" && (
               <div className="flex items-center gap-3">
                 <select
-                  value={selectedCollegeForProgram?.id || ''}
+                  value={selectedCollegeForProgram?.id || ""}
                   onChange={(e) => {
                     const collegeId = parseInt(e.target.value);
-                    const college = colleges.find(c => c.id === collegeId);
+                    const college = colleges.find((c) => c.id === collegeId);
                     setSelectedCollegeForProgram(college);
                   }}
                   className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#064F32] focus:border-transparent"
                 >
                   <option value="">Select College</option>
-                  {colleges.filter(c => c.college_status === 'Active').map(college => (
-                    <option key={college.id} value={college.id}>{college.college_name}</option>
+                  {colleges.map((college) => (
+                    <option key={college.id} value={college.id}>
+                      {college.college_name}
+                    </option>
                   ))}
                 </select>
                 <button
-                  onClick={() => selectedCollegeForProgram && openModal('add-program', selectedCollegeForProgram)}
+                  onClick={() =>
+                    selectedCollegeForProgram &&
+                    openModal("add-program", selectedCollegeForProgram)
+                  }
                   disabled={!selectedCollegeForProgram}
                   className="bg-[#064F32] text-white px-4 py-2 rounded-lg hover:bg-[#053d27] disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
                 >
@@ -518,10 +558,10 @@ export default function AcademicManagement() {
                 </button>
               </div>
             )}
-            
-            {activeTab === 'subjects' && (
+
+            {activeTab === "subjects" && (
               <button
-                onClick={() => openModal('add-subject')}
+                onClick={() => openModal("add-subject")}
                 className="bg-[#064F32] text-white px-4 py-2 rounded-lg hover:bg-[#053d27] transition-colors flex items-center gap-2"
               >
                 <Plus className="w-4 h-4" />
@@ -531,10 +571,13 @@ export default function AcademicManagement() {
           </div>
 
           {/* Colleges Tab */}
-          {activeTab === 'colleges' && (
+          {activeTab === "colleges" && (
             <div className="space-y-6">
               {filteredColleges.map((college) => (
-                <div key={college.id} className="bg-white rounded-lg shadow-md border border-gray-100">
+                <div
+                  key={college.id}
+                  className="bg-white rounded-lg shadow-md border border-gray-100"
+                >
                   {/* College Header */}
                   <div className="p-6 border-b border-gray-100">
                     <div className="flex items-center justify-between">
@@ -543,40 +586,36 @@ export default function AcademicManagement() {
                           <Building2 className="w-6 h-6 text-white" />
                         </div>
                         <div>
-                          <h3 className="text-xl font-semibold text-gray-900">{college.college_name}</h3>
-                          <p className="text-gray-600">Code: {college.college_code}</p>
+                          <h3 className="text-xl font-semibold text-gray-900">
+                            {college.college_name}
+                          </h3>
+                          <p className="text-gray-600">
+                            Code: {college.college_code}
+                          </p>
                           <div className="flex items-center space-x-4 mt-2">
                             <div className="flex items-center space-x-2">
                               <Users className="w-4 h-4 text-gray-400" />
-                              <span className="text-sm text-gray-600">0 students</span>
+                              <span className="text-sm text-gray-600">
+                                0 students
+                              </span>
                             </div>
                             <div className="flex items-center space-x-2">
                               <GraduationCap className="w-4 h-4 text-gray-400" />
-                              <span className="text-sm text-gray-600">{programs.filter(p => p.college_id === college.id).length} programs</span>
+                              <span className="text-sm text-gray-600">
+                                {
+                                  programs.filter(
+                                    (p) => p.college_id === college.id
+                                  ).length
+                                }{" "}
+                                programs
+                              </span>
                             </div>
                           </div>
                         </div>
                       </div>
                       <div className="flex items-center space-x-2">
-                        <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                          college.college_status === 'Active' 
-                            ? 'bg-green-100 text-green-800' 
-                            : 'bg-red-100 text-red-800'
-                        }`}>
-                          {college.college_status === 'Active' ? 'Active' : 'Inactive'}
-                        </span>
                         <button
-                          onClick={() => toggleCollegeStatus(college.id)}
-                          className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                        >
-                          {college.college_status === 'Active' ? (
-                            <ToggleRight className="w-5 h-5 text-green-500" />
-                          ) : (
-                            <ToggleLeft className="w-5 h-5 text-gray-400" />
-                          )}
-                        </button>
-                        <button
-                          onClick={() => openModal('edit-college', college)}
+                          onClick={() => openModal("edit-college", college)}
                           className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
                         >
                           <Edit className="w-4 h-4 text-gray-600" />
@@ -589,17 +628,26 @@ export default function AcademicManagement() {
                         </button>
                       </div>
                     </div>
-                    
+
                     {/* Dean Assignment */}
                     <div className="mt-4 p-4 bg-gray-50 rounded-lg">
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="text-sm font-medium text-gray-700">Assigned Dean</p>
-                          <p className="text-gray-900">{college.dean?.fullname || 'No dean assigned'}</p>
+                          <p className="text-sm font-medium text-gray-700">
+                            Assigned Dean
+                          </p>
+                          <p className="text-gray-900">
+                            {college.dean?.fullname || "No dean assigned"}
+                          </p>
                         </div>
-                        <button className="text-[#064F32] hover:text-[#053d27] text-sm font-medium">
-                          Change Dean
-                        </button>
+                        <div>
+                          <button
+                            onClick={() => openModal("assign-dean", college)}
+                            className="text-[#064F32] hover:text-[#053d27] text-sm font-medium"
+                          >
+                            Assign Dean
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -607,69 +655,59 @@ export default function AcademicManagement() {
                   {/* Programs */}
                   <div className="p-6">
                     <div className="flex items-center justify-between mb-4">
-                      <h4 className="text-lg font-medium text-gray-900">Programs</h4>
-                      <button
-                        onClick={() => openModal('add-program', college)}
-                        className="text-[#064F32] hover:text-[#053d27] text-sm font-medium flex items-center gap-1"
-                      >
-                        <Plus className="w-4 h-4" />
-                        Add Program
-                      </button>
+                      <h4 className="text-lg font-medium text-gray-900">
+                        Programs
+                      </h4>
                     </div>
-                    
+
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {programs.filter(p => p.college_id === college.id).map((program) => (
-                        <div key={program.id} className="border border-gray-200 rounded-lg p-4">
-                          <div className="flex items-center justify-between mb-2">
-                            <div>
-                              <h5 className="font-medium text-gray-900">{program.program_name}</h5>
-                              <p className="text-sm text-gray-600">{program.program_code}</p>
-                            </div>
-                            <div className="flex items-center space-x-1">
-                              <button
-                                onClick={() => toggleProgramStatus(college.id, program.id)}
-                                className="p-1 hover:bg-gray-100 rounded transition-colors"
-                              >
-                                {program.program_status === 'Active' ? (
-                                  <Eye className="w-4 h-4 text-green-500" />
-                                ) : (
-                                  <EyeOff className="w-4 h-4 text-gray-400" />
-                                )}
-                              </button>
-                              <button 
-                                onClick={() => openModal('edit-program', college, program)}
-                                className="p-1 hover:bg-gray-100 rounded transition-colors"
-                              >
-                                <Edit className="w-4 h-4 text-gray-600" />
-                              </button>
-                              <button
-                                onClick={() => deleteProgram(program.id)}
-                                className="p-1 hover:bg-red-50 rounded transition-colors"
-                              >
-                                <Trash2 className="w-4 h-4 text-red-500" />
-                              </button>
-                            </div>
-                          </div>
-                          <div className="text-sm text-gray-600">
-                            <p>Program Head: {program.head?.fullname || 'No head assigned'}</p>
-                            <p>Students: 0</p>
-                            <div className="flex items-center justify-between mt-2">
-                              <span className={`inline-block px-2 py-1 rounded text-xs ${
-                                program.program_status === 'active' 
-                                  ? 'bg-green-100 text-green-800' 
-                                  : 'bg-red-100 text-red-800'
-                              }`}>
-                                {program.program_status}
-                              </span>
-                              <div className="flex items-center gap-1">
-                                <BookOpen className="w-3 h-3 text-gray-400" />
-                                <span className="text-xs text-gray-500">{subjects.filter(s => s.program_id === program.id).length} subjects</span>
+                      {programs
+                        .filter((p) => p.college_id === college.id)
+                        .map((program) => (
+                          <div
+                            key={program.id}
+                            className="border border-gray-200 rounded-lg p-4"
+                          >
+                            <div className="flex items-center justify-between mb-2">
+                              <div>
+                                <h5 className="font-medium text-gray-900">
+                                  {program.program_name}
+                                </h5>
+                                <p className="text-sm text-gray-600">
+                                  {program.program_code}
+                                </p>
+                              </div>
+                              <div className="flex items-center space-x-1">
+                                <button
+                                  onClick={() =>
+                                    openModal("edit-program", college, program)
+                                  }
+                                  className="p-1 hover:bg-gray-100 rounded transition-colors"
+                                >
+                                  <Edit className="w-4 h-4 text-gray-600" />
+                                </button>
+                                <button
+                                  onClick={() => deleteProgram(program.id)}
+                                  className="p-1 hover:bg-red-50 rounded transition-colors"
+                                >
+                                  <Trash2 className="w-4 h-4 text-red-500" />
+                                </button>
                               </div>
                             </div>
-                            
+                            <div className="text-sm text-gray-600">
+                              <div className="flex items-center justify-between mt-2">
+                                <div className="flex items-center gap-1">
+                                  <BookOpen className="w-3 h-3 text-gray-400" />
+                                  <span>
+                                    Program Head:{" "}
+                                    {program.program_head?.fullname ||
+                                      "Not assigned"}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        ))}
                     </div>
                   </div>
                 </div>
@@ -677,114 +715,110 @@ export default function AcademicManagement() {
             </div>
           )}
 
-          {/* Programs Tab */}
-          {activeTab === 'programs' && (
-            <div className="bg-white rounded-lg shadow-md">
-              <div className="p-6">
-                <h3 className="text-lg font-medium text-gray-900 mb-4">All Programs</h3>
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Program</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">College</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Program Head</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Students</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {filteredPrograms.map(program => (
-                        <tr key={program.id} className="hover:bg-gray-50">
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div>
-                              <div className="text-sm font-medium text-gray-900">{program.program_name}</div>
-                              <div className="text-sm text-gray-500">{program.program_code}</div>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {colleges.find(c => c.id === program.college_id)?.college_name || 'Unknown College'}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{program.head?.fullname || 'No head assigned'}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">0</td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                              program.program_status === 'Active' 
-                                ? 'bg-green-100 text-green-800' 
-                                : 'bg-red-100 text-red-800'
-                            }`}>
-                              {program.program_status}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                            <div className="flex items-center space-x-2">
-                              <button 
-                                onClick={() => openModal('edit-program', colleges.find(c => c.id === program.college_id), program)}
-                                className="text-[#064F32] hover:text-[#053d27]"
-                              >
-                                Edit
-                              </button>
-                              <button 
-                                onClick={() => deleteProgram(program.id)}
-                                className="text-red-600 hover:text-red-900"
-                              >
-                                Delete
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+          {/* Programs Tab - simplified card list */}
+          {activeTab === "programs" && (
+            <div className="space-y-4">
+              {filteredPrograms.map((program) => {
+                const college =
+                  colleges.find((c) => c.id === program.college_id) || null;
+                return (
+                  <div
+                    key={program.id}
+                    className="bg-white rounded-lg shadow-md p-4 border border-gray-100 flex items-center justify-between"
+                  >
+                    <div>
+                      <div className="text-lg font-semibold text-gray-900">
+                        {program.program_name}
+                      </div>
+                      <div className="text-sm text-gray-500">
+                        {program.program_code}
+                      </div>
+                      <div className="text-sm text-gray-700 mt-2">
+                        Under: {college?.college_name || "Unknown College"}
+                      </div>
+                      <div className="text-sm text-gray-700 mt-1">
+                        Program Head:{" "}
+                        {program.program_head?.fullname || "No head assigned"}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => openModal("assign-head", null, program)}
+                        className="text-[#064F32] hover:text-[#053d27] text-sm"
+                      >
+                        Assign Head
+                      </button>
+                      <button
+                        onClick={() =>
+                          openModal("edit-program", college, program)
+                        }
+                        className="text-[#064F32] hover:text-[#053d27] text-sm"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => deleteProgram(program.id)}
+                        className="text-red-600 hover:text-red-900 text-sm"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
 
           {/* Subjects Tab */}
-          {activeTab === 'subjects' && (
+          {activeTab === "subjects" && (
             <div className="bg-white rounded-lg shadow-md">
               <div className="p-6">
-                <h3 className="text-lg font-medium text-gray-900 mb-4">All Subjects</h3>
+                <h3 className="text-lg font-medium text-gray-900 mb-4">
+                  All Subjects
+                </h3>
                 <div className="overflow-x-auto">
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                       <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Subject</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Subject
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Type
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Actions
+                        </th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {filteredSubjects.map(subject => (
+                      {filteredSubjects.map((subject) => (
                         <tr key={subject.id} className="hover:bg-gray-50">
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div>
-                              <div className="text-sm font-medium text-gray-900">{subject.subject_name}</div>
-                              <div className="text-sm text-gray-500">{subject.subject_code}</div>
+                              <div className="text-sm font-medium text-gray-900">
+                                {subject.subject_name}
+                              </div>
+                              <div className="text-sm text-gray-500">
+                                {subject.subject_code}
+                              </div>
                             </div>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{subject.subject_type}</td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                              subject.subject_status === 'active' 
-                                ? 'bg-green-100 text-green-800' 
-                                : 'bg-red-100 text-red-800'
-                            }`}>
-                              {subject.subject_status || 'active'}
-                            </span>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {subject.subject_type}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                             <div className="flex items-center space-x-2">
-                              <button 
-                                onClick={() => openModal('edit-subject', null, null, subject)}
+                              <button
+                                onClick={() =>
+                                  openModal("edit-subject", null, null, subject)
+                                }
                                 className="text-[#064F32] hover:text-[#053d27]"
                               >
                                 Edit
                               </button>
-                              <button 
+                              <button
                                 onClick={() => deleteSubject(subject.id)}
                                 className="text-red-600 hover:text-red-900"
                               >
@@ -806,154 +840,307 @@ export default function AcademicManagement() {
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
               <div className="bg-white rounded-lg p-6 w-full max-w-md">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                  {modalType === 'add-college' ? 'Add New College' : 
-                   modalType === 'edit-college' ? 'Edit College' :
-                   modalType === 'add-program' ? 'Add New Program' :
-                   modalType === 'edit-program' ? 'Edit Program' :
-                   modalType === 'add-subject' ? 'Add New Subject' :
-                   modalType === 'edit-subject' ? 'Edit Subject' : ''}
+                  {modalType === "add-college"
+                    ? "Add New College"
+                    : modalType === "edit-college"
+                    ? "Edit College"
+                    : modalType === "add-program"
+                    ? "Add New Program"
+                    : modalType === "edit-program"
+                    ? "Edit Program"
+                    : modalType === "add-subject"
+                    ? "Add New Subject"
+                    : modalType === "edit-subject"
+                    ? "Edit Subject"
+                    : modalType === "assign-dean"
+                    ? "Assign Dean"
+                    : modalType === "assign-head"
+                    ? "Assign Program Head"
+                    : ""}
                 </h3>
-                
-                <form onSubmit={handleSubmit} className="space-y-4">
-                  {modalType.includes('college') ? (
-                    <>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">College Name</label>
-                        <input
-                          type="text"
-                          value={formData.name}
-                          onChange={(e) => setFormData({...formData, name: e.target.value})}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#064F32]"
-                          required
-                        />
-                      </div>
-                      
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">College Code</label>
-                        <input
-                          type="text"
-                          value={formData.code}
-                          onChange={(e) => setFormData({...formData, code: e.target.value.toUpperCase()})}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#064F32]"
-                          required
-                        />
-                      </div>
-                      
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Assign Dean</label>
-                        <select
-                          value={formData.deanId}
-                          onChange={(e) => setFormData({...formData, deanId: e.target.value})}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#064F32]"
-                        >
-                          <option value="">Select a dean (optional)</option>
-                          {availableDeans && availableDeans.length > 0 ? availableDeans.map(dean => (
-                            <option key={dean.id} value={dean.id}>{dean.fullname}</option>
-                          )) : <option disabled>No deans available</option>}
-                        </select>
-                      </div>
-                    </>
-                  ) : modalType.includes('program') ? (
-                    <>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Program Name</label>
-                        <input
-                          type="text"
-                          value={formData.name}
-                          onChange={(e) => setFormData({...formData, name: e.target.value})}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#064F32]"
-                          required
-                        />
-                      </div>
-                      
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Program Code</label>
-                        <input
-                          type="text"
-                          value={formData.code}
-                          onChange={(e) => setFormData({...formData, code: e.target.value.toUpperCase()})}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#064F32]"
-                          required
-                        />
-                      </div>
-                      
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Assign Program Head</label>
-                        <select
-                          value={formData.programHeadId}
-                          onChange={(e) => setFormData({...formData, programHeadId: e.target.value})}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#064F32]"
-                        >
-                          <option value="">Select a program head (optional)</option>
-                          {availableProgramHeads && availableProgramHeads.length > 0 ? availableProgramHeads.map(head => (
-                            <option key={head.id} value={head.id}>{head.fullname}</option>
-                          )) : <option disabled>No program heads available</option>}
-                        </select>
-                      </div>
-                    </>
-                  ) : modalType.includes('subject') ? (
-                    <>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Subject Name</label>
-                        <input
-                          type="text"
-                          value={formData.name}
-                          onChange={(e) => setFormData({...formData, name: e.target.value})}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#064F32]"
-                          required
-                        />
-                      </div>
-                      
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Subject Code</label>
-                        <input
-                          type="text"
-                          value={formData.code}
-                          onChange={(e) => setFormData({...formData, code: e.target.value.toUpperCase()})}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#064F32]"
-                          required
-                        />
-                      </div>
-                      
-                      
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Subject Type</label>
-                        <select
-                          value={formData.type}
-                          onChange={(e) => setFormData({...formData, type: e.target.value})}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#064F32]"
-                          required
-                        >
-                          <option value="Major">Major</option>
-                          <option value="Minor">Minor</option>
-                          <option value="General Education">General Education</option>
-                          <option value="Elective">Elective</option>
-                        </select>
-                      </div>
-                    </>
-                  ) : null}
-                  
-                  <div className="flex justify-end space-x-3 pt-4">
-                    <button
-                      type="button"
-                      onClick={closeModal}
-                      className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      className="px-4 py-2 bg-[#064F32] text-white rounded-lg hover:bg-[#053d27] transition-colors"
-                    >
-                      {modalType === 'add-college' ? 'Add College' : 
-                       modalType === 'edit-college' ? 'Save Changes' :
-                       modalType === 'add-program' ? 'Add Program' :
-                       modalType === 'edit-program' ? 'Save Changes' :
-                       modalType === 'add-subject' ? 'Add Subject' :
-                       modalType === 'edit-subject' ? 'Save Changes' : 'Save'}
-                    </button>
-                  </div>
-                </form>
+
+                {modalType === "assign-dean" ? (
+                  <form onSubmit={handleAssignDean} className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Select Dean
+                      </label>
+                      <select
+                        value={selectedDeanId}
+                        onChange={(e) => setSelectedDeanId(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#064F32]"
+                      >
+                        <option value="">-- Select Dean --</option>
+                        {availableDeans.map((dean) => (
+                          <option key={dean.id} value={dean.id}>
+                            {dean.fullname} ({dean.email})
+                          </option>
+                        ))}
+                      </select>
+                      {availableDeans.length === 0 && (
+                        <p className="text-sm text-gray-500 mt-1">
+                          No available deans found. Please create dean accounts
+                          first.
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="flex justify-end space-x-3 pt-4">
+                      <button
+                        type="button"
+                        onClick={closeModal}
+                        className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={!selectedDeanId}
+                        className="px-4 py-2 bg-[#064F32] text-white rounded-lg hover:bg-[#053d27] disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+                      >
+                        Assign Dean
+                      </button>
+                    </div>
+                  </form>
+                ) : modalType === "assign-head" ? (
+                  <form onSubmit={handleAssignHead} className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Select Program Head
+                      </label>
+                      <select
+                        value={selectedProgramHeadId}
+                        onChange={(e) =>
+                          setSelectedProgramHeadId(e.target.value)
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#064F32]"
+                      >
+                        <option value="">-- Select Program Head --</option>
+                        {availableProgramHeads.map((head) => (
+                          <option key={head.id} value={head.id}>
+                            {head.fullname} ({head.email})
+                          </option>
+                        ))}
+                      </select>
+                      {availableProgramHeads.length === 0 && (
+                        <p className="text-sm text-gray-500 mt-1">
+                          No available program heads found. Please create
+                          program head accounts first.
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="flex justify-end space-x-3 pt-4">
+                      <button
+                        type="button"
+                        onClick={closeModal}
+                        className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={!selectedProgramHeadId}
+                        className="px-4 py-2 bg-[#064F32] text-white rounded-lg hover:bg-[#053d27] disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+                      >
+                        Assign Head
+                      </button>
+                    </div>
+                  </form>
+                ) : (
+                  <form onSubmit={handleSubmit} className="space-y-4">
+                    {modalType.includes("college") ? (
+                      <>
+                        <div>
+                          <label
+                            htmlFor="college_name"
+                            className="block text-sm font-medium text-gray-700 mb-1"
+                          >
+                            College Name
+                          </label>
+                          <input
+                            id="college_name"
+                            name="college_name"
+                            type="text"
+                            value={formData.name}
+                            onChange={(e) =>
+                              setFormData({ ...formData, name: e.target.value })
+                            }
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#064F32]"
+                            required
+                          />
+                        </div>
+
+                        <div>
+                          <label
+                            htmlFor="college_code"
+                            className="block text-sm font-medium text-gray-700 mb-1"
+                          >
+                            College Code
+                          </label>
+                          <input
+                            id="college_code"
+                            name="college_code"
+                            type="text"
+                            value={formData.code}
+                            onChange={(e) =>
+                              setFormData({
+                                ...formData,
+                                code: e.target.value.toUpperCase(),
+                              })
+                            }
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#064F32]"
+                            required
+                          />
+                        </div>
+                      </>
+                    ) : modalType.includes("program") ? (
+                      <>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            College
+                          </label>
+                          <input
+                            type="text"
+                            value={
+                              selectedCollege?.college_name ||
+                              selectedCollegeForProgram?.college_name ||
+                              ""
+                            }
+                            disabled
+                            className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-100 text-gray-700"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Program Name
+                          </label>
+                          <input
+                            id="program_name"
+                            name="program_name"
+                            type="text"
+                            value={formData.name}
+                            onChange={(e) =>
+                              setFormData({ ...formData, name: e.target.value })
+                            }
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#064F32]"
+                            required
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Program Code
+                          </label>
+                          <input
+                            id="program_code"
+                            name="program_code"
+                            type="text"
+                            value={formData.code}
+                            onChange={(e) =>
+                              setFormData({
+                                ...formData,
+                                code: e.target.value.toUpperCase(),
+                              })
+                            }
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#064F32]"
+                            required
+                          />
+                        </div>
+                      </>
+                    ) : modalType.includes("subject") ? (
+                      <>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Subject Name
+                          </label>
+                          <input
+                            id="subject_name"
+                            name="subject_name"
+                            type="text"
+                            value={formData.name}
+                            onChange={(e) =>
+                              setFormData({ ...formData, name: e.target.value })
+                            }
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#064F32]"
+                            required
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Subject Code
+                          </label>
+                          <input
+                            id="subject_code"
+                            name="subject_code"
+                            type="text"
+                            value={formData.code}
+                            onChange={(e) =>
+                              setFormData({
+                                ...formData,
+                                code: e.target.value.toUpperCase(),
+                              })
+                            }
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#064F32]"
+                            required
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Subject Type
+                          </label>
+                          <select
+                            id="subject_type"
+                            name="subject_type"
+                            value={formData.type}
+                            onChange={(e) =>
+                              setFormData({ ...formData, type: e.target.value })
+                            }
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#064F32]"
+                            required
+                          >
+                            <option value="Major">Major</option>
+                            <option value="Minor">Minor</option>
+                            <option value="General Education">
+                              General Education
+                            </option>
+                            <option value="Elective">Elective</option>
+                          </select>
+                        </div>
+                      </>
+                    ) : null}
+
+                    <div className="flex justify-end space-x-3 pt-4">
+                      <button
+                        type="button"
+                        onClick={closeModal}
+                        className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        className="px-4 py-2 bg-[#064F32] text-white rounded-lg hover:bg-[#053d27] transition-colors"
+                      >
+                        {modalType === "add-college"
+                          ? "Add College"
+                          : modalType === "edit-college"
+                          ? "Save Changes"
+                          : modalType === "add-program"
+                          ? "Add Program"
+                          : modalType === "edit-program"
+                          ? "Save Changes"
+                          : modalType === "add-subject"
+                          ? "Add Subject"
+                          : modalType === "edit-subject"
+                          ? "Save Changes"
+                          : "Save"}
+                      </button>
+                    </div>
+                  </form>
+                )}
               </div>
             </div>
           )}

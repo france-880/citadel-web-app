@@ -82,7 +82,9 @@ export default function User_Management() {
   // Checkbox controls
   const handleCheckboxChange = (id) => {
     setSelectedIds((prev) =>
-      prev.includes(id) ? prev.filter((sid) => sid !== id) : [...prev, id]
+      prev.includes(id)
+        ? prev.filter((sid) => sid !== id)
+        : [...prev, id]
     );
   };
 
@@ -108,8 +110,10 @@ export default function User_Management() {
     toast.promise(promise, {
       loading: "Deleting users...",
       success: (res) =>
-        res.data?.message || `${ids.length} user(s) deleted successfully!`,
-      error: (err) => err.response?.data?.message || "Failed to delete users.",
+        res.data?.message ||
+        `${ids.length} user(s) deleted successfully!`,
+      error: (err) =>
+        err.response?.data?.message || "Failed to delete users.",
     });
 
     try {
@@ -125,54 +129,38 @@ export default function User_Management() {
   };
 
   return (
-    <div className="flex" style={{ paddingLeft: "260px", paddingTop: "70px" }}>
+    <div className="flex content_padding">
       <Sidebar />
       <div className="flex-1">
         <Header />
-        <main className="p-6 min-h-screen bg-gray-50">
+        <main className="p-6 min-h-screen">
           {/* Header */}
-          <div className="flex items-center justify-between mb-8">
-            <div>
-              <h1 className="text-3xl font-bold text-[#064F32] mb-2">
-                User Management
-              </h1>
-              <p className="text-gray-600">
-                Manage system users and their roles
-              </p>
-            </div>
+          <div className="flex items-center justify-between mb-6">
+            <h1 className="text-2xl font-semibold text-[#064F32]">
+              User Management
+            </h1>
             <button
               onClick={() => navigate("/new_user")}
-              className="px-6 py-2 rounded-md text-white bg-[#FF7A00] hover:opacity-90 transition shadow"
+              className="px-4 py-2 rounded-md text-white bg-[#FF7A00] hover:opacity-90 transition"
             >
               + New User
             </button>
           </div>
 
           {/* Filters */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
-            <div className="flex flex-wrap gap-3 items-center">
-              <div className="flex gap-2 items-center">
-                <input
-                  type="text"
-                  placeholder="Search users..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="w-[220px] p-2 rounded-md border border-gray-200 bg-white focus:ring-2 focus:ring-[#064F32]/30 outline-none"
-                />
-                {search && (
-                  <button
-                    onClick={() => setSearch("")}
-                    className="px-2 py-1 rounded bg-gray-100 text-gray-500 hover:bg-gray-200"
-                    title="Clear search"
-                  >
-                    ✕
-                  </button>
-                )}
-              </div>
+          <div className="bg-white rounded-lg shadow p-4 mb-6">
+            <div className="flex items-center gap-3 flex-wrap">
+              <input
+                type="text"
+                placeholder="Search user..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="shrink-0 w-[300px] p-1.5 rounded-md border border-gray-200 focus:ring-2 focus:ring-[#064F32]/30 focus:border-[#064F32]/60 outline-none"
+              />
               <select
                 value={role}
                 onChange={(e) => setRole(e.target.value)}
-                className="w-[140px] p-2 rounded-md border border-gray-200 focus:ring-2 focus:ring-[#064F32]/30 outline-none"
+                className="shrink-0 w-[180px] p-1.5 rounded-md border border-gray-200 text-gray-700 focus:ring-2 focus:ring-[#064F32]/30 focus:border-[#064F32]/60 outline-none"
               >
                 <option value="">All Roles</option>
                 <option value="program_head">Program Head</option>
@@ -183,7 +171,7 @@ export default function User_Management() {
               {selectedIds.length > 0 && (
                 <button
                   onClick={() => setShowModal(true)}
-                  className="px-4 py-2 rounded-md text-white bg-red-600 hover:bg-red-700 transition ml-auto"
+                  className="px-2 py-2 rounded-md text-white text-sm bg-red-600 hover:bg-red-700 transition"
                 >
                   Delete Selected
                 </button>
@@ -192,13 +180,14 @@ export default function User_Management() {
           </div>
 
           {/* Table */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+          <div className="bg-white rounded-lg shadow overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="min-w-full text-left text-sm">
+              <table className="min-w-full text-left">
                 <thead>
                   <tr className="bg-[#064F32]/10 text-[#064F32]">
                     <th className="px-4 py-3">
-                      <CustomCheckbox
+                      <input
+                        type="checkbox"
                         checked={
                           users.length > 0 &&
                           selectedIds.length === users.length
@@ -275,8 +264,8 @@ export default function User_Management() {
               </table>
             </div>
 
-            {/* Pagination Section */}
-            <div className="flex items-center justify-between p-4 border-t border-gray-100">
+            {/* ✅ Pagination Section */}
+            <div className="flex items-center justify-between p-4 border-t border-gray-100 bg-white">
               <p className="text-sm text-gray-600">
                 Showing {from}–{to} of {total} users
               </p>
@@ -284,17 +273,17 @@ export default function User_Management() {
                 <button
                   disabled={page === 1}
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  className="px-3 py-1 rounded-md border border-gray-200 text-gray-400 cursor-not-allowed disabled:opacity-50"
+                  className="px-3 py-1 rounded-md border border-gray-200 text-gray-700 disabled:opacity-50"
                 >
                   Prev
                 </button>
-                <button className="px-3 py-1 rounded-md bg-[#064F32] text-white hover:opacity-90">
-                  {page}
-                </button>
+                <span className="px-3 py-1 text-sm text-gray-600">
+                  Page {page} of {lastPage}
+                </span>
                 <button
                   disabled={page >= lastPage}
                   onClick={() => setPage((p) => Math.min(lastPage, p + 1))}
-                  className="px-3 py-1 rounded-md border border-gray-200 text-gray-400 cursor-not-allowed disabled:opacity-50"
+                  className="px-3 py-1 rounded-md border border-gray-200 text-gray-700 disabled:opacity-50"
                 >
                   Next
                 </button>

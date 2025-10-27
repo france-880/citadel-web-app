@@ -4,7 +4,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import "./index.css";
 import GlobalProvider from "./GlobalProvider";
 
-import { AuthProvider } from "./Context/AuthContext";
+import { AuthProvider } from './Context/AuthContext';
 import RoleGuard from "./Components/RoleGuard";
 
 import App from "./App.jsx";
@@ -12,6 +12,7 @@ import Login from "./Pages/Login.jsx";
 import Landing_Page from "./Pages/Landing_Page.jsx";
 import ForgotPassword from "./Pages/ForgotPassword.jsx";
 import ResetPassword from "./Pages/ResetPassword.jsx";
+
 
 import Student_Registration from "./Dean/Student_Registration.jsx";
 import User_Management from "./Dean/User_Management.jsx";
@@ -28,9 +29,11 @@ import View_User from "./Dean/View_User.jsx";
 import Edit_User from "./Dean/Edit_User.jsx";
 import Edit_Student from "./Dean/Edit_Student.jsx";
 
+
 import FacultyLoading from "./ProgramHead/FacultyLoading.jsx";
 import FacultyLoad from "./ProgramHead/FacultyLoad.jsx";
 import SectionOffering from "./ProgramHead/SectionOffering.jsx";
+
 
 import ProfReport from "./Prof/Report.jsx";
 import Program from "./Prof/Program.jsx";
@@ -39,16 +42,16 @@ import Schedule from "./Prof/Schedule.jsx";
 // SuperAdmin Routes
 import SuperAdminDashboard from "./SuperAdmin/Dashboard.jsx";
 import SuperAdminAcademicManagement from "./SuperAdmin/AcademicManagement.jsx";
+import SuperAdminSystemSettings from "./SuperAdmin/SystemSettings.jsx";
+import SuperAdminAuditLogs from "./SuperAdmin/AuditLogs.jsx";
 import AccountManagement from "./SuperAdmin/AccountManagement.jsx";
 import NewAccount from "./SuperAdmin/NewAccount.jsx";
 import ViewAccount from "./SuperAdmin/ViewAccount.jsx";
 import EditAccount from "./SuperAdmin/EditAccount.jsx";
-import SuperAdminReports from "./SuperAdmin/Reports.jsx";
-import SuperAdminSystemMaintenance from "./SuperAdmin/SystemMaintenance.jsx";
 
-import SuperAdminStudentSummary from "./SuperAdmin/StudentSummary.jsx";
 
 import ChangePassword from "./Components/ChangePassword.jsx";
+
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>

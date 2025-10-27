@@ -32,6 +32,7 @@ import Edit_Student from "./Dean/Edit_Student.jsx";
 
 import FacultyLoading from "./ProgramHead/FacultyLoading.jsx";
 import FacultyLoad from "./ProgramHead/FacultyLoad.jsx";
+import SectionOffering from "./ProgramHead/SectionOffering.jsx";
 
 
 import ProfReport from "./Prof/Report.jsx";
@@ -289,6 +290,13 @@ ReactDOM.createRoot(document.getElementById("root")).render(
     path="/faculty-load"
     element={
       <FacultyLoad />
+    }
+  />
+
+<Route
+    path="/section-offering"
+    element={
+      <SectionOffering />
     }
   />
 

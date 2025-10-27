@@ -115,6 +115,7 @@ export default function Sidebar() {
     { label: "Student Registration", path: "/student_registration", icon: Users, roles: ["dean"] },
     { label: "User Management", path: "/user_management", icon: Users, roles: ["dean"] },
     { label: "Faculty List", path: "/faculty-load", icon: Users, roles: ["program_head"] },
+    { label: "Section Offering", path: "/section-offering", icon: Users, roles: ["program_head"] },
     { label: "Report", path: "/report", icon: BarChart3, roles: ["dean"] },
     { label: "Report", path: "/prof_report", icon: BarChart3, roles: ["prof"] },
     { label: "Program", path: "/program", icon: GraduationCap, roles: ["prof"] },

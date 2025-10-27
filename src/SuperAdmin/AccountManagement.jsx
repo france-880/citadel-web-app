@@ -23,7 +23,7 @@ function CustomCheckbox({ checked, onChange }) {
     </label>
   );
 }
-
+  // ✅ Corrected and optimized Account_Management.jsx
 export default function Account_Management() {
   const navigate = useNavigate();
 
@@ -41,7 +41,7 @@ export default function Account_Management() {
   const [to, setTo] = useState(0);
   const [total, setTotal] = useState(0);
 
-  // ✅ UPDATED: Fetch accounts with college relationship
+  // ✅ Fetch accounts from backend with filter + pagination
   const fetchAccounts = async () => {
     try {
       const res = await api.get("/accounts", {
@@ -50,13 +50,10 @@ export default function Account_Management() {
           role,
           page,
           per_page: 10,
-          include: "college", // ✅ REQUEST COLLEGE DATA
         },
       });
 
       const data = res.data;
-      console.log("Accounts data:", data); // ✅ DEBUG: Check the response structure
-
       setAccounts(data.data || []);
       setLastPage(data.last_page || 1);
       setFrom(data.from || 0);
@@ -81,9 +78,11 @@ export default function Account_Management() {
   const handleEdit = (id) => navigate(`/edit-account/${id}`);
 
   // Checkbox controls
-  const handleCheckboxChange = (id) => {
+  const handleCheckboxChange = (id) => {  
     setSelectedIds((prev) =>
-      prev.includes(id) ? prev.filter((sid) => sid !== id) : [...prev, id]
+      prev.includes(id)
+        ? prev.filter((sid) => sid !== id)
+        : [...prev, id]
     );
   };
 
@@ -109,7 +108,8 @@ export default function Account_Management() {
     toast.promise(promise, {
       loading: "Deleting accounts...",
       success: (res) =>
-        res.data?.message || `${ids.length} account(s) deleted successfully!`,
+        res.data?.message ||
+        `${ids.length} account(s) deleted successfully!`,
       error: (err) =>
         err.response?.data?.message || "Failed to delete accounts.",
     });
@@ -117,28 +117,13 @@ export default function Account_Management() {
     try {
       await promise;
       setSelectedIds([]);
-      setShowModal(false);
+      setShowModal(false);  
       fetchAccounts();
     } catch (err) {
       console.error("Error deleting accounts:", err);
     } finally {
       setDeleting(false);
     }
-  };
-
-  // ✅ FUNCTION TO GET COLLEGE NAME
-  const getCollegeName = (account) => {
-    // Check different possible structures
-    if (account.college && account.college.college_name) {
-      return account.college.college_name;
-    }
-    if (account.college_name) {
-      return account.college_name;
-    }
-    if (account.college_id && account.college) {
-      return account.college;
-    }
-    return "—";
   };
 
   return (
@@ -150,7 +135,7 @@ export default function Account_Management() {
           {/* Header */}
           <div className="flex items-center justify-between mb-6">
             <h1 className="text-2xl font-semibold text-[#064F32]">
-              Account Management
+              Account Management 
             </h1>
             <button
               onClick={() => navigate("/new-account")}
@@ -214,7 +199,7 @@ export default function Account_Management() {
                     <th className="table-title">Name</th>
                     <th className="table-title">Email</th>
                     <th className="table-title">Role</th>
-                    <th className="table-title">College</th>
+                    <th className="table-title">Department</th>
                     <th className="table-title">Date Registered</th>
                     <th className="table-title">Action</th>
                   </tr>
@@ -223,7 +208,7 @@ export default function Account_Management() {
                   {accounts.length === 0 ? (
                     <tr>
                       <td
-                        colSpan={7}
+                        colSpan={8}
                         className="px-4 py-6 text-center text-sm text-gray-500"
                       >
                         No accounts found
@@ -245,24 +230,10 @@ export default function Account_Management() {
                           {account.email}
                         </td>
                         <td className="px-4 py-3 text-sm text-gray-700 text-center">
-                          <span
-                            className={`px-2 py-1 rounded-full text-xs font-medium ${
-                              account.role === "super_admin"
-                                ? "bg-purple-100 text-purple-800"
-                                : account.role === "dean"
-                                ? "bg-blue-100 text-blue-800"
-                                : account.role === "program_head"
-                                ? "bg-green-100 text-green-800"
-                                : account.role === "prof"
-                                ? "bg-orange-100 text-orange-800"
-                                : "bg-gray-100 text-gray-800"
-                            }`}
-                          >
-                            {account.role?.replace("_", " ").toUpperCase()}
-                          </span>
+                          {account.role}
                         </td>
                         <td className="px-4 py-3 text-sm text-gray-700 text-center">
-                          {getCollegeName(account)}
+                          {account.department ?? "—"}
                         </td>
                         <td className="px-4 py-3 text-sm text-gray-700 text-center">
                           {account.created_at
@@ -277,7 +248,7 @@ export default function Account_Management() {
                             : ""}
                         </td>
                         <td className="px-4 py-3 text-sm">
-                          <div className="flex gap-2 justify-center">
+                          <div className="flex gap-2">
                             <ViewAccount account={account} />
                             <button
                               onClick={() => handleEdit(account.id)}

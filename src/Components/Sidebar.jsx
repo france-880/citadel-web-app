@@ -1,64 +1,69 @@
 import { NavLink, useNavigate } from "react-router-dom";
-import { useEffect, useState } from 'react';
-import { useAuth } from '../Context/AuthContext';
-import api from '../api/axios';
+import { useEffect, useState } from "react";
+import { useAuth } from "../Context/AuthContext";
+import api from "../api/axios";
 
-import { 
+import {
   LayoutDashboardIcon,
   GraduationCap,
   Users,
-  Shield,
+  Book,
   BarChart3,
   Settings,
   Menu,
   X,
   ChevronUp,
   ChevronDown,
-  FolderArchive
+  FolderArchive,
 } from "lucide-react";
 
 export default function Sidebar() {
   const { user } = useAuth(); // kailangan para sa role-based filtering
   const navigate = useNavigate();
-  const [selectedProgram, setSelectedProgram] = useState(() => localStorage.getItem('selectedProgram') || 'BSIT-4A');
+  const [selectedProgram, setSelectedProgram] = useState(
+    () => localStorage.getItem("selectedProgram") || "BSIT-4A"
+  );
   const [showPrograms, setShowPrograms] = useState(true);
-  const [isCollapsed, setIsCollapsed] = useState(() => localStorage.getItem('sidebarCollapsed') === 'true');
+  const [isCollapsed, setIsCollapsed] = useState(
+    () => localStorage.getItem("sidebarCollapsed") === "true"
+  );
   const [dynamicSections, setDynamicSections] = useState([]);
   const [loadingSections, setLoadingSections] = useState(false);
 
   useEffect(() => {
-    localStorage.setItem('selectedProgram', selectedProgram);
+    localStorage.setItem("selectedProgram", selectedProgram);
   }, [selectedProgram]);
 
   useEffect(() => {
-    localStorage.setItem('sidebarCollapsed', isCollapsed.toString());
+    localStorage.setItem("sidebarCollapsed", isCollapsed.toString());
     // Dispatch custom event for components to listen to
-    window.dispatchEvent(new Event('sidebarToggle'));
+    window.dispatchEvent(new Event("sidebarToggle"));
   }, [isCollapsed]);
 
   // Fetch dynamic sections for professors
   const fetchDynamicSections = async () => {
-    if (user?.role !== 'prof') return;
-    
+    if (user?.role !== "prof") return;
+
     setLoadingSections(true);
     try {
-      const academicYear = sessionStorage.getItem('currentAcademicYear') || '2024';
-      const semester = sessionStorage.getItem('currentSemester') || 'First';
-      
+      const academicYear =
+        sessionStorage.getItem("currentAcademicYear") || "2024";
+      const semester = sessionStorage.getItem("currentSemester") || "First";
+
       // For professors, get sections assigned to them
       const response = await api.get(`/faculty-loads/${user.id}/sections`, {
         params: {
           academic_year: academicYear,
-          semester: semester
-        }
+          semester: semester,
+        },
       });
-      
+
       setDynamicSections(response.data || []);
-      console.log('Loaded dynamic sections for professor:', response.data);
+      console.log("Loaded dynamic sections for professor:", response.data);
     } catch (error) {
-      console.error('Error fetching dynamic sections:', error);
+      console.error("Error fetching dynamic sections:", error);
       // Fallback to static sections if API fails
-      setDynamicSections(['BSIT-3A', 'BSIT-3B', 'BSIT-4A', 'BSIT-4C']);
+      setDynamicSections(["BSIT-3A", "BSIT-3B", "BSIT-4A", "BSIT-4C"]);
     } finally {
       setLoadingSections(false);
     }
@@ -66,62 +71,123 @@ export default function Sidebar() {
 
   // Fetch sections when component mounts or user changes
   useEffect(() => {
-    if (user?.role === 'prof') {
+    if (user?.role === "prof") {
       fetchDynamicSections();
     }
   }, [user?.role, user?.id]);
-  
 
   const menuItems = [
-    { 
-      label: "Dashboard", 
-      path: "/super-admin-dashboard", 
+    // Super Admin specific menu items
+    {
+      label: "Dashboard",
+      path: "/super-admin-dashboard",
       icon: LayoutDashboardIcon,
       description: "System Overview",
-      roles: ["super_admin"]
+      roles: ["super_admin"],
     },
-    { 
-      label: "Academic Management", 
-      path: "/super-admin-academic", 
+    {
+      label: "Academic Management",
+      path: "/super-admin-academic",
       icon: GraduationCap,
       description: "Manage all academic",
-      roles: ["super_admin"]
+      roles: ["super_admin"],
     },
-    { 
-      label: "User Management", 
-      path: "/super-admin-account", 
+    {
+      label: "Account Management",
+      path: "/super-admin-account",
       icon: Users,
       description: "Manage all users",
-      roles: ["super_admin"]
+      roles: ["super_admin"],
     },
-    { 
-      label: "Audit Logs", 
-      path: "/super-admin-logs", 
-      icon: Shield,
-      description: "Audit Logs",
-      roles: ["super_admin"]
+    {
+      label: "Student Summary",
+      path: "/super-admin-student-summary",
+      icon: Book,
+      description: "View student details",
+      roles: ["super_admin"],
     },
-    { 
-      label: "System Settings", 
-      path: "/super-admin-settings", 
+    {
+      label: "Reports",
+      path: "/super-admin-reports",
+      icon: BarChart3,
+      description: "Generate system reports",
+      roles: ["super_admin"],
+    },
+    {
+      label: "System Maintenance",
+      path: "/super-admin-system-maintenance",
       icon: Settings,
-      description: "System configuration",
-      roles: ["super_admin"]
+      description: "System settings & backups",
+      roles: ["super_admin"],
     },
 
-    // Other role menu items (keeping existing structure for non-super-admin users)
-    { label: "Dashboard", path: "/dashboard", icon: LayoutDashboardIcon, roles: ["guard","dean"] },
-    { label: "Daily Attendance", path: "/daily_attendance", icon: LayoutDashboardIcon, roles: ["dean"] },
-    { label: "Student Registration", path: "/student_registration", icon: Users, roles: ["dean"] },
-    { label: "User Management", path: "/user_management", icon: Users, roles: ["dean"] },
+    // Dean specific menu items
+    { label: "Dashboard",
+      path: "/dean-dashboard",
+      icon: LayoutDashboardIcon,
+      description: "Overview of student records and attendance",
+      roles: ["dean"]
+    },
+    { label: "Daily Attendance",
+      path: "/dean-daily-attendance",
+      icon: LayoutDashboardIcon,
+      description: "Overview of daily attendance",
+      roles: ["dean"]
+    },
+    { label: "Student Registration",
+      path: "/dean-student-registration",
+      icon: Users,
+      description: "Manage student registration",
+      roles: ["dean"]
+    },
+    { label: "User Management",
+      path: "/dean-user-management",
+      icon: Users,
+      description: "Manage user accounts",
+      roles: ["dean"]
+    },
+    { label: "Report",
+      path: "/dean-report",
+      icon: BarChart3,
+      description: "Generate reports",
+      roles: ["dean"]
+    },
+
+    // Program Head specific menu items
     { label: "Faculty List", path: "/faculty-load", icon: Users, roles: ["program_head"] },
     { label: "Section Offering", path: "/section-offering", icon: Users, roles: ["program_head"] },
-    { label: "Report", path: "/report", icon: BarChart3, roles: ["dean"] },
-    { label: "Report", path: "/prof_report", icon: BarChart3, roles: ["prof"] },
-    { label: "Program", path: "/program", icon: GraduationCap, roles: ["prof"] },
-    { label: "Schedule", path: "/schedule", icon: Settings, roles: ["prof"] },
-  ];
+    {
+      label: "Faculty List",
+      path: "/faculty-load",
+      icon: Users,
+      description: "Manage faculty loads",
+      roles: ["program_head"],
+    },
 
+    // Professor specific menu items
+    { label: "Report", path: "/prof_report", icon: BarChart3, roles: ["prof"] },
+    {
+      label: "Program",
+      path: "/program",
+      icon: GraduationCap,
+      description: "View program details",
+      roles: ["prof"],
+    },
+    {
+      label: "Schedule",
+      path: "/schedule",
+      icon: Settings,
+      description: "View class schedule",
+      roles: ["prof"],
+    },
+    {
+      label: "Report",
+      path: "/prof_report",
+      icon: BarChart3,
+      description: "Generate reports",
+      roles: ["prof"],
+    },
+  ];
 
   return (
     <>
@@ -135,28 +201,50 @@ export default function Sidebar() {
           <Menu className="w-5 h-5" />
         </button>
       )}
-      
-      <aside className={`fixed top-[70px] left-0 bottom-0 bg-[#FFFFFF] z-40 shadow-[4px_0_12px_-4px_rgba(0,0,0,0.15)] transition-all duration-300 ${
-        isCollapsed ? 'w-[0px] opacity-0 pointer-events-none' : 'w-[250px] opacity-100'
-      }`}>
+
+      <aside
+        className={`fixed top-[70px] left-0 bottom-0 bg-[#FFFFFF] z-40 shadow-[4px_0_12px_-4px_rgba(0,0,0,0.15)] transition-all duration-300 ${
+          isCollapsed
+            ? "w-[0px] opacity-0 pointer-events-none"
+            : "w-[250px] opacity-100"
+        }`}
+      >
         <nav className="flex flex-col h-full">
           {/* Header */}
-          <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'justify-between'} px-4 py-4 border-b border-gray-100`}>
+          <div
+            className={`flex items-center ${
+              isCollapsed ? "justify-center" : "justify-between"
+            } px-4 py-4 border-b border-gray-100`}
+          >
             {!isCollapsed && (
               <div className="flex items-center space-x-3">
-                <img src="/images/ucc.png" alt="University Logo" className="w-[50px] h-[50px]" />
+                <img
+                  src="/images/ucc.png"
+                  alt="University Logo"
+                  className="w-[50px] h-[50px]"
+                />
                 <div>
                   <h2 className="text-lg font-bold text-[#064F32]">
-                    {user?.role === 'super_admin' ? 'Super Admin' : 
-                     user?.role === 'dean' ? 'Dean' :
-                     user?.role === 'prof' ? 'Professor' :
-                     user?.role === 'program_head' ? 'Program Head' : 'User'}
+                    {user?.role === "super_admin"
+                      ? "Super Admin"
+                      : user?.role === "dean"
+                      ? "Dean"
+                      : user?.role === "prof"
+                      ? "Professor"
+                      : user?.role === "program_head"
+                      ? "Program Head"
+                      : "User"}
                   </h2>
                   <p className="text-xs text-gray-500">
-                    {user?.role === 'super_admin' ? 'System Control Panel' : 
-                     user?.role === 'dean' ? 'Dean Panel' :
-                     user?.role === 'prof' ? 'Faculty Dashboard' :
-                     user?.role === 'program_head' ? 'Program Management' : 'User Dashboard'}
+                    {user?.role === "super_admin"
+                      ? "System Control Panel"
+                      : user?.role === "dean"
+                      ? "Dean Panel"
+                      : user?.role === "prof"
+                      ? "Faculty Dashboard"
+                      : user?.role === "program_head"
+                      ? "Program Management"
+                      : "User Dashboard"}
                   </p>
                 </div>
               </div>
@@ -166,92 +254,114 @@ export default function Sidebar() {
               className="p-2 rounded-lg hover:bg-gray-100 transition-colors flex items-center justify-center"
               title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
             >
-              {isCollapsed ? <Menu className="w-5 h-5" /> : <X className="w-5 h-5" />}
+              {isCollapsed ? (
+                <Menu className="w-5 h-5" />
+              ) : (
+                <X className="w-5 h-5" />
+              )}
             </button>
           </div>
 
-        {/* Program selector now styled like menu items */}
+          {/* Program selector now styled like menu items */}
 
-
-        <ul className="flex-1 px-3 py-4 space-y-1">
-          {user?.role === 'prof' && (
-            <li>
-              <div className="px-0">
-                <button
-                  type="button"
-                  onClick={() => setShowPrograms(v => !v)}
-                  className={`w-full flex items-center ${isCollapsed ? 'justify-center' : 'justify-between'} px-3 py-3 rounded-lg font-medium text-[15px] text-gray-700 hover:text-[#064F32] hover:bg-[#064F32]/5 transition-colors`}
-                  title={isCollapsed ? "Programs" : ""}
-                >
-                  <span className={`inline-flex items-center ${isCollapsed ? '' : 'gap-3'}`}>
-                    <FolderArchive className="w-5 h-5 flex-shrink-0" />
-                    {!isCollapsed && "Programs"}
-                  </span>
-                  {!isCollapsed && (showPrograms ? <ChevronUp className="w-4 h-4 flex-shrink-0" /> : <ChevronDown className="w-4 h-4 flex-shrink-0" />)}
-                </button>
-                {showPrograms && !isCollapsed && (
-                  <div className="mt-2 space-y-1 ml-4">
-                    {loadingSections ? (
-                      <div className="px-3 py-2 text-sm text-gray-500">
-                        Loading sections...
-                      </div>
-                    ) : dynamicSections.length > 0 ? (
-                      dynamicSections.map((prog) => (
-                        <button
-                          key={prog}
-                          onClick={() => {
-                            setSelectedProgram(prog);
-                            navigate('/program');
-                          }}
-                          className={`w-full px-3 py-2 rounded-md text-sm transition-colors ${
-                            selectedProgram === prog
-                              ? 'bg-[#1C4F06]/30 text-[#064F32]'
-                              : 'text-gray-600 hover:text-[#064F32] hover:bg-[#064F32]/5'
-                          }`}
-                        >
-                          {prog.replace('-', ' ')}
-                        </button>
-                      ))
-                    ) : (
-                      <div className="px-3 py-2 text-sm text-gray-500">
-                        No sections assigned
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            </li>
-          )}
-          {menuItems
-            .filter(item => item.roles.includes(user?.role))
-            .filter(item => !(user?.role === 'prof' && item.label === 'Program'))
-            .map(item => {
-              const Icon = item.icon;
-              return (
-                <li key={item.path}>
-                  <NavLink
-                    to={item.path}
-                    className={({ isActive }) =>
-                      `group flex items-center ${isCollapsed ? 'justify-center' : 'gap-3'} px-3 py-3 rounded-lg font-medium text-[15px] transition-colors ${
-                        isActive
-                          ? "bg-[#1C4F06]/30 text-[#064F32] border-l-4 border-[#064F32]"
-                          : "text-gray-700 hover:text-[#064F32] hover:bg-[#064F32]/5"
-                      }`
-                    }
-                    title={isCollapsed ? item.label : ""}
+          <ul className="flex-1 px-3 py-4 space-y-1">
+            {user?.role === "prof" && (
+              <li>
+                <div className="px-0">
+                  <button
+                    type="button"
+                    onClick={() => setShowPrograms((v) => !v)}
+                    className={`w-full flex items-center ${
+                      isCollapsed ? "justify-center" : "justify-between"
+                    } px-3 py-3 rounded-lg font-medium text-[15px] text-gray-700 hover:text-[#064F32] hover:bg-[#064F32]/5 transition-colors`}
+                    title={isCollapsed ? "Programs" : ""}
                   >
-                    <Icon className="w-5 h-5 flex-shrink-0" />
-                    {!isCollapsed && (
-                      <div className="flex-1 min-w-0">
-                        <span className="truncate">{item.label}</span>
-                        {item.description && <p className="text-xs text-gray-500 truncate">{item.description}</p>}
-                      </div>
-                    )}
-                  </NavLink>
-                </li>
-              );
-            })}
-        </ul>
+                    <span
+                      className={`inline-flex items-center ${
+                        isCollapsed ? "" : "gap-3"
+                      }`}
+                    >
+                      <FolderArchive className="w-5 h-5 flex-shrink-0" />
+                      {!isCollapsed && "Programs"}
+                    </span>
+                    {!isCollapsed &&
+                      (showPrograms ? (
+                        <ChevronUp className="w-4 h-4 flex-shrink-0" />
+                      ) : (
+                        <ChevronDown className="w-4 h-4 flex-shrink-0" />
+                      ))}
+                  </button>
+                  {showPrograms && !isCollapsed && (
+                    <div className="mt-2 space-y-1 ml-4">
+                      {loadingSections ? (
+                        <div className="px-3 py-2 text-sm text-gray-500">
+                          Loading sections...
+                        </div>
+                      ) : dynamicSections.length > 0 ? (
+                        dynamicSections.map((prog) => (
+                          <button
+                            key={prog}
+                            onClick={() => {
+                              setSelectedProgram(prog);
+                              navigate("/program");
+                            }}
+                            className={`w-full px-3 py-2 rounded-md text-sm transition-colors ${
+                              selectedProgram === prog
+                                ? "bg-[#1C4F06]/30 text-[#064F32]"
+                                : "text-gray-600 hover:text-[#064F32] hover:bg-[#064F32]/5"
+                            }`}
+                          >
+                            {prog.replace("-", " ")}
+                          </button>
+                        ))
+                      ) : (
+                        <div className="px-3 py-2 text-sm text-gray-500">
+                          No sections assigned
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </li>
+            )}
+            {menuItems
+              .filter((item) => item.roles.includes(user?.role))
+              .filter(
+                (item) => !(user?.role === "prof" && item.label === "Program")
+              )
+              .map((item) => {
+                const Icon = item.icon;
+                return (
+                  <li key={item.path}>
+                    <NavLink
+                      to={item.path}
+                      className={({ isActive }) =>
+                        `group flex items-center ${
+                          isCollapsed ? "justify-center" : "gap-3"
+                        } px-3 py-3 rounded-lg font-medium text-[15px] transition-colors ${
+                          isActive
+                            ? "bg-[#1C4F06]/30 text-[#064F32] border-l-4 border-[#064F32]"
+                            : "text-gray-700 hover:text-[#064F32] hover:bg-[#064F32]/5"
+                        }`
+                      }
+                      title={isCollapsed ? item.label : ""}
+                    >
+                      <Icon className="w-5 h-5 flex-shrink-0" />
+                      {!isCollapsed && (
+                        <div className="flex-1 min-w-0">
+                          <span className="truncate">{item.label}</span>
+                          {item.description && (
+                            <p className="text-xs text-gray-500 truncate">
+                              {item.description}
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </NavLink>
+                  </li>
+                );
+              })}
+          </ul>
 
           {/* Footer */}
           {!isCollapsed && (
@@ -259,19 +369,31 @@ export default function Sidebar() {
               <div className="flex items-center space-x-3">
                 <div className="w-8 h-8 bg-[#064F32] rounded-full flex items-center justify-center">
                   <span className="text-white text-sm font-semibold">
-                    {user?.role === 'super_admin' ? 'SA' : user?.fullname?.charAt(0)?.toUpperCase() || 'U'}
+                    {user?.role === "super_admin"
+                      ? "SA"
+                      : user?.fullname?.charAt(0)?.toUpperCase() || "U"}
                   </span>
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-gray-900 truncate">
-                    {user?.fullname && user.fullname !== 'Unknown User' ? user.fullname : (user?.role === 'super_admin' ? "Super Admin" : "User")}
+                    {user?.fullname && user.fullname !== "Unknown User"
+                      ? user.fullname
+                      : user?.role === "super_admin"
+                      ? "Super Admin"
+                      : "User"}
                   </p>
                   <p className="text-xs text-gray-500 truncate">
-                    {user?.role === 'super_admin' ? "System Administrator" : 
-                     user?.role === 'dean' ? "Dean" :
-                     user?.role === 'prof' ? "Professor" :
-                     user?.role === 'program_head' ? "Program Head" :
-                     user?.role === 'guard' ? "Security Guard" : "User"}
+                    {user?.role === "super_admin"
+                      ? "System Administrator"
+                      : user?.role === "dean"
+                      ? "Dean"
+                      : user?.role === "prof"
+                      ? "Professor"
+                      : user?.role === "program_head"
+                      ? "Program Head"
+                      : user?.role === "guard"
+                      ? "Security Guard"
+                      : "User"}
                   </p>
                 </div>
               </div>

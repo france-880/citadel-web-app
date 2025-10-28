@@ -33,6 +33,10 @@ const FacultyLoading = () => {
   const [availableSubjects, setAvailableSubjects] = useState([]);
   const [isLoadingSubjects, setIsLoadingSubjects] = useState(false);
   
+  // Programs State - from AcademicManagement
+  const [availablePrograms, setAvailablePrograms] = useState([]);
+  const [isLoadingPrograms, setIsLoadingPrograms] = useState(false);
+  
   // Add Subject Modal State
   const [showAddSubjectModal, setShowAddSubjectModal] = useState(false);
   const [addSubjectForm, setAddSubjectForm] = useState({
@@ -62,6 +66,50 @@ const FacultyLoading = () => {
     type: 'Part-time'
   });
 
+  // Function to fetch programs from AcademicManagement API
+  const fetchPrograms = async () => {
+    try {
+      setIsLoadingPrograms(true);
+      console.log('Fetching programs from AcademicManagement API...');
+      const response = await api.get('/programs');
+      console.log('Programs API response:', response.data);
+      
+      // Check if response has success property and data
+      if (response.data.success && Array.isArray(response.data.data)) {
+        const transformedPrograms = response.data.data.map(program => ({
+          id: program.id,
+          name: program.program_name,
+          code: program.program_code,
+          college_id: program.college_id,
+          college_name: program.college?.college_name || 'Unknown'
+        }));
+        setAvailablePrograms(transformedPrograms);
+        console.log('Successfully fetched programs:', transformedPrograms);
+      } else if (Array.isArray(response.data)) {
+        // Fallback if response.data is directly an array
+        const transformedPrograms = response.data.map(program => ({
+          id: program.id,
+          name: program.program_name,
+          code: program.program_code,
+          college_id: program.college_id,
+          college_name: program.college?.college_name || 'Unknown'
+        }));
+        setAvailablePrograms(transformedPrograms);
+        console.log('Successfully fetched programs:', transformedPrograms);
+      } else {
+        console.error('Invalid programs response format:', response.data);
+        toast.error('Invalid programs data format received');
+        setAvailablePrograms([]);
+      }
+    } catch (error) {
+      console.error('Error fetching programs:', error);
+      toast.error(`Failed to load programs: ${error.response?.data?.message || error.message}`);
+      setAvailablePrograms([]);
+    } finally {
+      setIsLoadingPrograms(false);
+    }
+  };
+
   // Function to fetch subjects from AcademicManagement API (view-only)
   const fetchSubjects = async () => {
     try {
@@ -70,26 +118,37 @@ const FacultyLoading = () => {
       const response = await api.get('/subjects');
       console.log('Subjects API response:', response.data);
       
-      // Check if response.data is an array
-      if (!Array.isArray(response.data)) {
-        console.error('Invalid response format:', response.data);
+      // Check if response has success property and data
+      if (response.data.success && Array.isArray(response.data.data)) {
+        const transformedSubjects = response.data.data.map(subject => ({
+          id: subject.id,
+          name: subject.subject_name,
+          code: subject.subject_code,
+          units: subject.units || 3,
+          semester: subject.semester || '',
+          yearLevel: subject.year_level || '',
+          type: subject.subject_type || 'Major'
+        }));
+        setAvailableSubjects(transformedSubjects);
+        console.log('Successfully fetched subjects for viewing:', transformedSubjects);
+      } else if (Array.isArray(response.data)) {
+        // Fallback if response.data is directly an array
+        const transformedSubjects = response.data.map(subject => ({
+          id: subject.id,
+          name: subject.subject_name,
+          code: subject.subject_code,
+          units: subject.units || 3,
+          semester: subject.semester || '',
+          yearLevel: subject.year_level || '',
+          type: subject.subject_type || 'Major'
+        }));
+        setAvailableSubjects(transformedSubjects);
+        console.log('Successfully fetched subjects for viewing:', transformedSubjects);
+      } else {
+        console.error('Invalid subjects response format:', response.data);
         toast.error('Invalid subjects data format received');
         setAvailableSubjects([]);
-        return;
       }
-      
-      // Transform the API response to match the expected format (view-only)
-      const transformedSubjects = response.data.map(subject => ({
-        id: subject.id,
-        name: subject.subject_name,
-        code: subject.subject_code,
-        units: 3, // Default units - you might want to add this to your database
-        lecHours: 3, // Default lec hours - you might want to add this to your database
-        labHours: 0, // Default lab hours - you might want to add this to your database
-        type: subject.subject_type || 'Major'
-      }));
-      setAvailableSubjects(transformedSubjects);
-      console.log('Successfully fetched subjects for viewing:', transformedSubjects);
     } catch (error) {
       console.error('Error fetching subjects:', error);
       console.error('Error details:', {
@@ -182,8 +241,9 @@ const FacultyLoading = () => {
       }
     };
 
-    // Fetch subjects from API and faculty data
-    console.log('Component mounted, fetching subjects...');
+    // Fetch programs, subjects from API and faculty data
+    console.log('Component mounted, fetching programs and subjects...');
+    fetchPrograms();
     fetchSubjects();
     fetchSelectedFaculty();
   }, []);
@@ -1556,16 +1616,26 @@ const FacultyLoading = () => {
             <div className="space-y-4">
               {/* Course - First Row */}
               <div className="flex flex-col">
-                <label className="text-sm font-medium text-gray-700 mb-2 whitespace-nowrap">Course</label>
+                <label className="text-sm font-medium text-gray-700 mb-2 whitespace-nowrap">
+                  Course / Program
+                </label>
                 <select
                   value={course}
                   onChange={(e) => setCourse(e.target.value)}
                   className="border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors"
+                  disabled={isLoadingPrograms}
                 >
-                  <option value="">Select Course</option>
-                  <option value="BSIT">BSIT - BACHELOR OF SCIENCE IN INFORMATION TECHNOLOGY</option>
-                  <option value="BSCS">BSCS - BACHELOR OF SCIENCE IN COMPUTER SCIENCE</option>
-                  <option value="BSIS">BSIS - BACHELOR OF SCIENCE IN INFORMATION SYSTEMS</option>
+                  <option value="">
+                    {isLoadingPrograms ? 'Loading programs...' : 'Select Course / Program'}
+                  </option>
+                  {availablePrograms.map((program) => (
+                    <option key={program.id} value={program.code}>
+                      {program.code} - {program.name}
+                    </option>
+                  ))}
+                  {!isLoadingPrograms && availablePrograms.length === 0 && (
+                    <option value="" disabled>No programs available</option>
+                  )}
                 </select>
               </div>
 

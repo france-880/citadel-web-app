@@ -110,7 +110,7 @@ export default function New_User() {
       });
 
       setUsers((prev) => [...prev, res.data]);
-      navigate("/user_management", { state: { newUser: res.data } });
+      navigate("/dean-user-management", { state: { newUser: res.data } });
     } catch (err) {
       console.error("Save error:", err);
     } finally {

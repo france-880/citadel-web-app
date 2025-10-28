@@ -23,7 +23,7 @@ function CustomCheckbox({ checked, onChange }) {
     </label>
   );
 }
-  // ✅ Corrected and optimized Account_Management.jsx
+
 export default function Account_Management() {
   const navigate = useNavigate();
 
@@ -41,7 +41,7 @@ export default function Account_Management() {
   const [to, setTo] = useState(0);
   const [total, setTotal] = useState(0);
 
-  // ✅ Fetch accounts from backend with filter + pagination
+  // ✅ UPDATED: Fetch accounts with college relationship
   const fetchAccounts = async () => {
     try {
       const res = await api.get("/accounts", {
@@ -50,10 +50,13 @@ export default function Account_Management() {
           role,
           page,
           per_page: 10,
+          include: "college", // ✅ REQUEST COLLEGE DATA
         },
       });
 
       const data = res.data;
+      console.log("Accounts data:", data); // ✅ DEBUG: Check the response structure
+
       setAccounts(data.data || []);
       setLastPage(data.last_page || 1);
       setFrom(data.from || 0);
@@ -75,14 +78,12 @@ export default function Account_Management() {
     setPage(1);
   }, [search, role]);
 
-  const handleEdit = (id) => navigate(`/edit-account/${id}`);
+  const handleEdit = (id) => navigate(`/super-admin-edit-account/${id}`);
 
   // Checkbox controls
-  const handleCheckboxChange = (id) => {  
+  const handleCheckboxChange = (id) => {
     setSelectedIds((prev) =>
-      prev.includes(id)
-        ? prev.filter((sid) => sid !== id)
-        : [...prev, id]
+      prev.includes(id) ? prev.filter((sid) => sid !== id) : [...prev, id]
     );
   };
 
@@ -108,8 +109,7 @@ export default function Account_Management() {
     toast.promise(promise, {
       loading: "Deleting accounts...",
       success: (res) =>
-        res.data?.message ||
-        `${ids.length} account(s) deleted successfully!`,
+        res.data?.message || `${ids.length} account(s) deleted successfully!`,
       error: (err) =>
         err.response?.data?.message || "Failed to delete accounts.",
     });
@@ -117,7 +117,7 @@ export default function Account_Management() {
     try {
       await promise;
       setSelectedIds([]);
-      setShowModal(false);  
+      setShowModal(false);
       fetchAccounts();
     } catch (err) {
       console.error("Error deleting accounts:", err);
@@ -126,19 +126,39 @@ export default function Account_Management() {
     }
   };
 
+  // ✅ FUNCTION TO GET COLLEGE NAME
+  const getCollegeName = (account) => {
+    // Check different possible structures
+    if (account.college && account.college.college_name) {
+      return account.college.college_name;
+    }
+    if (account.college_name) {
+      return account.college_name;
+    }
+    if (account.college_id && account.college) {
+      return account.college;
+    }
+    return "—";
+  };
+
   return (
-    <div className="flex content_padding">
+    <div className="flex" style={{ paddingLeft: '260px', paddingTop: '70px' }}>
       <Sidebar />
       <div className="flex-1">
         <Header />
-        <main className="p-6 min-h-screen">
+        <main className="p-6 min-h-screen bg-gray-50">
           {/* Header */}
-          <div className="flex items-center justify-between mb-6">
-            <h1 className="text-2xl font-semibold text-[#064F32]">
-              Account Management 
-            </h1>
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <h1 className="text-3xl font-bold text-[#064F32] mb-2">
+                Account Management
+              </h1>
+              <p className="text-gray-600">
+                Manage user accounts and permissions
+              </p>
+            </div>
             <button
-              onClick={() => navigate("/new-account")}
+              onClick={() => navigate("/super-admin-new-account")}
               className="px-4 py-2 rounded-md text-white bg-[#FF7A00] hover:opacity-90 transition"
             >
               + New Account
@@ -146,42 +166,42 @@ export default function Account_Management() {
           </div>
 
           {/* Filters */}
-          <div className="bg-white rounded-lg shadow p-4 mb-6">
+          <div className="bg-white rounded-lg shadow-md p-6 mb-6 border border-gray-100">
             <div className="flex items-center gap-3 flex-wrap">
               <input
                 type="text"
-                placeholder="Search account..."
+                placeholder="Search by name or email..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="shrink-0 w-[300px] p-1.5 rounded-md border border-gray-200 focus:ring-2 focus:ring-[#064F32]/30 focus:border-[#064F32]/60 outline-none"
+                className="w-[350px] px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#064F32] focus:border-transparent outline-none"
               />
-              <select
-                value={role}
-                onChange={(e) => setRole(e.target.value)}
-                className="shrink-0 w-[180px] p-1.5 rounded-md border border-gray-200 text-gray-700 focus:ring-2 focus:ring-[#064F32]/30 focus:border-[#064F32]/60 outline-none"
-              >
-                <option value="">All Roles</option>
-                <option value="super_admin">Super Admin</option>
-                <option value="program_head">Program Head</option>
-                <option value="dean">Dean</option>
-                <option value="secretary">Secretary</option>
-                <option value="guard">Guard</option>
-                <option value="prof">Professor</option>
-              </select>
+                <select
+                  value={role}
+                  onChange={(e) => setRole(e.target.value)}
+                  className="px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#064F32] focus:border-transparent outline-none text-gray-700"
+                >
+                  <option value="">All Roles</option>
+                  <option value="super_admin">Super Admin</option>
+                  <option value="program_head">Program Head</option>
+                  <option value="dean">Dean</option>
+                  <option value="secretary">Secretary</option>
+                  <option value="guard">Guard</option>
+                  <option value="prof">Professor</option>
+                </select>
 
-              {selectedIds.length > 0 && (
+                {selectedIds.length > 0 && (
                 <button
                   onClick={() => setShowModal(true)}
-                  className="px-2 py-2 rounded-md text-white text-sm bg-red-600 hover:bg-red-700 transition"
+                  className="px-4 py-2.5 rounded-lg text-white text-sm bg-red-600 hover:bg-red-700 transition font-medium"
                 >
-                  Delete Selected
+                  Delete Selected ({selectedIds.length})
                 </button>
               )}
             </div>
           </div>
 
           {/* Table */}
-          <div className="bg-white rounded-lg shadow overflow-hidden">
+          <div className="bg-white rounded-lg shadow-md overflow-hidden border border-gray-100">
             <div className="overflow-x-auto">
               <table className="min-w-full text-left">
                 <thead>
@@ -199,7 +219,7 @@ export default function Account_Management() {
                     <th className="table-title">Name</th>
                     <th className="table-title">Email</th>
                     <th className="table-title">Role</th>
-                    <th className="table-title">Department</th>
+                    <th className="table-title">College</th>
                     <th className="table-title">Date Registered</th>
                     <th className="table-title">Action</th>
                   </tr>
@@ -208,7 +228,7 @@ export default function Account_Management() {
                   {accounts.length === 0 ? (
                     <tr>
                       <td
-                        colSpan={8}
+                        colSpan={7}
                         className="px-4 py-6 text-center text-sm text-gray-500"
                       >
                         No accounts found
@@ -230,10 +250,24 @@ export default function Account_Management() {
                           {account.email}
                         </td>
                         <td className="px-4 py-3 text-sm text-gray-700 text-center">
-                          {account.role}
+                          <span
+                            className={`px-2 py-1 rounded-full text-xs font-medium ${
+                              account.role === "super_admin"
+                                ? "bg-purple-100 text-purple-800"
+                                : account.role === "dean"
+                                ? "bg-blue-100 text-blue-800"
+                                : account.role === "program_head"
+                                ? "bg-green-100 text-green-800"
+                                : account.role === "prof"
+                                ? "bg-orange-100 text-orange-800"
+                                : "bg-gray-100 text-gray-800"
+                            }`}
+                          >
+                            {account.role?.replace("_", " ").toUpperCase()}
+                          </span>
                         </td>
                         <td className="px-4 py-3 text-sm text-gray-700 text-center">
-                          {account.department ?? "—"}
+                          {getCollegeName(account)}
                         </td>
                         <td className="px-4 py-3 text-sm text-gray-700 text-center">
                           {account.created_at
@@ -248,7 +282,7 @@ export default function Account_Management() {
                             : ""}
                         </td>
                         <td className="px-4 py-3 text-sm">
-                          <div className="flex gap-2">
+                          <div className="flex gap-2 justify-center">
                             <ViewAccount account={account} />
                             <button
                               onClick={() => handleEdit(account.id)}

@@ -4,7 +4,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import "./index.css";
 import GlobalProvider from "./GlobalProvider";
 
-import { AuthProvider } from './Context/AuthContext';
+import { AuthProvider } from "./Context/AuthContext";
 import RoleGuard from "./Components/RoleGuard";
 
 import App from "./App.jsx";
@@ -13,28 +13,29 @@ import Landing_Page from "./Pages/Landing_Page.jsx";
 import ForgotPassword from "./Pages/ForgotPassword.jsx";
 import ResetPassword from "./Pages/ResetPassword.jsx";
 
+// Dean Routes
+import DeanStudentRegistration from "./Dean/Student_Registration.jsx";
+import DeanUserManagement from "./Dean/User_Management.jsx";
+import DeanDashboard from "./Dean/Dashboard.jsx";
+import DeanDailyAttendance from "./Dean/Daily_Attendance.jsx";
+import DeanNewStudent from "./Dean/New_Student.jsx";
+import DeanNewUser from "./Dean/New_User.jsx";
+import DeanReport from "./Dean/Report.jsx";
+import DeanProfile from "./Dean/Profile.jsx";
+import DeanViewStudent from "./Dean/View_Student.jsx";
+import DeanViewUser from "./Dean/View_User.jsx";
+import DeanEditUser from "./Dean/Edit_User.jsx";
+import DeanEditStudent from "./Dean/Edit_Student.jsx";
 
-import Student_Registration from "./Dean/Student_Registration.jsx";
-import User_Management from "./Dean/User_Management.jsx";
-import Dashboard from "./Dean/Dashboard.jsx";
-import Daily_Attendance from "./Dean/Daily_Attendance.jsx";
-import New_Student from "./Dean/New_Student.jsx";
-import New_User from "./Dean/New_User.jsx";
-import Report from "./Dean/Report.jsx";
+// Generic Profile component (temporary - using DeanProfile for now)
 import Profile from "./Dean/Profile.jsx";
 
-import View_Student from "./Dean/View_Student.jsx";
-import View_User from "./Dean/View_User.jsx";
-
-import Edit_User from "./Dean/Edit_User.jsx";
-import Edit_Student from "./Dean/Edit_Student.jsx";
-
-
+// Program Head Routes
 import FacultyLoading from "./ProgramHead/FacultyLoading.jsx";
 import FacultyLoad from "./ProgramHead/FacultyLoad.jsx";
 import SectionOffering from "./ProgramHead/SectionOffering.jsx";
 
-
+// Professor Routes
 import ProfReport from "./Prof/Report.jsx";
 import Program from "./Prof/Program.jsx";
 import Schedule from "./Prof/Schedule.jsx";
@@ -42,16 +43,15 @@ import Schedule from "./Prof/Schedule.jsx";
 // SuperAdmin Routes
 import SuperAdminDashboard from "./SuperAdmin/Dashboard.jsx";
 import SuperAdminAcademicManagement from "./SuperAdmin/AcademicManagement.jsx";
-import SuperAdminSystemSettings from "./SuperAdmin/SystemSettings.jsx";
-import SuperAdminAuditLogs from "./SuperAdmin/AuditLogs.jsx";
-import AccountManagement from "./SuperAdmin/AccountManagement.jsx";
-import NewAccount from "./SuperAdmin/NewAccount.jsx";
-import ViewAccount from "./SuperAdmin/ViewAccount.jsx";
-import EditAccount from "./SuperAdmin/EditAccount.jsx";
-
+import SuperAdminAccountManagement from "./SuperAdmin/AccountManagement.jsx";
+import SuperAdminNewAccount from "./SuperAdmin/NewAccount.jsx";
+import SuperAdminViewAccount from "./SuperAdmin/ViewAccount.jsx";
+import SuperAdminEditAccount from "./SuperAdmin/EditAccount.jsx";
+import SuperAdminStudentSummary from "./SuperAdmin/StudentSummary.jsx";
+import SuperAdminReports from "./SuperAdmin/Report.jsx";
+import SuperAdminSystemMaintenance from "./SuperAdmin/SystemMaintenance.jsx";
 
 import ChangePassword from "./Components/ChangePassword.jsx";
-
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
@@ -72,18 +72,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
           </RoleGuard>
         }
       />
-
-  {/* FOR DEAN */}
-        <Route
-    path="/dashboard"
-    element={
-      <RoleGuard allowed={['dean','super_admin']}>
-        <Dashboard />
-      </RoleGuard>
-    }
-  />
-
-  {/* SUPER ADMIN */}
+  {/* SUPER ADMIN ROUTES */}
   <Route
     path="/super-admin-dashboard" 
     element={
@@ -106,167 +95,176 @@ ReactDOM.createRoot(document.getElementById("root")).render(
     path="/super-admin-account" 
     element={
       <RoleGuard allowed={['super_admin']}>
-        <AccountManagement />
+        <SuperAdminAccountManagement />
       </RoleGuard>
     }
   />
 
   <Route
-    path="/super-admin-settings" 
+    path="/super-admin-new-account" 
     element={
       <RoleGuard allowed={['super_admin']}>
-        <SuperAdminSystemSettings />
+        <SuperAdminNewAccount />
       </RoleGuard>
     }
   />
 
   <Route
-    path="/super-admin-logs" 
+    path="/super-admin-view-account/:id" 
     element={
       <RoleGuard allowed={['super_admin']}>
-        <SuperAdminAuditLogs />
-      </RoleGuard>
-    }
-  />
-
-  {/* Super Admin's Account Management - All User Types */}
-  <Route
-    path="/account-management" 
-    element={
-      <RoleGuard allowed={['super_admin']}>
-        <AccountManagement />
+        <SuperAdminViewAccount />
       </RoleGuard>
     }
   />
 
   <Route
-    path="/new-account" 
+    path="/super-admin-edit-account/:id" 
     element={
       <RoleGuard allowed={['super_admin']}>
-        <NewAccount />
+        <SuperAdminEditAccount />
       </RoleGuard>
     }
   />
 
   <Route
-    path="/view-account/:id" 
+    path="/super-admin-student-summary"
     element={
       <RoleGuard allowed={['super_admin']}>
-        <ViewAccount />
+        <SuperAdminStudentSummary />
       </RoleGuard>
     }
   />
 
   <Route
-    path="/edit-account/:id" 
+    path="/super-admin-reports"
     element={
       <RoleGuard allowed={['super_admin']}>
-        <EditAccount />
+        <SuperAdminReports />
+      </RoleGuard>
+    }
+  />
+
+  <Route
+    path="/super-admin-system-maintenance"
+    element={
+      <RoleGuard allowed={['super_admin']}>
+        <SuperAdminSystemMaintenance />
+      </RoleGuard>
+    }
+  />
+
+  {/* DEAN ROUTES */}
+    <Route
+    path="/dean-dashboard"
+    element={
+      <RoleGuard allowed={['dean']}>
+        <DeanDashboard />
       </RoleGuard>
     }
   />
 
     <Route
-        path="/daily_attendance"
+        path="/dean-daily-attendance"
         element={
-          <RoleGuard allowed={['dean','super_admin']}>
-            <Daily_Attendance />
+          <RoleGuard allowed={['dean']}>
+            <DeanDailyAttendance />
           </RoleGuard>
         }
       />
 
         <Route
-    path="/student_registration"
+    path="/dean-student-registration"
     element={
-      <RoleGuard allowed={['dean','super_admin']}>
-        <Student_Registration />
+      <RoleGuard allowed={['dean']}>
+        <DeanStudentRegistration />
       </RoleGuard>
     }
   />
 
   {/* Dean's User Management - Professors Only */}
   <Route
-    path="/user_management"
+    path="/dean-user-management"
     element={
-      <RoleGuard allowed={['dean','super_admin']}>
-        <User_Management />
+      <RoleGuard allowed={['dean']}>
+        <DeanUserManagement />
       </RoleGuard>
     }
   />
-  
-  <Route
-  path="/report"
-  element={
-    <RoleGuard allowed={['dean', 'super_admin']}>
-      <Report />
-    </RoleGuard>
-  }
-/>
 
 <Route
-  path="/prof_report"
-  element={
-    <RoleGuard allowed={['prof', 'super_admin']}>
-      <ProfReport />
-    </RoleGuard>
-  }
-/>
-
-
-<Route
-    path="/new_student"
+    path="/dean-new-student"
     element={
-      <RoleGuard allowed={['dean','super_admin']}>
-        <New_Student />
+      <RoleGuard allowed={['dean']}>
+        <DeanNewStudent />
       </RoleGuard>
     }
   />
 
   {/* Dean's New User - Professors Only */}
 <Route
-    path="/new_user"
+    path="/dean-new-user"
     element={
-      <RoleGuard allowed={['dean','super_admin']}>
-        <New_User />
+      <RoleGuard allowed={['dean']}>
+        <DeanNewUser />
       </RoleGuard>
     }
   />
 
 <Route
-    path="/view_student"
+    path="/dean-view-student"
     element={
-      <RoleGuard allowed={['dean','super_admin']}>
-        <View_Student />
+      <RoleGuard allowed={['dean']}>
+        <DeanViewStudent />
       </RoleGuard>
     }
   />
 
 <Route
-    path="/view_user"
+    path="/dean-view-user"
     element={
-      <RoleGuard allowed={['dean','super_admin']}>
-        <View_User />
+      <RoleGuard allowed={['dean']}>
+        <DeanViewUser />
       </RoleGuard>
     }
   />
 
 <Route
-    path="/edit_user/:id"
+    path="/dean-edit-user/:id"
     element={
-      <RoleGuard allowed={['dean','super_admin']}>
-        <Edit_User />
+      <RoleGuard allowed={['dean']}>
+        <DeanEditUser />
       </RoleGuard>
     }
   />
 
 <Route
-    path="/edit_student/:id"
+    path="/dean-edit-student/:id"
     element={
-      <RoleGuard allowed={['dean','super_admin']}>
-        <Edit_Student />
+      <RoleGuard allowed={['dean']}>
+        <DeanEditStudent />
       </RoleGuard>
     }
   />
+  
+  <Route
+  path="/dean-report"
+  element={
+    <RoleGuard allowed={['dean']}>
+      <DeanReport />
+    </RoleGuard>
+  }
+/>
+
+{/* PROFESSOR ROUTES */}
+<Route
+  path="/prof_report"
+  element={
+    <RoleGuard allowed={['prof']}>
+      <ProfReport />
+    </RoleGuard>
+  }
+/>
 
 <Route
     path="/profile"

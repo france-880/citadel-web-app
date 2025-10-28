@@ -69,24 +69,8 @@ export default function SystemSettings() {
     alert("Settings saved successfully!");
   };
 
-  if (isLoading) {
-    return (
-      <div className="flex" style={{ paddingLeft: '260px', paddingTop: '70px' }}>
-        <Sidebar />
-        <div className="flex-1">
-          <Header />
-          <main className="p-6 min-h-screen">
-            <div className="flex items-center justify-center h-96">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#064F32]"></div>
-            </div>
-          </main>
-        </div>
-      </div>
-    );
-  }
-
   const SettingCard = ({ title, icon: Icon, children }) => (
-    <div className="bg-white rounded-lg shadow-md p-6">
+    <div className="bg-white rounded-lg shadow-md p-6 border border-gray-100">
       <div className="flex items-center gap-3 mb-6">
         <div className="p-3 rounded-full bg-[#064F32]">
           <Icon className="w-6 h-6 text-white" />

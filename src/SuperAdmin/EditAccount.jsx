@@ -14,11 +14,12 @@ export default function EditAccount() {
   const { user, refreshUser } = useAuth();
   const { id } = useParams(); // get account id from route
   const [loading, setLoading] = useState(false);
+  const [fetchLoading, setFetchLoading] = useState(true);
   const [errors, setErrors] = useState({});
   const [colleges, setColleges] = useState([]);
   const [form, setForm] = useState({
     fullname: "",
-    department: "",
+    college_id: "",
     dob: "",
     role: "",
     gender: "",
@@ -34,6 +35,7 @@ export default function EditAccount() {
   useEffect(() => {
     const fetchData = async () => {
       try {
+        setFetchLoading(true);
         const [accountRes, collegesRes] = await Promise.all([
           api.get(`/accounts/${id}`),
           api.get("/colleges")
@@ -54,11 +56,17 @@ export default function EditAccount() {
           password: "", // Don't populate password field
         });
         
-        // Set colleges data
-        setColleges(collegesRes.data);
+        // Set colleges data - check response structure
+        if (collegesRes.data.success) {
+          setColleges(collegesRes.data.data || []); // Use data.data for API structure
+        } else {
+          setColleges([]);
+        }
       } catch (err) {
         console.error(err);
         toast.error("Failed to fetch data");
+      } finally {
+        setFetchLoading(false);
       }
     };
     
@@ -121,7 +129,7 @@ export default function EditAccount() {
     try {
       const payload = {
         fullname: form.fullname,
-        department: form.department,
+        college_id: form.college_id,
         dob: form.dob,
         role: form.role,
         gender: form.gender,
@@ -152,7 +160,7 @@ export default function EditAccount() {
       await refreshUser();
     }
 
-      navigate("/account-management", { state: { updatedAccount: res.data } });
+      navigate("/super-admin-account", { state: { updatedAccount: res.data } });
     } catch (err) {
       console.error("Update error:", err);
     } finally {
@@ -219,29 +227,40 @@ export default function EditAccount() {
                
                 <div className="w-full">
                     <label className="block text-sm text-gray-700 mb-2">
-                      Department
+                      College
                     </label>
                     <div className="relative w-full">
-                      <select
-                        value={form.department}
-                        onChange={handleChange("department")}
-                        className={`w-full p-3 pr-10 appearance-none border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#064F32]/30 focus:border-[#064F32]/60 ${
-                        errors.department ? "border-red-500" : "border-gray-300"}`}
-                      >
-                        <option value="">Select Department</option>
-                        {colleges.map(college => (
-                          <option key={college.id} value={college.college_name}>
-                            {college.college_name}
-                          </option>
-                        ))}
-                      </select>
-                      <ChevronDown
-                        size={20}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none"
-                      />
+                      {fetchLoading ? (
+                        <div className="flex items-center justify-center p-3 border border-gray-300 rounded-lg bg-gray-50">
+                          <Loader2 className="h-5 w-5 animate-spin text-gray-500" />
+                          <span className="ml-2 text-sm text-gray-500">
+                            Loading colleges...
+                          </span>
+                        </div>
+                      ) : (
+                        <>
+                          <select
+                            value={form.college_id}
+                            onChange={handleChange("college_id")}
+                            className={`w-full p-3 pr-10 appearance-none border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#064F32]/30 focus:border-[#064F32]/60 ${
+                            errors.college_id ? "border-red-500" : "border-gray-300"}`}
+                          >
+                            <option value="">Select College</option>
+                            {colleges.map(college => (
+                              <option key={college.id} value={college.id}>
+                                {college.college_name}
+                              </option>
+                            ))}
+                          </select>
+                          <ChevronDown
+                            size={20}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none"
+                          />
+                        </>
+                      )}
                     </div>
-                    {errors.department && (
-                      <p className="mt-1 text-xs text-red-600">{errors.department}</p>
+                    {errors.college_id && (
+                      <p className="mt-1 text-xs text-red-600">{errors.college_id}</p>
                     )}
                   </div>
 

@@ -18,7 +18,7 @@ export default function New_User() {
     fullname: "",
     department: "",
     dob: "",
-    role: "",
+    role: "Professor", // Auto-set to Professor
     gender: "",
     address: "",
     contact: "",
@@ -56,7 +56,7 @@ export default function New_User() {
       if (!form.fullname.trim()) formErrors.fullname = "Fullname is required";
       if (!form.department) formErrors.department = "Department is required";
       if (!form.dob) formErrors.dob = "Date of Birth is required";
-      if (!form.role) formErrors.role = "Role is required";
+      // Role is auto-set to Professor, no validation needed
       if (!form.gender) formErrors.gender = "Gender is required";
       if (!form.address.trim()) formErrors.address = "Address is required";
       if (!form.contact.trim()) formErrors.contact = "Contact number is required";
@@ -211,20 +211,12 @@ export default function New_User() {
                     {/* Role */}
                     <div className="w-full">
                       <label className="block text-sm text-gray-700 mb-2">Role</label>
-                      <div className="relative w-full">
-                        <select
-                          value={form.role}
-                          onChange={handleChange("role")}
-                          className={`w-full p-3 pr-10 appearance-none border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#064F32]/30 focus:border-[#064F32]/60 ${
-                            errors.role ? "border-red-500" : "border-gray-300"
-                          }`}
-                        >
-                          <option value="">Select Role</option>
-                          <option>Professor</option>
-                        </select>
-                        <ChevronDown size={20} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
-                      </div>
-                      {errors.role && <p className="mt-1 text-xs text-red-600">{errors.role}</p>}
+                      <input
+                        type="text"
+                        value="Professor"
+                        readOnly
+                        className="w-full p-3 border rounded-lg bg-gray-50 text-gray-700 cursor-not-allowed"
+                      />
                     </div>
 
                     {/* Gender */}

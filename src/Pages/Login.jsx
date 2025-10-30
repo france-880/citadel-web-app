@@ -106,15 +106,8 @@ export default function Login() {
               </button>
             </div>
 
-            {/* REMEMBER ME + FORGOT PASSWORD */}
-            <div className="flex items-center justify-between mb-6">
-              <label className="flex items-center gap-2 text-sm text-gray-600">
-                <input
-                  type="checkbox"
-                  className="rounded border-gray-300 text-[#064F32] focus:ring-[#064F32]/30"
-                />
-                Remember me
-              </label>
+            {/* FORGOT PASSWORD */}
+            <div className="flex items-center justify-end mb-6">
               {/* Forgot password link */}
               <Link
                 to="/forgot-password"
@@ -127,7 +120,7 @@ export default function Login() {
             {/* SUBMIT BUTTON */}
             <button
               onClick={handle} // Calls handle() on click
-              className="w-full bg-[#FF7A00] text-white p-3 rounded-lg font-medium hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-[#064F32]/30 transition-all"
+              className="w-full bg-[#064F32] text-white p-3 rounded-lg font-medium hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-[#064F32]/30 transition-all"
             >
               Sign in
             </button>

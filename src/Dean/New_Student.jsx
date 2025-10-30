@@ -24,6 +24,7 @@ export default function New_Student() {
     studentNo: "",
     program_id: "",
     year_section_id: "",
+    status: "",
     dob: "",
     gender: "",
     email: "",
@@ -170,6 +171,7 @@ export default function New_Student() {
       if (!form.program_id) stepErrors.program_id = "Program is required";
       if (!form.year_section_id)
         stepErrors.year_section_id = "Year & Section is required";
+      if (!form.status) stepErrors.status = "Status is required";
       if (!form.dob) stepErrors.dob = "Date of Birth is required";
       if (!form.gender) stepErrors.gender = "Gender is required";
       if (!/\S+@\S+\.\S+/.test(form.email)) {
@@ -228,6 +230,7 @@ export default function New_Student() {
       student_no: form.studentNo,
       program_id: form.program_id,
       year_section_id: form.year_section_id,
+      status: form.status,
       dob: form.dob,
       gender: form.gender,
       email: form.email,
@@ -491,6 +494,34 @@ export default function New_Student() {
                       {errors.gender && (
                         <p className="mt-1 text-xs text-red-600">
                           {errors.gender}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="w-full">
+                      <label className="block text-sm text-gray-700 mb-2">
+                        Status
+                      </label>
+                      <div className="relative w-full">
+                        <select
+                          value={form.status}
+                          onChange={handleChange("status")}
+                          className={`w-full p-3 pr-10 appearance-none border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#064F32]/30 focus:border-[#064F32]/60 ${
+                            errors.status ? "border-red-500" : "border-gray-300"
+                          }`}
+                        >
+                          <option value="">Select Status</option>
+                          <option value="Regular">Regular</option>
+                          <option value="Irregular">Irregular</option>
+                        </select>
+                        <ChevronDown
+                          size={20}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none"
+                        />
+                      </div>
+                      {errors.status && (
+                        <p className="mt-1 text-xs text-red-600">
+                          {errors.status}
                         </p>
                       )}
                     </div>

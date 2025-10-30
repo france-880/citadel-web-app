@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Header from "../Components/Header";
 import Sidebar from "../Components/Sidebar";
 import { useNavigate } from "react-router-dom";
@@ -17,6 +17,19 @@ export default function ChangePassword() {
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [passwordTouched, setPasswordTouched] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(
+    () => localStorage.getItem("sidebarCollapsed") === "true"
+  );
+
+  // Sidebar collapse listener
+  useEffect(() => {
+    const handleSidebarToggle = () => {
+      setIsSidebarCollapsed(localStorage.getItem("sidebarCollapsed") === "true");
+    };
+    window.addEventListener("sidebarToggle", handleSidebarToggle);
+    return () => window.removeEventListener("sidebarToggle", handleSidebarToggle);
+  }, []);
 
   // Password validation
   const hasUpperCase = /[A-Z]/.test(newPassword);
@@ -77,6 +90,7 @@ export default function ChangePassword() {
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
+      setPasswordTouched(false);
 
       // Optional: redirect to profile after success
       // navigate("/profile");
@@ -88,31 +102,39 @@ export default function ChangePassword() {
   };
 
   // Reusable validation item for password rules
-  const ValidationItem = ({ valid, text }) => (
-    <li className={`flex items-center gap-2 ${valid ? "text-green-600" : "text-red-500"}`}>
-      {valid ? (
-        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-          <path
-            fillRule="evenodd"
-            d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-            clipRule="evenodd"
-          />
-        </svg>
-      ) : (
-        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-          <path
-            fillRule="evenodd"
-            d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-            clipRule="evenodd"
-          />
-        </svg>
-      )}
-      {text}
-    </li>
-  );
+  const ValidationItem = ({ valid, text }) => {
+    // Determine color based on touched state and validation
+    const getColor = () => {
+      if (!passwordTouched) return "text-gray-700"; // Black when not touched
+      return valid ? "text-green-600" : "text-red-500"; // Green if valid, red if not
+    };
+
+    return (
+      <li className={`flex items-center gap-2 ${getColor()}`}>
+        {valid ? (
+          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+            <path
+              fillRule="evenodd"
+              d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+              clipRule="evenodd"
+            />
+          </svg>
+        ) : (
+          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+            <path
+              fillRule="evenodd"
+              d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+              clipRule="evenodd"
+            />
+          </svg>
+        )}
+        {text}
+      </li>
+    );
+  };
 
   return (
-    <div className="flex content_padding">
+    <div className={`flex content_padding ${isSidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
       <Sidebar />
       <div className="flex-1">
         <Header />
@@ -124,7 +146,7 @@ export default function ChangePassword() {
           </div>
 
           <div className="bg-white rounded-lg shadow-md p-8">
-            <div className="flex gap-8">
+            <div className="flex gap-8 pl-4">
               {/* Left Side - Navigation Tabs */}
               <div className="w-64 flex-shrink-0">
                 <div className="flex flex-col gap-3">
@@ -167,7 +189,7 @@ export default function ChangePassword() {
               </div>
 
               {/* Right Side - Content */}
-              <div className="flex-1">
+              <div className="flex-1 pl-4 ml-4">
                 <div>
                   <h3 className="text-xl font-bold text-gray-800 mb-8">
                     Change Password
@@ -188,7 +210,7 @@ export default function ChangePassword() {
                           type={showCurrentPassword ? "text" : "password"}
                           value={currentPassword}
                           onChange={(e) => setCurrentPassword(e.target.value)}
-                          className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#064F32] focus:border-transparent transition-all pr-10"
+                          className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#064F32]/30 focus:border-[#064F32]/60 transition-all pr-10"
                           placeholder="Enter current password"
                         />
                         <button
@@ -219,8 +241,13 @@ export default function ChangePassword() {
                           id="new-password"
                           type={showNewPassword ? "text" : "password"}
                           value={newPassword}
-                          onChange={(e) => setNewPassword(e.target.value)}
-                          className={`w-full px-4 py-2.5 rounded-lg border transition-all pr-10 focus:outline-none focus:ring-2 ${
+                          onChange={(e) => {
+                            setNewPassword(e.target.value);
+                            if (!passwordTouched && e.target.value) {
+                              setPasswordTouched(true);
+                            }
+                          }}
+                          className={`w-full px-4 py-2.5 rounded-lg border transition-all pr-10 focus:outline-none focus:ring-2 focus:ring-[#064F32]/30 focus:border-[#064F32]/60 transition-all pr-10${
                             newPassword && isPasswordValid
                               ? "border-green-600 focus:ring-green-500"
                               : newPassword
@@ -290,7 +317,7 @@ export default function ChangePassword() {
                           type={showConfirmPassword ? "text" : "password"}
                           value={confirmPassword}
                           onChange={(e) => setConfirmPassword(e.target.value)}
-                          className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#064F32] focus:border-transparent transition-all pr-10"
+                          className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#064F32]/30 focus:border-[#064F32]/60  transition-all pr-10"
                           placeholder="Confirm new password"
                         />
                         <button

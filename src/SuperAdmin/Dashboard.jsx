@@ -19,6 +19,18 @@ import {
 
 export default function Dashboard() {
   const [isLoading, setIsLoading] = useState(true);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(
+    () => localStorage.getItem("sidebarCollapsed") === "true"
+  );
+
+  // Listen to sidebar toggle events
+  useEffect(() => {
+    const handleSidebarToggle = () => {
+      setIsSidebarCollapsed(localStorage.getItem("sidebarCollapsed") === "true");
+    };
+    window.addEventListener("sidebarToggle", handleSidebarToggle);
+    return () => window.removeEventListener("sidebarToggle", handleSidebarToggle);
+  }, []);
 
   // Dummy data for the dashboard
   const dashboardData = {
@@ -114,7 +126,7 @@ export default function Dashboard() {
 
   if (isLoading) {
     return (
-      <div className="flex" style={{ paddingLeft: '260px', paddingTop: '70px' }}>
+      <div className={`flex content_padding ${isSidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
         <Sidebar />
         <div className="flex-1">
           <Header />
@@ -170,24 +182,8 @@ export default function Dashboard() {
     );
   };
 
-  if (isLoading) {
-    return (
-      <div className="flex" style={{ paddingLeft: '260px', paddingTop: '70px' }}>
-        <Sidebar />
-        <div className="flex-1">
-          <Header />
-          <main className="p-6 min-h-screen">
-            <div className="flex items-center justify-center h-96">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#064F32]"></div>
-            </div>
-          </main>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="flex" style={{ paddingLeft: '260px', paddingTop: '70px' }}>
+    <div className={`flex content_padding ${isSidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
       <Sidebar />
       <div className="flex-1">
         <Header />

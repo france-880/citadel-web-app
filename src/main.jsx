@@ -12,6 +12,7 @@ import Login from "./Pages/Login.jsx";
 import Landing_Page from "./Pages/Landing_Page.jsx";
 import ForgotPassword from "./Pages/ForgotPassword.jsx";
 import ResetPassword from "./Pages/ResetPassword.jsx";
+import CheckEmail from "./Pages/CheckEmail.jsx";
 
 // Dean Routes
 import DeanStudentRegistration from "./Dean/Student_Registration.jsx";
@@ -322,6 +323,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
   <Route path="*" element={<Navigate to="/login" replace />} />
   <Route path="/changepassword" element={<ChangePassword />} />
   <Route path="/forgot-password" element={<ForgotPassword />} />
+  <Route path="/check-email" element={<CheckEmail />} />
   <Route path="/reset-password/:token" element={<ResetPassword />} />
 
       </Routes>

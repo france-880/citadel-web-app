@@ -31,10 +31,14 @@ export default function User_Management() {
 
   const [users, setUsers] = useState([]);
   const [search, setSearch] = useState("");
-  const [role, setRole] = useState("");
+  const [department, setDepartment] = useState("");
+  const [departments, setDepartments] = useState([]);
   const [selectedIds, setSelectedIds] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(
+    () => localStorage.getItem("sidebarCollapsed") === "true"
+  );
 
   // Pagination state
   const [page, setPage] = useState(1);
@@ -43,13 +47,32 @@ export default function User_Management() {
   const [to, setTo] = useState(0);
   const [total, setTotal] = useState(0);
 
+  // Listen to sidebar toggle events
+  useEffect(() => {
+    const handleSidebarToggle = () => {
+      setIsSidebarCollapsed(localStorage.getItem("sidebarCollapsed") === "true");
+    };
+    window.addEventListener("sidebarToggle", handleSidebarToggle);
+    return () => window.removeEventListener("sidebarToggle", handleSidebarToggle);
+  }, []);
+
+  // ✅ Fetch all departments
+  const fetchDepartments = async () => {
+    try {
+      const res = await api.get("/users/departments/all");
+      setDepartments(res.data || []);
+    } catch (err) {
+      console.error("Error fetching departments:", err);
+    }
+  };
+
   // ✅ Fetch users from backend with filter + pagination
   const fetchUsers = async () => {
     try {
       const res = await api.get("/users", {
         params: {
           search,
-          role,
+          department,
           page,
           per_page: 10,
         },
@@ -67,17 +90,22 @@ export default function User_Management() {
     }
   };
 
+  // ✅ Load departments on mount
+  useEffect(() => {
+    fetchDepartments();
+  }, []);
+
   // ✅ Auto refresh when filters or page change
   useEffect(() => {
     fetchUsers();
-  }, [search, role, page]);
+  }, [search, department, page]);
 
   // ✅ Reset to page 1 if filter/search changes
   useEffect(() => {
     setPage(1);
-  }, [search, role]);
+  }, [search, department]);
 
-  const handleEdit = (id) => navigate(`/dean-edit-account/${id}`);
+  const handleEdit = (id) => navigate(`/dean-edit-user/${id}`);
 
   // Checkbox controls
   const handleCheckboxChange = (id) => {
@@ -125,7 +153,7 @@ export default function User_Management() {
   };
 
   return (
-    <div className="flex" style={{ paddingLeft: "260px", paddingTop: "70px" }}>
+    <div className={`flex content_padding ${isSidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
       <Sidebar />
       <div className="flex-1">
         <Header />
@@ -170,14 +198,16 @@ export default function User_Management() {
                 )}
               </div>
               <select
-                value={role}
-                onChange={(e) => setRole(e.target.value)}
-                className="w-[140px] p-2 rounded-md border border-gray-200 focus:ring-2 focus:ring-[#064F32]/30 outline-none"
+                value={department}
+                onChange={(e) => setDepartment(e.target.value)}
+                className="w-[180px] p-2 rounded-md border border-gray-200 focus:ring-2 focus:ring-[#064F32]/30 outline-none"
               >
-                <option value="">All Roles</option>
-                <option value="program_head">Program Head</option>
-                <option value="dean">Dean</option>
-                <option value="prof">Professor</option>
+                <option value="">All Departments</option>
+                {departments.map((dept) => (
+                  <option key={dept} value={dept}>
+                    {dept}
+                  </option>
+                ))}
               </select>
 
               {selectedIds.length > 0 && (

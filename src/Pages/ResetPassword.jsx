@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useParams, useSearchParams } from "react-router-dom";
+import { useParams, useSearchParams, useNavigate } from "react-router-dom";
 import { Eye, EyeOff } from "lucide-react";
 import api from "../api/axios";
 import toast from "react-hot-toast";
@@ -7,12 +7,14 @@ import toast from "react-hot-toast";
 export default function ResetPassword() {
   const { token } = useParams(); // kukunin token sa URL (hal. /reset-password/:token)
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [passwordConfirmation, setPasswordConfirmation] = useState("");
   const [message, setMessage] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   // Auto-populate email from URL query parameter
   useEffect(() => {
@@ -41,6 +43,7 @@ export default function ResetPassword() {
       return;
     }
     
+    setLoading(true);
     try {
       console.log('Sending reset password request:', { email, token: token.substring(0, 10) + '...' });
       
@@ -56,7 +59,7 @@ export default function ResetPassword() {
       
       // Redirect to login after 2 seconds
       setTimeout(() => {
-        window.location.href = '/login';
+        navigate('/login');
       }, 2000);
       
     } catch (error) {
@@ -78,82 +81,115 @@ export default function ResetPassword() {
         setMessage("Server error.");
         toast.error("Server error.");
       }
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div className="flex justify-center items-center min-h-screen bg-gray-100">
+    <div className="min-h-screen flex justify-center items-center bg-gray-50 px-4">
       <form
         onSubmit={handleSubmit}
-        className="bg-white p-6 rounded-xl shadow-lg w-full max-w-sm"
+        className="bg-white p-8 rounded-lg shadow-md w-full max-w-md"
       >
-        <h2 className="text-2xl font-bold mb-4 text-center">Reset Password</h2>
+        {/* Logo */}
+        <div className="flex justify-center mb-6">
+          <img 
+            src="/images/ucc.png" 
+            alt="UCC Logo" 
+            className="h-20 w-20 object-contain"
+          />
+        </div>
 
-        <input
-          type="email"
-          placeholder="Enter your email"
-          className="w-full border p-2 rounded mb-3"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          readOnly={searchParams.get('email') !== null}
-          required
-        />
+        <h2 className="text-2xl font-semibold mb-2 text-center text-gray-900">Reset Password</h2>
+        <p className="text-sm text-gray-600 text-center mb-6">
+          Create a new password for your account.
+        </p>
 
         {/* New Password with Show/Hide */}
-        <div className="relative mb-3">
-          <input
-            type={showPassword ? "text" : "password"}
-            placeholder="New Password"
-            className="w-full border p-2 rounded pr-10"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-          />
-          <button
-            type="button"
-            onClick={() => setShowPassword(!showPassword)}
-            className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
-          >
-            {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-          </button>
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            New Password
+          </label>
+          <div className="relative">
+            <input
+              type={showPassword ? "text" : "password"}
+              placeholder="Enter new password"
+              className="w-full p-3 border border-gray-300 rounded-lg pr-10 focus:ring-2 focus:ring-[#064F32]/30 focus:border-[#064F32]/60 outline-none"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              disabled={loading}
+              required
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+            >
+              {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+            </button>
+          </div>
         </div>
 
         {/* Confirm Password with Show/Hide */}
-        <div className="relative mb-3">
-          <input
-            type={showConfirmPassword ? "text" : "password"}
-            placeholder="Confirm Password"
-            className="w-full border p-2 rounded pr-10"
-            value={passwordConfirmation}
-            onChange={(e) => setPasswordConfirmation(e.target.value)}
-            required
-          />
-          <button
-            type="button"
-            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-            className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
-          >
-            {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-          </button>
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Confirm Password
+          </label>
+          <div className="relative">
+            <input
+              type={showConfirmPassword ? "text" : "password"}
+              placeholder="Confirm new password"
+              className="w-full p-3 border border-gray-300 rounded-lg pr-10 focus:ring-2 focus:ring-[#064F32]/30 focus:border-[#064F32]/60 outline-none"
+              value={passwordConfirmation}
+              onChange={(e) => setPasswordConfirmation(e.target.value)}
+              disabled={loading}
+              required
+            />
+            <button
+              type="button"
+              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+            >
+              {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+            </button>
+          </div>
         </div>
 
         {/* Password Match Indicator */}
         {password && passwordConfirmation && (
-          <div className={`text-xs mb-3 ${password === passwordConfirmation ? 'text-green-600' : 'text-red-600'}`}>
+          <div className={`text-sm mb-4 p-3 rounded-lg ${
+            password === passwordConfirmation 
+              ? 'bg-green-50 text-green-700 border border-green-200' 
+              : 'bg-red-50 text-red-700 border border-red-200'
+          }`}>
             {password === passwordConfirmation ? '✓ Passwords match' : '✗ Passwords do not match'}
           </div>
         )}
 
         <button
           type="submit"
-          className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700"
+          className="w-full bg-[#064F32] text-white py-3 rounded-lg hover:bg-[#053d27] transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+          disabled={loading || (password !== passwordConfirmation)}
         >
-          Reset Password
+          {loading ? 'Resetting Password...' : 'Reset Password'}
         </button>
 
         {message && (
-          <p className="mt-3 text-center text-sm text-gray-700">{message}</p>
+          <p className="mt-4 text-center text-sm text-gray-700 bg-blue-50 border border-blue-200 rounded-lg p-3">
+            {message}
+          </p>
         )}
+
+        <div className="text-center mt-4">
+          <button
+            type="button"
+            onClick={() => navigate('/login')}
+            className="text-sm text-[#064F32] font-semibold hover:underline"
+          >
+            Back to Login
+          </button>
+        </div>
       </form>
     </div>
   );

@@ -15,6 +15,7 @@ import {
   ChevronUp,
   ChevronDown,
   FolderArchive,
+  CalendarCheck,
 } from "lucide-react";
 
 export default function Sidebar() {
@@ -130,7 +131,7 @@ export default function Sidebar() {
     },
     { label: "Daily Attendance",
       path: "/dean-daily-attendance",
-      icon: LayoutDashboardIcon,
+      icon: CalendarCheck,
       description: "Overview of daily attendance",
       roles: ["dean"]
     },
@@ -154,8 +155,6 @@ export default function Sidebar() {
     },
 
     // Program Head specific menu items
-    { label: "Faculty List", path: "/faculty-load", icon: Users, roles: ["program_head"] },
-    { label: "Section Offering", path: "/section-offering", icon: Users, roles: ["program_head"] },
     {
       label: "Faculty List",
       path: "/faculty-load",
@@ -163,9 +162,15 @@ export default function Sidebar() {
       description: "Manage faculty loads",
       roles: ["program_head"],
     },
+    {
+      label: "Section Offering",
+      path: "/section-offering",
+      icon: FolderArchive,
+      description: "Manage section offerings",
+      roles: ["program_head"],
+    },
 
     // Professor specific menu items
-    { label: "Report", path: "/prof_report", icon: BarChart3, roles: ["prof"] },
     {
       label: "Program",
       path: "/program",
@@ -216,39 +221,13 @@ export default function Sidebar() {
               isCollapsed ? "justify-center" : "justify-between"
             } px-4 py-4 border-b border-gray-100`}
           >
-            {!isCollapsed && (
               <div className="flex items-center space-x-3">
                 <img
                   src="/images/ucc.png"
                   alt="University Logo"
                   className="w-[50px] h-[50px]"
                 />
-                <div>
-                  <h2 className="text-lg font-bold text-[#064F32]">
-                    {user?.role === "super_admin"
-                      ? "Super Admin"
-                      : user?.role === "dean"
-                      ? "Dean"
-                      : user?.role === "prof"
-                      ? "Professor"
-                      : user?.role === "program_head"
-                      ? "Program Head"
-                      : "User"}
-                  </h2>
-                  <p className="text-xs text-gray-500">
-                    {user?.role === "super_admin"
-                      ? "System Control Panel"
-                      : user?.role === "dean"
-                      ? "Dean Panel"
-                      : user?.role === "prof"
-                      ? "Faculty Dashboard"
-                      : user?.role === "program_head"
-                      ? "Program Management"
-                      : "User Dashboard"}
-                  </p>
-                </div>
               </div>
-            )}
             <button
               onClick={() => setIsCollapsed(!isCollapsed)}
               className="p-2 rounded-lg hover:bg-gray-100 transition-colors flex items-center justify-center"
@@ -363,42 +342,7 @@ export default function Sidebar() {
               })}
           </ul>
 
-          {/* Footer */}
-          {!isCollapsed && (
-            <div className="p-4 border-t border-gray-100">
-              <div className="flex items-center space-x-3">
-                <div className="w-8 h-8 bg-[#064F32] rounded-full flex items-center justify-center">
-                  <span className="text-white text-sm font-semibold">
-                    {user?.role === "super_admin"
-                      ? "SA"
-                      : user?.fullname?.charAt(0)?.toUpperCase() || "U"}
-                  </span>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900 truncate">
-                    {user?.fullname && user.fullname !== "Unknown User"
-                      ? user.fullname
-                      : user?.role === "super_admin"
-                      ? "Super Admin"
-                      : "User"}
-                  </p>
-                  <p className="text-xs text-gray-500 truncate">
-                    {user?.role === "super_admin"
-                      ? "System Administrator"
-                      : user?.role === "dean"
-                      ? "Dean"
-                      : user?.role === "prof"
-                      ? "Professor"
-                      : user?.role === "program_head"
-                      ? "Program Head"
-                      : user?.role === "guard"
-                      ? "Security Guard"
-                      : "User"}
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
+        
         </nav>
       </aside>
     </>

@@ -11,6 +11,9 @@ export default function Profile() {
   const { user, refreshUser } = useAuth() || {}; // current logged-in user if available
   const [isSaving, setIsSaving] = useState(false);
   const [previewImage, setPreviewImage] = useState("/api/placeholder/150/150");
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(
+    () => localStorage.getItem("sidebarCollapsed") === "true"
+  );
 
   // ✅ Profile fields (mirroring your Edit_User.jsx)
   const [form, setForm] = useState({
@@ -23,6 +26,15 @@ export default function Profile() {
     address: "",
     username: "",
   });
+
+  // ✅ Sidebar collapse listener
+  useEffect(() => {
+    const handleSidebarToggle = () => {
+      setIsSidebarCollapsed(localStorage.getItem("sidebarCollapsed") === "true");
+    };
+    window.addEventListener("sidebarToggle", handleSidebarToggle);
+    return () => window.removeEventListener("sidebarToggle", handleSidebarToggle);
+  }, []);
 
   // ✅ Fetch user info (if auth context available)
   useEffect(() => {
@@ -106,7 +118,7 @@ const handleSaveChanges = async () => {
 };
 
   return (
-    <div className="flex content_padding">
+    <div className={`flex content_padding ${isSidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
       <Sidebar />
       <div className="flex-1">
         <Header />
@@ -211,7 +223,7 @@ const handleSaveChanges = async () => {
                 </div>
 
                 {/* Profile Form */}
-                <div className="space-y-6 max-w-md">
+                <div className="space-y-6 max-w-md mx-auto">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Full Name
@@ -220,7 +232,7 @@ const handleSaveChanges = async () => {
                       type="text"
                       value={form.fullname}
                       onChange={handleChange("fullname")}
-                      className="w-full px-4 py-2.5 border border-[#064F32] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#064F32]"
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#064F32]/30 focus:border-[#064F32]/60 transition-all pr-10"
                     />
                   </div>
 
@@ -232,7 +244,7 @@ const handleSaveChanges = async () => {
                       type="email"
                       value={form.email}
                       onChange={handleChange("email")}
-                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#064F32]"
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#064F32]/30 focus:border-[#064F32]/60 transition-all pr-10"
                     />
                   </div>
 
@@ -244,11 +256,11 @@ const handleSaveChanges = async () => {
                       type="text"
                       value={form.contact}
                       onChange={handleChange("contact")}
-                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#064F32]"
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#064F32]/30 focus:border-[#064F32]/60 transition-all pr-10"
                     />
                   </div>
 
-                  <div className="flex justify-end mt-8">
+                  <div className="flex justify-center mt-8">
                     <button
                       onClick={handleSaveChanges}
                       disabled={isSaving}

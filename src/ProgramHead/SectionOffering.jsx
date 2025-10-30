@@ -18,11 +18,31 @@ import toast from 'react-hot-toast';
 const FacultyLoading = () => {
   const [course, setCourse] = useState('');
   const [academicYear, setAcademicYear] = useState('2526');
-  const [semester, setSemester] = useState('Second');
+  const [semester, setSemester] = useState('First');
   const [yearLevel, setYearLevel] = useState('First Year');
   const [parentSection, setParentSection] = useState('A-NORTH');
   const [facultyName, setFacultyName] = useState('');
   const [selectedFaculty, setSelectedFaculty] = useState(null);
+  
+  // Program subjects states
+  const [selectedProgramId, setSelectedProgramId] = useState(null);
+  const [programSubjects, setProgramSubjects] = useState([]);
+  
+  // Edit subject modal states
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingSubject, setEditingSubject] = useState(null);
+  const [editForm, setEditForm] = useState({
+    lec_hours: 0,
+    lab_hours: 0,
+    units: 0,
+    slots: 0,
+    schedules: []
+  });
+
+  // Sidebar collapse state
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(
+    () => localStorage.getItem("sidebarCollapsed") === "true"
+  );
 
   // Faculty Loads State
   const [facultyLoads, setFacultyLoads] = useState([]);
@@ -201,6 +221,15 @@ const FacultyLoading = () => {
     }
   };
 
+  // Listen to sidebar toggle events
+  useEffect(() => {
+    const handleSidebarToggle = () => {
+      setIsSidebarCollapsed(localStorage.getItem("sidebarCollapsed") === "true");
+    };
+    window.addEventListener("sidebarToggle", handleSidebarToggle);
+    return () => window.removeEventListener("sidebarToggle", handleSidebarToggle);
+  }, []);
+
   // Initialize academic year and semester from sessionStorage on component mount
   useEffect(() => {
     const storedAcademicYear = sessionStorage.getItem('currentAcademicYear');
@@ -254,6 +283,18 @@ const FacultyLoading = () => {
       fetchFacultySubjects(selectedFaculty);
     }
   }, [academicYear, semester]);
+
+  // Automatically load program subjects when all required fields are filled
+  useEffect(() => {
+    if (selectedProgramId && academicYear && semester && yearLevel && parentSection) {
+      console.log('Auto-loading program subjects...');
+      handleLoadProgramSubjects();
+    } else {
+      // Clear subjects if any required field is missing
+      setProgramSubjects([]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedProgramId, academicYear, semester, yearLevel, parentSection]);
 
   // Generate time slots for timetable - grouped by 3 consecutive slots
   const generateTimeSlots = () => {
@@ -1594,9 +1635,343 @@ const FacultyLoading = () => {
     }
   };
 
+  // Open edit modal
+  const handleOpenEditModal = async (subject) => {
+    console.log('Opening edit modal for subject:', subject);
+    console.log('Section offering ID:', subject.section_offering_id);
+    
+    // If section_offering_id is missing, try to create/fetch it
+    if (!subject.section_offering_id) {
+      console.log('Section offering ID missing, attempting to create/fetch...');
+      toast.loading('Setting up section offering...');
+      
+      try {
+        // Try to create section offering
+        const offeringResponse = await api.post('/section-offerings', {
+          program_id: selectedProgramId,
+          academic_year: academicYear,
+          semester: semester,
+          year_level: yearLevel,
+          parent_section: parentSection,
+          subject_id: subject.id
+        });
+        
+        // Update the subject with the new section_offering_id
+        const newOffering = offeringResponse.data.data;
+        subject.section_offering_id = newOffering.id;
+        subject.schedules = newOffering.schedules || [];
+        
+        // Update in the subjects list
+        setProgramSubjects(prev => prev.map(s => 
+          s.id === subject.id ? { ...s, section_offering_id: newOffering.id, schedules: newOffering.schedules || [] } : s
+        ));
+        
+        toast.success('Section offering created!');
+      } catch (error) {
+        if (error.response?.status === 409) {
+          // Already exists, fetch it
+          try {
+            const existingResponse = await api.get('/section-offerings', {
+              params: {
+                program_id: selectedProgramId,
+                academic_year: academicYear,
+                semester: semester,
+                year_level: yearLevel,
+                parent_section: parentSection,
+                subject_id: subject.id
+              }
+            });
+            
+            const matchingOffering = existingResponse.data.data.find(
+              offering => offering.subject_id === subject.id
+            );
+            
+            if (matchingOffering) {
+              subject.section_offering_id = matchingOffering.id;
+              subject.schedules = matchingOffering.schedules || [];
+              
+              setProgramSubjects(prev => prev.map(s => 
+                s.id === subject.id ? { ...s, section_offering_id: matchingOffering.id, schedules: matchingOffering.schedules || [] } : s
+              ));
+              
+              toast.success('Section offering found!');
+            } else {
+              toast.error('Could not find section offering. Please reload subjects.');
+              return;
+            }
+          } catch (fetchError) {
+            console.error('Error fetching section offering:', fetchError);
+            toast.error('Failed to fetch section offering. Please reload subjects.');
+            return;
+          }
+        } else {
+          console.error('Error creating section offering:', error);
+          toast.error('Failed to create section offering. Please reload subjects.');
+          return;
+        }
+      }
+    }
+    
+    setEditingSubject(subject);
+    setEditForm({
+      lec_hours: subject.lec_hours || 0,
+      lab_hours: subject.lab_hours || 0,
+      units: subject.units || 3,
+      slots: subject.slots || 0,
+      schedules: subject.schedules || []
+    });
+    setShowEditModal(true);
+  };
+
+  // Close edit modal
+  const handleCloseEditModal = () => {
+    setShowEditModal(false);
+    setEditingSubject(null);
+    setEditForm({
+      lec_hours: 0,
+      lab_hours: 0,
+      units: 0,
+      slots: 0,
+      schedules: []
+    });
+  };
+
+  // Add new schedule
+  const handleAddSchedule = () => {
+    setEditForm(prev => ({
+      ...prev,
+      schedules: [...prev.schedules, { day: 'Monday', start_time: '08:00', end_time: '09:00' }]
+    }));
+  };
+
+  // Remove schedule
+  const handleRemoveSchedule = (index) => {
+    setEditForm(prev => ({
+      ...prev,
+      schedules: prev.schedules.filter((_, i) => i !== index)
+    }));
+  };
+
+  // Update schedule
+  const handleUpdateSchedule = (index, field, value) => {
+    setEditForm(prev => ({
+      ...prev,
+      schedules: prev.schedules.map((schedule, i) => 
+        i === index ? { ...schedule, [field]: value } : schedule
+      )
+    }));
+  };
+
+  // Save edited subject
+  const handleSaveEdit = async () => {
+    // Validation: lec_hours + lab_hours should equal units
+    if (editForm.lec_hours + editForm.lab_hours !== editForm.units) {
+      toast.error(`LEC + LAB hours must equal ${editForm.units} units`);
+      return;
+    }
+
+    // Check if section_offering_id exists
+    if (!editingSubject.section_offering_id) {
+      toast.error('Section offering ID is missing. Please reload the subjects.');
+      console.error('Missing section_offering_id:', editingSubject);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      console.log('Updating section offering ID:', editingSubject.section_offering_id);
+      console.log('Update data:', {
+        lec_hours: editForm.lec_hours,
+        lab_hours: editForm.lab_hours,
+        slots: editForm.slots,
+        schedules: JSON.stringify(editForm.schedules)
+      });
+
+      // Update section offering in database
+      const response = await api.put(`/section-offerings/${editingSubject.section_offering_id}`, {
+        lec_hours: editForm.lec_hours,
+        lab_hours: editForm.lab_hours,
+        slots: editForm.slots,
+        schedules: editForm.schedules // Send as array, not JSON string
+      });
+
+      if (response.data.success) {
+        // Update local state
+        setProgramSubjects(prev => prev.map(subject => 
+          subject.id === editingSubject.id 
+            ? { 
+                ...subject, 
+                lec_hours: editForm.lec_hours,
+                lab_hours: editForm.lab_hours,
+                slots: editForm.slots,
+                schedules: editForm.schedules
+              }
+            : subject
+        ));
+        toast.success('Subject updated successfully');
+        handleCloseEditModal();
+      }
+    } catch (error) {
+      console.error('Error updating subject:', error);
+      console.error('Error details:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status
+      });
+      toast.error(error.response?.data?.message || 'Failed to update subject');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Load program subjects and save section offerings
+  const handleLoadProgramSubjects = async () => {
+    if (!selectedProgramId) {
+      toast.error('Please select a program first');
+      return;
+    }
+
+    if (!academicYear || !semester || !yearLevel || !parentSection) {
+      toast.error('Please fill all dropdown fields');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      console.log('=== STARTING LOAD PROGRAM SUBJECTS ===');
+      console.log('Selected Program ID:', selectedProgramId);
+      console.log('Academic Year:', academicYear);
+      console.log('Semester:', semester);
+      console.log('Year Level:', yearLevel);
+      console.log('Parent Section:', parentSection);
+      
+      console.log('Step 1: Fetching subjects for program...');
+      const response = await api.get(`/programs/${selectedProgramId}/subjects`);
+      console.log('Step 1 Response:', response.data);
+
+      if (response.data.success) {
+        const subjects = response.data.data || [];
+        console.log(`Step 2: Found ${subjects.length} subjects`);
+        
+        // Save each subject as a section offering and get the IDs
+        console.log('Step 3: Creating/fetching section offerings...');
+        const sectionOfferingResults = await Promise.all(
+          subjects.map(async (subject, index) => {
+            console.log(`Step 3.${index + 1}: Processing subject ${subject.subject_code}...`);
+            try {
+              const offeringData = {
+                program_id: selectedProgramId,
+                academic_year: academicYear,
+                semester: semester,
+                year_level: yearLevel,
+                parent_section: parentSection,
+                subject_id: subject.id
+              };
+              console.log(`Step 3.${index + 1}a: Creating section offering with data:`, offeringData);
+              
+              const offeringResponse = await api.post('/section-offerings', offeringData);
+              console.log(`Step 3.${index + 1}b: Created successfully:`, offeringResponse.data);
+              return offeringResponse.data.data; // Return the created section offering
+            } catch (error) {
+              console.error(`Step 3.${index + 1} ERROR:`, error.response?.data || error.message);
+              
+              // If already exists (409), fetch existing section offering
+              if (error.response?.status === 409) {
+                console.log(`Step 3.${index + 1}c: Already exists, fetching existing...`);
+                try {
+                  const existingResponse = await api.get('/section-offerings', {
+                    params: {
+                      program_id: selectedProgramId,
+                      academic_year: academicYear,
+                      semester: semester,
+                      year_level: yearLevel,
+                      parent_section: parentSection,
+                      subject_id: subject.id
+                    }
+                  });
+                  console.log(`Step 3.${index + 1}d: Fetched existing:`, existingResponse.data);
+                  
+                  // Find the matching section offering
+                  const matchingOffering = existingResponse.data.data.find(
+                    offering => offering.subject_id === subject.id
+                  );
+                  console.log(`Step 3.${index + 1}e: Found matching:`, matchingOffering);
+                  return matchingOffering;
+                } catch (fetchError) {
+                  console.error(`Step 3.${index + 1}f: Error fetching existing:`, fetchError.response?.data || fetchError.message);
+                  return null;
+                }
+              } else {
+                console.error(`Step 3.${index + 1}g: Unhandled error:`, error.response?.data || error.message);
+                return null;
+              }
+            }
+          })
+        );
+        
+        console.log('Step 4: All section offerings processed:', sectionOfferingResults);
+        
+        // Add year & section info and section_offering_id to subjects for display
+        const subjectsWithSection = subjects.map((subject, index) => {
+          const offering = sectionOfferingResults[index];
+          console.log(`Subject ${subject.subject_code} - Section Offering:`, offering);
+          
+          return {
+            ...subject,
+            section_offering_id: offering?.id || null,
+            lec_hours: offering?.lec_hours || 0,
+            lab_hours: offering?.lab_hours || 0,
+            slots: offering?.slots || 0,
+            schedules: offering?.schedules || [], // Schedules come as array from relationship
+            year_section: `${yearLevel} - ${parentSection}`,
+            academic_year: academicYear,
+            semester: semester
+          };
+        });
+
+        console.log('Step 5: Setting program subjects state...');
+        setProgramSubjects(subjectsWithSection);
+        
+        console.log('Step 6: Checking for missing IDs...');
+        // Check for any missing section_offering_ids
+        const missingIds = subjectsWithSection.filter(s => !s.section_offering_id);
+        if (missingIds.length > 0) {
+          console.warn('Subjects with missing section_offering_id:', missingIds);
+          toast.error(`⚠️ ${missingIds.length} subject(s) missing section offering ID`);
+        }
+        
+        console.log('=== COMPLETED SUCCESSFULLY ===');
+        toast.success(`Loaded ${subjects.length} subject(s) for ${yearLevel} - ${parentSection}`);
+        console.log('Final subjects with section:', subjectsWithSection);
+      } else {
+        console.error('Step ERROR: response.data.success is false');
+        toast.error('Failed to load program subjects - Invalid response');
+        setProgramSubjects([]);
+      }
+    } catch (error) {
+      console.error('Error loading program subjects:', error);
+      console.error('Error details:', {
+        message: error.message,
+        response: error.response,
+        status: error.response?.status,
+        data: error.response?.data
+      });
+      
+      const errorMessage = error.response?.data?.message 
+        || error.response?.data?.error 
+        || error.message 
+        || 'Failed to load program subjects';
+      
+      toast.error(`Error: ${errorMessage}`);
+      setProgramSubjects([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
 
   return ( 
-        <div className="flex content_padding">
+        <div className={`flex content_padding ${isSidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
         <Sidebar />
         <div className="flex-1">
           <Header />
@@ -1620,8 +1995,14 @@ const FacultyLoading = () => {
                   Course / Program
                 </label>
                 <select
-                  value={course}
-                  onChange={(e) => setCourse(e.target.value)}
+                  value={selectedProgramId || ''}
+                  onChange={(e) => {
+                    const programId = e.target.value;
+                    setSelectedProgramId(programId);
+                    const selectedProgram = availablePrograms.find(p => p.id.toString() === programId);
+                    setCourse(selectedProgram?.code || '');
+                    setProgramSubjects([]); // Clear subjects when changing program
+                  }}
                   className="border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors"
                   disabled={isLoadingPrograms}
                 >
@@ -1629,7 +2010,7 @@ const FacultyLoading = () => {
                     {isLoadingPrograms ? 'Loading programs...' : 'Select Course / Program'}
                   </option>
                   {availablePrograms.map((program) => (
-                    <option key={program.id} value={program.code}>
+                    <option key={program.id} value={program.id}>
                       {program.code} - {program.name}
                     </option>
                   ))}
@@ -1718,71 +2099,91 @@ const FacultyLoading = () => {
                       <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Units</th>
                       <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Year & Section</th>
                       <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Schedule</th>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Type</th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Slots</th>
                       <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {facultyLoads.map(load => (
-                      <tr key={load.id} className="hover:bg-gray-50 transition-colors duration-150">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-blue-900">{load.subject_code}</td>
-                        <td className="px-6 py-4 text-sm text-gray-700">{load.subject_description}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{load.lec_hours}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{load.lab_hours}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{load.units}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{load.section}</td>
-                        <td className="px-6 py-4 text-sm text-gray-700">{load.schedule}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                          <span className={`px-3 py-1 text-xs font-medium rounded-full ${
-                            load.type === 'Full-time' 
-                              ? 'bg-green-100 text-green-800' 
-                              : 'bg-blue-100 text-blue-800'
-                          }`}>
-                            {load.type}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                          <div className="flex space-x-2">
-                            <button 
-                              onClick={() => handleEditSubject(load)}
-                              className="text-blue-600 hover:text-blue-800 transition-colors duration-150 p-1 rounded hover:bg-blue-50"
-                              title="Edit Subject"
-                            >
-                              <Edit className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => removeSubject(load.id)}
-                              className="text-red-600 hover:text-red-800 transition-colors duration-150 p-1 rounded hover:bg-red-50"
-                              title="Remove Subject"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
                     {loading ? (
                       <tr>
                         <td colSpan={9} className="px-6 py-12 text-center">
                           <div className="flex flex-col items-center text-gray-500">
                             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mb-2"></div>
-                            <p className="text-sm">Loading faculty subjects...</p>
+                            <p className="text-sm">Loading subjects...</p>
                           </div>
                         </td>
                       </tr>
-                    ) : facultyLoads.length === 0 ? (
+                    ) : programSubjects.length > 0 ? (
+                      programSubjects.map((subject) => (
+                        <tr key={subject.id} className="hover:bg-gray-50 transition-colors duration-150">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-blue-900">
+                            {subject.subject_code}
+                          </td>
+                          <td className="px-6 py-4 text-sm text-gray-700">
+                            {subject.subject_name}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 text-center">
+                            {subject.lec_hours || 0}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 text-center">
+                            {subject.lab_hours || 0}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 text-center font-semibold">
+                            {subject.units || 3}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 font-semibold text-[#064F32]">
+                            {subject.year_section || '-'}
+                          </td>
+                          <td className="px-6 py-4 text-sm text-gray-700">
+                            {subject.schedules && subject.schedules.length > 0 ? (
+                              <div className="space-y-1">
+                                {subject.schedules.map((schedule, idx) => (
+                                  <div key={idx} className="text-xs">
+                                    {schedule.day} {schedule.start_time}-{schedule.end_time}
+                                  </div>
+                                ))}
+                              </div>
+                            ) : '-'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 text-center">
+                            <span className="px-3 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">
+                              {subject.slots || 0}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                            <div className="flex space-x-2">
+                              <button 
+                                onClick={() => handleOpenEditModal(subject)}
+                                className="text-blue-600 hover:text-blue-800 transition-colors duration-150 p-1 rounded hover:bg-blue-50"
+                                title="Edit Subject"
+                              >
+                                <Edit className="w-4 h-4" />
+                              </button>
+                              <button
+                                className="text-red-600 hover:text-red-800 transition-colors duration-150 p-1 rounded hover:bg-red-50"
+                                title="Remove Subject"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
                       <tr>
                         <td colSpan={9} className="px-6 py-12 text-center">
                           <div className="flex flex-col items-center text-gray-500">
                             <User className="w-8 h-8 mb-2 opacity-50" />
-                            <p className="text-sm">No subjects assigned to this faculty</p>
+                            <p className="text-sm">No subjects loaded</p>
                             <p className="text-xs text-gray-400 mt-1">
-                              {selectedFaculty ? 'Add subjects using the dropdown above' : 'Please select a faculty first'}
+                              {selectedProgramId 
+                                ? 'Fill in all fields above (Academic Year, Semester, Year Level, Parent Section) to load subjects' 
+                                : 'Please select a program and fill in all required fields'}
                             </p>
                           </div>
                         </td>
                       </tr>
-                    ) : null}
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -2240,6 +2641,191 @@ const FacultyLoading = () => {
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        )}
+
+        {/* Edit Subject Modal */}
+        {showEditModal && editingSubject && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+              {/* Modal Header */}
+              <div className="flex justify-between items-center p-6 border-b">
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Edit Subject: {editingSubject.subject_code} - {editingSubject.subject_name}
+                </h3>
+                <button
+                  onClick={handleCloseEditModal}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              {/* Modal Form */}
+              <div className="p-6">
+                {/* Section 1: LEC, LAB, Units */}
+                <div className="mb-6">
+                  <h4 className="text-md font-semibold text-gray-800 mb-4 border-b pb-2">
+                    1. Hours Distribution
+                  </h4>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        LEC Hours *
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={editForm.lec_hours}
+                        onChange={(e) => setEditForm(prev => ({ ...prev, lec_hours: parseInt(e.target.value) || 0 }))}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        LAB Hours *
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={editForm.lab_hours}
+                        onChange={(e) => setEditForm(prev => ({ ...prev, lab_hours: parseInt(e.target.value) || 0 }))}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Total Units (Read-only)
+                      </label>
+                      <input
+                        type="number"
+                        value={editForm.units}
+                        disabled
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-gray-100 text-gray-600 cursor-not-allowed"
+                      />
+                    </div>
+                  </div>
+                  {editForm.lec_hours + editForm.lab_hours !== editForm.units && (
+                    <p className="text-red-600 text-sm mt-2">
+                      ⚠️ LEC ({editForm.lec_hours}) + LAB ({editForm.lab_hours}) must equal {editForm.units} units
+                    </p>
+                  )}
+                </div>
+
+                {/* Section 2: Schedules */}
+                <div className="mb-6">
+                  <div className="flex justify-between items-center mb-4 border-b pb-2">
+                    <h4 className="text-md font-semibold text-gray-800">
+                      2. Schedule(s)
+                    </h4>
+                    <button
+                      onClick={handleAddSchedule}
+                      className="px-3 py-1 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 transition-colors flex items-center gap-1"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Add Schedule
+                    </button>
+                  </div>
+                  
+                  {editForm.schedules.length === 0 ? (
+                    <p className="text-gray-500 text-sm italic">No schedules added yet. Click "Add Schedule" to add one.</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {editForm.schedules.map((schedule, index) => (
+                        <div key={index} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                          <div className="flex justify-between items-start mb-3">
+                            <span className="text-sm font-medium text-gray-700">Schedule {index + 1}</span>
+                            <button
+                              onClick={() => handleRemoveSchedule(index)}
+                              className="text-red-600 hover:text-red-800"
+                              title="Remove Schedule"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                          <div className="grid grid-cols-3 gap-3">
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">Day</label>
+                              <select
+                                value={schedule.day}
+                                onChange={(e) => handleUpdateSchedule(index, 'day', e.target.value)}
+                                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                              >
+                                <option value="Monday">Monday</option>
+                                <option value="Tuesday">Tuesday</option>
+                                <option value="Wednesday">Wednesday</option>
+                                <option value="Thursday">Thursday</option>
+                                <option value="Friday">Friday</option>
+                                <option value="Saturday">Saturday</option>
+                                <option value="Sunday">Sunday</option>
+                              </select>
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">Start Time</label>
+                              <input
+                                type="time"
+                                value={schedule.start_time}
+                                onChange={(e) => handleUpdateSchedule(index, 'start_time', e.target.value)}
+                                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">End Time</label>
+                              <input
+                                type="time"
+                                value={schedule.end_time}
+                                onChange={(e) => handleUpdateSchedule(index, 'end_time', e.target.value)}
+                                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Section 3: Slots */}
+                <div className="mb-6">
+                  <h4 className="text-md font-semibold text-gray-800 mb-4 border-b pb-2">
+                    3. Student Slots
+                  </h4>
+                  <div className="max-w-xs">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Maximum Students *
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={editForm.slots}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, slots: parseInt(e.target.value) || 0 }))}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors"
+                      placeholder="e.g., 40"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Number of students that can enroll in this subject</p>
+                  </div>
+                </div>
+
+                {/* Modal Actions */}
+                <div className="flex justify-end gap-4 pt-6 border-t border-gray-200">
+                  <button
+                    type="button"
+                    onClick={handleCloseEditModal}
+                    className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSaveEdit}
+                    disabled={editForm.lec_hours + editForm.lab_hours !== editForm.units}
+                    className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2 shadow-sm disabled:bg-gray-400 disabled:cursor-not-allowed"
+                  >
+                    <Save className="w-4 h-4" />
+                    Save Changes
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         )}

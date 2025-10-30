@@ -33,6 +33,9 @@ export default function Account_Management() {
   const [selectedIds, setSelectedIds] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(
+    () => localStorage.getItem("sidebarCollapsed") === "true"
+  );
 
   // Pagination state
   const [page, setPage] = useState(1);
@@ -40,6 +43,15 @@ export default function Account_Management() {
   const [from, setFrom] = useState(0);
   const [to, setTo] = useState(0);
   const [total, setTotal] = useState(0);
+
+  // Listen to sidebar toggle events
+  useEffect(() => {
+    const handleSidebarToggle = () => {
+      setIsSidebarCollapsed(localStorage.getItem("sidebarCollapsed") === "true");
+    };
+    window.addEventListener("sidebarToggle", handleSidebarToggle);
+    return () => window.removeEventListener("sidebarToggle", handleSidebarToggle);
+  }, []);
 
   // ✅ UPDATED: Fetch accounts with college relationship
   const fetchAccounts = async () => {
@@ -142,7 +154,7 @@ export default function Account_Management() {
   };
 
   return (
-    <div className="flex" style={{ paddingLeft: '260px', paddingTop: '70px' }}>
+    <div className={`flex content_padding ${isSidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
       <Sidebar />
       <div className="flex-1">
         <Header />
@@ -184,9 +196,7 @@ export default function Account_Management() {
                   <option value="super_admin">Super Admin</option>
                   <option value="program_head">Program Head</option>
                   <option value="dean">Dean</option>
-                  <option value="secretary">Secretary</option>
-                  <option value="guard">Guard</option>
-                  <option value="prof">Professor</option>
+                  <option value="secretary">College Secretary</option>
                 </select>
 
                 {selectedIds.length > 0 && (
@@ -254,16 +264,18 @@ export default function Account_Management() {
                             className={`px-2 py-1 rounded-full text-xs font-medium ${
                               account.role === "super_admin"
                                 ? "bg-purple-100 text-purple-800"
+                                : account.role === "program_head"
+                                ? "bg-orange-100 text-orange-800"
                                 : account.role === "dean"
                                 ? "bg-blue-100 text-blue-800"
-                                : account.role === "program_head"
+                                : account.role === "secretary"
                                 ? "bg-green-100 text-green-800"
-                                : account.role === "prof"
-                                ? "bg-orange-100 text-orange-800"
                                 : "bg-gray-100 text-gray-800"
                             }`}
                           >
-                            {account.role?.replace("_", " ").toUpperCase()}
+                            {account.role === "secretary" 
+                              ? "COLLEGE SECRETARY" 
+                              : account.role?.replace("_", " ").toUpperCase()}
                           </span>
                         </td>
                         <td className="px-4 py-3 text-sm text-gray-700 text-center">

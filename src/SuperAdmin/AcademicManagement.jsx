@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import Header from "../Components/Header";
 import Sidebar from "../Components/Sidebar";
-import { collegeAPI, programAPI, subjectAPI, yearSectionAPI } from "../api/axios";
+import { collegeAPI, programAPI, subjectAPI } from "../api/axios";
 import {
   Plus,
   Edit,
@@ -15,6 +15,9 @@ import {
 
 export default function AcademicManagement() {
   const [isLoading, setIsLoading] = useState(true);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(
+    () => localStorage.getItem("sidebarCollapsed") === "true"
+  );
   const [activeTab, setActiveTab] = useState("colleges");
   const [searchTerm, setSearchTerm] = useState("");
   const [showModal, setShowModal] = useState(false);
@@ -24,6 +27,9 @@ export default function AcademicManagement() {
   const [selectedSubject, setSelectedSubject] = useState(null);
   const [selectedCollegeForProgram, setSelectedCollegeForProgram] =
     useState(null);
+  const [selectedSubjectId, setSelectedSubjectId] = useState(""); // For subject assignment
+  const [selectedSemester, setSelectedSemester] = useState(""); // For subject assignment semester
+  const [selectedYearLevel, setSelectedYearLevel] = useState(""); // For subject assignment year level
   const [error, setError] = useState(null);
   const [successMessage, setSuccessMessage] = useState(null);
 
@@ -35,15 +41,21 @@ export default function AcademicManagement() {
   const [availableProgramHeads, setAvailableProgramHeads] = useState([]); // ✅ SEPARATE STATE FOR PROGRAM HEADS
   const [selectedDeanId, setSelectedDeanId] = useState("");
   const [selectedProgramHeadId, setSelectedProgramHeadId] = useState(""); // ✅ SEPARATE STATE FOR PROGRAM HEAD
-  const [yearLevels, setYearLevels] = useState([]); // ✅ NEW STATE FOR YEAR LEVELS
 
   const [formData, setFormData] = useState({
     name: "",
     code: "",
     units: "",
-    semester: "",
-    yearLevel: "",
   });
+
+  // Listen to sidebar toggle events
+  useEffect(() => {
+    const handleSidebarToggle = () => {
+      setIsSidebarCollapsed(localStorage.getItem("sidebarCollapsed") === "true");
+    };
+    window.addEventListener("sidebarToggle", handleSidebarToggle);
+    return () => window.removeEventListener("sidebarToggle", handleSidebarToggle);
+  }, []);
 
   // Load data from backend
   useEffect(() => {
@@ -53,23 +65,21 @@ export default function AcademicManagement() {
   const loadData = async () => {
     try {
       setIsLoading(true);
-      const [collegesRes, programsRes, subjectsRes, yearSectionsRes] = await Promise.all([
+      const [collegesRes, programsRes, subjectsRes] = await Promise.all([
         collegeAPI.getAll(),
         programAPI.getAll(),
         subjectAPI.getAll(),
-        yearSectionAPI.getAll(),
       ]);
 
-      if (collegesRes.data.success) setColleges(collegesRes.data.data);
-      if (programsRes.data.success) setPrograms(programsRes.data.data);
-      if (subjectsRes.data.success) setSubjects(subjectsRes.data.data);
+      console.log("📚 Programs fetched:", programsRes.data.data);
+      console.log("📖 Subjects fetched:", subjectsRes.data.data);
       
-      // ✅ Extract unique year levels from year_sections
-      if (yearSectionsRes.data.success) {
-        const uniqueYearLevels = [...new Set(yearSectionsRes.data.data.map(item => item.year_level))].sort();
-        setYearLevels(uniqueYearLevels);
-        console.log("📚 Loaded year levels:", uniqueYearLevels);
+      if (collegesRes.data.success) setColleges(collegesRes.data.data);
+      if (programsRes.data.success) {
+        console.log("✅ Setting programs with subjects:", programsRes.data.data);
+        setPrograms(programsRes.data.data);
       }
+      if (subjectsRes.data.success) setSubjects(subjectsRes.data.data);
     } catch (error) {
       console.error("Error loading data:", error);
       setError("Failed to load data");
@@ -128,21 +138,30 @@ export default function AcademicManagement() {
     setSelectedProgram(program);
     setSelectedSubject(subject);
 
-    setFormData({
-      name:
-        college?.college_name ||
-        program?.program_name ||
-        subject?.subject_name ||
-        "",
-      code:
-        college?.college_code ||
-        program?.program_code ||
-        subject?.subject_code ||
-        "",
-      units: subject?.units || "",
-      semester: subject?.semester || "",
-      yearLevel: subject?.year_level || "",
-    });
+    // Set formData based on modal type to avoid conflicts
+    let formDataToSet = { name: "", code: "", units: "" };
+    
+    if (type.includes("college")) {
+      formDataToSet = {
+        name: college?.college_name || "",
+        code: college?.college_code || "",
+        units: "",
+      };
+    } else if (type.includes("program")) {
+      formDataToSet = {
+        name: program?.program_name || "",
+        code: program?.program_code || "",
+        units: "",
+      };
+    } else if (type.includes("subject")) {
+      formDataToSet = {
+        name: subject?.subject_name || "",
+        code: subject?.subject_code || "",
+        units: subject?.units || "",
+      };
+    }
+    
+    setFormData(formDataToSet);
 
     if (type === "assign-dean") {
       setSelectedDeanId(college?.dean?.id || "");
@@ -164,13 +183,16 @@ export default function AcademicManagement() {
     setSelectedProgram(null);
     setSelectedSubject(null);
     setSelectedCollegeForProgram(null);
-    setFormData({ name: "", code: "", units: "", semester: "", yearLevel: "" });
+    setFormData({ name: "", code: "", units: "" });
     setError(null);
     setSuccessMessage(null);
     setAvailableDeans([]);
     setAvailableProgramHeads([]);
     setSelectedDeanId("");
     setSelectedProgramHeadId("");
+    setSelectedSubjectId("");
+    setSelectedSemester("");
+    setSelectedYearLevel("");
   };
 
   const handleSubmit = async (e) => {
@@ -257,8 +279,6 @@ export default function AcademicManagement() {
           subject_name: formData.name,
           subject_code: formData.code,
           units: formData.units,
-          semester: formData.semester,
-          year_level: formData.yearLevel,
         };
         console.log("Add Subject Payload:", payload);
         const response = await subjectAPI.create(payload);
@@ -273,8 +293,6 @@ export default function AcademicManagement() {
           subject_name: formData.name,
           subject_code: formData.code,
           units: formData.units,
-          semester: formData.semester,
-          year_level: formData.yearLevel,
         };
         console.log("Edit Subject Payload:", payload);
         const response = await subjectAPI.update(selectedSubject.id, payload);
@@ -414,6 +432,64 @@ export default function AcademicManagement() {
     }
   };
 
+  const handleAssignSubject = async (e) => {
+    e.preventDefault();
+    setError(null);
+
+    if (!selectedProgram || !selectedSubjectId) {
+      setError("Please select a subject to assign");
+      return;
+    }
+
+    try {
+      const response = await programAPI.assignSubject(
+        selectedProgram.id,
+        selectedSubjectId,
+        selectedSemester,
+        selectedYearLevel
+      );
+
+      if (response.data.success) {
+        console.log("✅ Subject assigned, response:", response.data.data);
+        setPrograms((prev) =>
+          prev.map((p) =>
+            p.id === selectedProgram.id ? response.data.data : p
+          )
+        );
+        setSuccessMessage("Subject assigned successfully!");
+        setTimeout(() => setSuccessMessage(null), 2000);
+        closeModal();
+        // Reload data to ensure everything is in sync
+        await loadData();
+      }
+    } catch (error) {
+      console.error("Error assigning subject:", error);
+      setError(error.response?.data?.message || "Failed to assign subject");
+    }
+  };
+
+  const unassignSubject = async (programId, subjectId) => {
+    if (!window.confirm("Are you sure you want to unassign this subject?"))
+      return;
+
+    try {
+      const response = await programAPI.unassignSubject(programId, subjectId);
+      if (response.data.success) {
+        console.log("✅ Subject unassigned, response:", response.data.data);
+        setPrograms((prev) =>
+          prev.map((p) => (p.id === programId ? response.data.data : p))
+        );
+        setSuccessMessage("Subject unassigned successfully!");
+        setTimeout(() => setSuccessMessage(null), 2000);
+        // Reload data to ensure everything is in sync
+        await loadData();
+      }
+    } catch (error) {
+      console.error("Error unassigning subject:", error);
+      setError(error.response?.data?.message || "Failed to unassign subject");
+    }
+  };
+
   // Filter functions (keep as is)
   const filteredColleges = colleges.filter((c) =>
     [c.college_name, c.college_code, c.dean?.fullname]
@@ -428,14 +504,14 @@ export default function AcademicManagement() {
   );
 
   const filteredSubjects = subjects.filter((s) =>
-    [s.subject_name, s.subject_code, s.units, s.semester, s.year_level]
+    [s.subject_name, s.subject_code, s.units]
       .filter(Boolean)
-      .some((val) => val.toLowerCase().includes(searchTerm.toLowerCase()))
+      .some((val) => val.toString().toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   if (isLoading) {
     return (
-      <div className="flex" style={{ paddingLeft: '260px', paddingTop: '70px' }}>
+      <div className={`flex content_padding ${isSidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
         <Sidebar />
         <div className="flex-1">
           <Header />
@@ -450,7 +526,7 @@ export default function AcademicManagement() {
   }
 
   return (
-    <div className="flex" style={{ paddingLeft: '260px', paddingTop: '70px' }}>
+    <div className={`flex content_padding ${isSidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
       <Sidebar />
       <div className="flex-1">
         <Header />
@@ -494,16 +570,6 @@ export default function AcademicManagement() {
                   Colleges ({colleges.length})
                 </button>
                 <button
-                  onClick={() => setActiveTab("programs")}
-                  className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                    activeTab === "programs"
-                      ? "border-[#064F32] text-[#064F32]"
-                      : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                  }`}
-                >
-                  Programs ({programs.length})
-                </button>
-                <button
                   onClick={() => setActiveTab("subjects")}
                   className={`py-2 px-1 border-b-2 font-medium text-sm ${
                     activeTab === "subjects"
@@ -536,38 +602,6 @@ export default function AcademicManagement() {
                 <Plus className="w-4 h-4" />
                 Add College
               </button>
-            )}
-
-            {activeTab === "programs" && (
-              <div className="flex items-center gap-3">
-                <select
-                  value={selectedCollegeForProgram?.id || ""}
-                  onChange={(e) => {
-                    const collegeId = parseInt(e.target.value);
-                    const college = colleges.find((c) => c.id === collegeId);
-                    setSelectedCollegeForProgram(college);
-                  }}
-                  className="w-[200px] p-1.5 rounded-md border border-gray-200 text-gray-700 focus:ring-2 focus:ring-[#064F32]/30 focus:border-[#064F32]/60 outline-none"
-                >
-                  <option value="">Select College</option>
-                  {colleges.map((college) => (
-                    <option key={college.id} value={college.id}>
-                      {college.college_name}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  onClick={() =>
-                    selectedCollegeForProgram &&
-                    openModal("add-program", selectedCollegeForProgram)
-                  }
-                  disabled={!selectedCollegeForProgram}
-                  className="px-4 py-2 rounded-md text-white bg-[#FF7A00] hover:opacity-90 disabled:bg-gray-400 disabled:cursor-not-allowed transition flex items-center gap-2"
-                >
-                  <Plus className="w-4 h-4" />
-                  Add Program
-                </button>
-              </div>
             )}
 
             {activeTab === "subjects" && (
@@ -669,6 +703,16 @@ export default function AcademicManagement() {
                       <h4 className="text-lg font-medium text-gray-900">
                         Programs
                       </h4>
+                      <button
+                        onClick={() => {
+                          setSelectedCollegeForProgram(college);
+                          openModal("add-program", college);
+                        }}
+                        className="px-3 py-1.5 rounded-md text-white bg-[#FF7A00] hover:opacity-90 transition flex items-center gap-2 text-sm"
+                      >
+                        <Plus className="w-4 h-4" />
+                        Add Program
+                      </button>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -679,16 +723,36 @@ export default function AcademicManagement() {
                             key={program.id}
                             className="border border-gray-200 rounded-lg p-4"
                           >
-                            <div>
-                              <h5 className="font-medium text-gray-900">
-                                {program.program_name}
-                              </h5>
-                              <p className="text-sm text-gray-600">
-                                {program.program_code}
-                              </p>
+                            <div className="flex items-start justify-between mb-2">
+                              <div className="flex-1">
+                                <h5 className="font-medium text-gray-900">
+                                  {program.program_name}
+                                </h5>
+                                <p className="text-sm text-gray-600">
+                                  {program.program_code}
+                                </p>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <button
+                                  onClick={() =>
+                                    openModal("edit-program", college, program)
+                                  }
+                                  className="p-1 hover:bg-gray-100 rounded transition-colors"
+                                  title="Edit Program"
+                                >
+                                  <Edit className="w-4 h-4 text-gray-600" />
+                                </button>
+                                <button
+                                  onClick={() => deleteProgram(program.id)}
+                                  className="p-1 hover:bg-red-50 rounded transition-colors"
+                                  title="Delete Program"
+                                >
+                                  <Trash2 className="w-4 h-4 text-red-500" />
+                                </button>
+                              </div>
                             </div>
                             <div className="text-sm text-gray-600">
-                              <div className="flex items-center mt-2">
+                              <div className="flex items-center justify-between mt-2">
                                 <div className="flex items-center gap-1">
                                   <BookOpen className="w-3 h-3 text-gray-400" />
                                   <span>
@@ -697,6 +761,58 @@ export default function AcademicManagement() {
                                       "Not assigned"}
                                   </span>
                                 </div>
+                                <button
+                                  onClick={() =>
+                                    openModal("assign-head", null, program)
+                                  }
+                                  className="text-[#064F32] hover:text-[#053d27] text-xs font-medium"
+                                >
+                                  Assign Head
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Assigned Subjects Section */}
+                            <div className="mt-3 pt-3 border-t border-gray-200">
+                              <div className="flex items-center justify-between mb-2">
+                                <span className="text-xs font-medium text-gray-700">
+                                  Assigned Subjects ({program.subjects?.length || 0})
+                                </span>
+                                <button
+                                  onClick={() =>
+                                    openModal("assign-subject", null, program)
+                                  }
+                                  className="text-[#FF7A00] hover:opacity-80 text-xs font-medium"
+                                >
+                                  + Assign Subject
+                                </button>
+                              </div>
+                              <div className="space-y-1 max-h-32 overflow-y-auto">
+                                {program.subjects && program.subjects.length > 0 ? (
+                                  program.subjects.map((subject) => (
+                                    <div
+                                      key={subject.id}
+                                      className="flex items-center justify-between text-xs bg-gray-50 p-2 rounded"
+                                    >
+                                      <span className="text-gray-700">
+                                        {subject.subject_code} - {subject.subject_name}
+                                      </span>
+                                      <button
+                                        onClick={() =>
+                                          unassignSubject(program.id, subject.id)
+                                        }
+                                        className="text-red-500 hover:text-red-700"
+                                        title="Unassign subject"
+                                      >
+                                        <Trash2 className="w-3 h-3" />
+                                      </button>
+                                    </div>
+                                  ))
+                                ) : (
+                                  <p className="text-xs text-gray-400 italic">
+                                    No subjects assigned yet
+                                  </p>
+                                )}
                               </div>
                             </div>
                           </div>
@@ -708,60 +824,6 @@ export default function AcademicManagement() {
             </div>
           )}
 
-          {/* Programs Tab - simplified card list */}
-          {activeTab === "programs" && (
-            <div className="space-y-4">
-              {filteredPrograms.map((program) => {
-                const college =
-                  colleges.find((c) => c.id === program.college_id) || null;
-                return (
-                  <div
-                    key={program.id}
-                    className="bg-white rounded-lg shadow-md p-4 border border-gray-100 flex items-center justify-between"
-                  >
-                    <div>
-                      <div className="text-lg font-semibold text-gray-900">
-                        {program.program_name}
-                      </div>
-                      <div className="text-sm text-gray-500">
-                        {program.program_code}
-                      </div>
-                      <div className="text-sm text-gray-700 mt-2">
-                        Under: {college?.college_name || "Unknown College"}
-                      </div>
-                      <div className="text-sm text-gray-700 mt-1">
-                        Program Head:{" "}
-                        {program.program_head?.fullname || "No head assigned"}
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-3">
-                      <button
-                        onClick={() => openModal("assign-head", null, program)}
-                        className="text-[#064F32] hover:text-[#053d27] text-sm"
-                      >
-                        Assign Head
-                      </button>
-                      <button
-                        onClick={() =>
-                          openModal("edit-program", college, program)
-                        }
-                        className="text-[#064F32] hover:text-[#053d27] text-sm"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => deleteProgram(program.id)}
-                        className="text-red-600 hover:text-red-900 text-sm"
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
 
           {/* Subjects Tab */}
           {activeTab === "subjects" && (
@@ -779,12 +841,6 @@ export default function AcademicManagement() {
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Units
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Semester
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Year Level
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Actions
@@ -806,12 +862,6 @@ export default function AcademicManagement() {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                             {subject.units || "-"}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {subject.semester || "-"}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {subject.year_level || "-"}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                             <div className="flex items-center space-x-2">
@@ -861,6 +911,8 @@ export default function AcademicManagement() {
                     ? "Assign Dean"
                     : modalType === "assign-head"
                     ? "Assign Program Head"
+                    : modalType === "assign-subject"
+                    ? "Assign Subject to Program"
                     : ""}
                 </h3>
 
@@ -949,6 +1001,101 @@ export default function AcademicManagement() {
                         className="px-4 py-2 bg-[#064F32] text-white rounded-lg hover:bg-[#053d27] disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
                       >
                         Assign Head
+                      </button>
+                    </div>
+                  </form>
+                ) : modalType === "assign-subject" ? (
+                  <form onSubmit={handleAssignSubject} className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Program
+                      </label>
+                      <input
+                        type="text"
+                        value={selectedProgram?.program_name || ""}
+                        disabled
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-100 text-gray-700"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Select Subject
+                      </label>
+                      <select
+                        value={selectedSubjectId}
+                        onChange={(e) => setSelectedSubjectId(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#064F32]"
+                      >
+                        <option value="">-- Select Subject --</option>
+                        {subjects
+                          .filter(
+                            (s) =>
+                              !selectedProgram?.subjects?.some(
+                                (ps) => ps.id === s.id
+                              )
+                          )
+                          .map((subject) => (
+                            <option key={subject.id} value={subject.id}>
+                              {subject.subject_code} - {subject.subject_name} ({subject.units} units)
+                            </option>
+                          ))}
+                      </select>
+                      {subjects.length === 0 && (
+                        <p className="text-sm text-gray-500 mt-1">
+                          No subjects available. Please create subjects first.
+                        </p>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Semester
+                      </label>
+                      <select
+                        value={selectedSemester}
+                        onChange={(e) => setSelectedSemester(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#064F32]"
+                      >
+                        <option value="">-- Select Semester --</option>
+                        <option value="1st Semester">1st Semester</option>
+                        <option value="2nd Semester">2nd Semester</option>
+                        <option value="Summer">Summer</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Year Level
+                      </label>
+                      <select
+                        value={selectedYearLevel}
+                        onChange={(e) => setSelectedYearLevel(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#064F32]"
+                      >
+                        <option value="">-- Select Year Level --</option>
+                        <option value="1">1st Year</option>
+                        <option value="2">2nd Year</option>
+                        <option value="3">3rd Year</option>
+                        <option value="4">4th Year</option>
+                        <option value="5">5th Year</option>
+                      </select>
+                    </div>
+
+                    <div className="flex justify-end space-x-3 pt-4">
+                      <button
+                        type="button"
+                        onClick={closeModal}
+                        className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={!selectedSubjectId}
+                        className="px-4 py-2 bg-[#064F32] text-white rounded-lg hover:bg-[#053d27] disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+                      >
+                        Assign Subject
                       </button>
                     </div>
                   </form>
@@ -1106,49 +1253,6 @@ export default function AcademicManagement() {
                             }
                             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#064F32]"
                           />
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Semester
-                          </label>
-                          <input
-                            id="semester"
-                            name="semester"
-                            type="text"
-                            value={formData.semester}
-                            onChange={(e) =>
-                              setFormData({ ...formData, semester: e.target.value })
-                            }
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#064F32]"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Year Level
-                          </label>
-                          <select
-                            id="year_level"
-                            name="year_level"
-                            value={formData.yearLevel}
-                            onChange={(e) =>
-                              setFormData({ ...formData, yearLevel: e.target.value })
-                            }
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#064F32]"
-                          >
-                            <option value="">-- Select Year Level --</option>
-                            {yearLevels.map((yearLevel) => (
-                              <option key={yearLevel} value={yearLevel}>
-                                {yearLevel}
-                              </option>
-                            ))}
-                          </select>
-                          {yearLevels.length === 0 && (
-                            <p className="text-sm text-gray-500 mt-1">
-                              No year levels available. Please add sections first.
-                            </p>
-                          )}
                         </div>
                       </>
                     ) : null}

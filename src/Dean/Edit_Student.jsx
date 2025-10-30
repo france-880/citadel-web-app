@@ -2,6 +2,7 @@ import Header from "../Components/Header";
 import Sidebar from "../Components/Sidebar";
 import { useState, useEffect } from "react";
 import { ChevronDown, Calendar, Loader2 } from "lucide-react";
+import { programAPI, yearSectionAPI } from "../api/axios";
 import api from "../api/axios";
 import { useNavigate, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
@@ -12,12 +13,18 @@ export default function Edit_Student() {
     const [step, setStep] = useState(1);
     const [errors, setErrors] = useState({});
     const [loading, setLoading] = useState(false);
+    const [fetchLoading, setFetchLoading] = useState(true);
+    
+    // ✅ Backend data states
+    const [programs, setPrograms] = useState([]);
+    const [yearSections, setYearSections] = useState([]);
+    
     const [form, setForm] = useState({
         fullname: "",
         studentNo: "",
-        section: "",
-        program: "",
-        year: "",
+        program_id: "",
+        year_section_id: "",
+        status: "",
         dob: "",
         gender: "",
         email: "",
@@ -30,16 +37,46 @@ export default function Edit_Student() {
         password: "",
     });
 
+    // ✅ Fetch student data, programs, and year sections
     useEffect(() => {
-        api.get(`/students/${id}`)
-          .then((res) => {
-            const data = res.data;
-            setForm({
+        const fetchData = async () => {
+          try {
+            setFetchLoading(true);
+            
+            // Fetch all data in parallel
+            const [studentRes, programsRes, yearSectionsRes] = await Promise.all([
+              api.get(`/students/${id}`),
+              programAPI.getAll("/programs"),
+              yearSectionAPI.getAll("/year-sections")
+            ]);
+            
+            // Set student data - handle different response structures
+            let data = studentRes.data;
+            
+            // Check if data is wrapped in a success/data structure
+            if (data.success && data.data) {
+              data = data.data;
+            } else if (data.data && !data.fullname) {
+              // If there's a 'data' property but no 'fullname' at root level
+              data = data.data;
+            }
+            
+            console.log("=== FULL Student data from API ===");
+            console.log("Full response:", studentRes.data);
+            console.log("Processed data:", data);
+            console.log("Status:", data.status);
+            console.log("Guardian name:", data.guardian_name);
+            console.log("Guardian contact:", data.guardian_contact);
+            console.log("Guardian address:", data.guardian_address);
+            console.log("Program ID:", data.program_id);
+            console.log("Year Section ID:", data.year_section_id);
+            
+            const formData = {
               fullname: data.fullname || "",
               studentNo: data.student_no || "",
-              section: data.section || "",
-              program: data.program || "",
-              year: data.year || "",
+              program_id: data.program_id ? String(data.program_id) : "",
+              year_section_id: data.year_section_id ? String(data.year_section_id) : "",
+              status: data.status || "",
               dob: data.dob || "",
               gender: data.gender || "",
               email: data.email || "",
@@ -50,13 +87,54 @@ export default function Edit_Student() {
               guardianAddress: data.guardian_address || "",
               username: data.username || "",
               password: "",
-            });
-          })
-          .catch((err) => {
+            };
+            
+            console.log("Form data being set:", formData);
+            setForm(formData);
+            
+            // Set programs
+            let programsData = [];
+            if (programsRes.data && Array.isArray(programsRes.data)) {
+              programsData = programsRes.data;
+            } else if (programsRes.data?.success && Array.isArray(programsRes.data.data)) {
+              programsData = programsRes.data.data;
+            } else if (programsRes.data && Array.isArray(programsRes.data.data)) {
+              programsData = programsRes.data.data;
+            }
+            setPrograms(programsData);
+            
+            // Set year sections
+            let yearSectionsData = [];
+            if (yearSectionsRes.data && Array.isArray(yearSectionsRes.data)) {
+              yearSectionsData = yearSectionsRes.data;
+            } else if (yearSectionsRes.data?.success && Array.isArray(yearSectionsRes.data.data)) {
+              yearSectionsData = yearSectionsRes.data.data;
+            } else if (yearSectionsRes.data && Array.isArray(yearSectionsRes.data.data)) {
+              yearSectionsData = yearSectionsRes.data.data;
+            }
+            setYearSections(yearSectionsData);
+            
+          } catch (err) {
             console.error(err);
             toast.error("Failed to fetch student details");
-          });
+          } finally {
+            setFetchLoading(false);
+          }
+        };
+        
+        fetchData();
       }, [id]);
+
+  // ✅ Debug: Log form state whenever it changes
+  useEffect(() => {
+    console.log("=== Current Form State ===");
+    console.log("Status:", form.status);
+    console.log("Guardian Name:", form.guardianName);
+    console.log("Guardian Contact:", form.guardianContact);
+    console.log("Guardian Address:", form.guardianAddress);
+    console.log("Program ID:", form.program_id);
+    console.log("Year Section ID:", form.year_section_id);
+  }, [form]);
 
   const handleChange = (field) => (e) => {
     setForm({ ...form, [field]: e.target.value });
@@ -70,9 +148,9 @@ export default function Edit_Student() {
     if (currentStep === 1) {
       if (!form.fullname.trim()) stepErrors.fullname = "Fullname is required";
       if (!form.studentNo.trim()) stepErrors.studentNo = "Student Number is required";
-      if (!form.section) stepErrors.section = "Section is required";
-      if (!form.program) stepErrors.program = "Program is required";
-      if (!form.year) stepErrors.year = "Year is required";
+      if (!form.program_id) stepErrors.program_id = "Program is required";
+      if (!form.year_section_id) stepErrors.year_section_id = "Year & Section is required";
+      if (!form.status) stepErrors.status = "Status is required";
       if (!form.dob) stepErrors.dob = "Date of Birth is required";
       if (!form.gender) stepErrors.gender = "Gender is required";
       if (!/\S+@\S+\.\S+/.test(form.email)) {
@@ -114,20 +192,19 @@ export default function Edit_Student() {
     try {
       const payload = {
         fullname: form.fullname,
-        studentNo: form.studentNo,
-        section: form.section,
-        program: form.program,
-        year: form.year,
+        student_no: form.studentNo,
+        program_id: form.program_id,
+        year_section_id: form.year_section_id,
+        status: form.status,
         dob: form.dob,
         gender: form.gender,
         email: form.email,
         contact: form.contact,
         address: form.address,
-        guardianName: form.guardianName,
-        guardianContact: form.guardianContact,
-        guardianAddress: form.guardianAddress,
+        guardian_name: form.guardianName,
+        guardian_contact: form.guardianContact,
+        guardian_address: form.guardianAddress,
         username: form.username,
-        password: form.password,
       };
 
       // ✅ Only include password if user actually typed something
@@ -141,7 +218,7 @@ export default function Edit_Student() {
         error: "Failed to update student.",
       });
 
-      navigate("/student_registration", { state: { updatedStudent: res.data } });
+      navigate("/dean-student_registration", { state: { updatedStudent: res.data } });
     } catch (err) {
       console.error("Update error:", err);
     } finally {
@@ -203,55 +280,59 @@ export default function Edit_Student() {
                     </div>
 
                     <div className="w-full">
-                      <label className="block text-sm text-gray-700 mb-2">Section</label>
-                      <div className="relative w-full">
-                      <select value={form.section} onChange={handleChange("section")} className={`w-full p-3 pr-10 appearance-none border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#064F32]/30 focus:border-[#064F32]/60 ${errors.section ? "border-red-500" : "border-gray-300"}`}>
-                        <option value="">Select Section</option>
-                        <option>A</option>
-                        <option>B</option>
-                        <option>C</option>
-                      </select>
-                      <ChevronDown
-                          size={20}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none"
-                      />
-                        </div>
-                      {errors.section && <p className="mt-1 text-xs text-red-600">{errors.section}</p>}
-                    </div>
-
-                    <div className="w-full">
                       <label className="block text-sm text-gray-700 mb-2">Program</label>
                       <div className="relative w-full">
-                      <select value={form.program} onChange={handleChange("program")} className={`w-full p-3 pr-10 appearance-none border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#064F32]/30 focus:border-[#064F32]/60 ${errors.program ? "border-red-500" : "border-gray-300"}`}>
-                        <option value="">Select Program</option>
-                        <option>BSIT</option>
-                        <option>BSCS</option>
-                        <option>BSIS</option>
-                      </select>
-                      <ChevronDown
-                          size={20}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none"
-                      />
+                      {fetchLoading ? (
+                        <div className="flex items-center justify-center p-3 border border-gray-300 rounded-lg bg-gray-50">
+                          <Loader2 className="h-5 w-5 animate-spin text-gray-500" />
+                          <span className="ml-2 text-sm text-gray-500">Loading programs...</span>
                         </div>
-                      {errors.program && <p className="mt-1 text-xs text-red-600">{errors.program}</p>}
+                      ) : (
+                        <>
+                          <select value={form.program_id} onChange={handleChange("program_id")} className={`w-full p-3 pr-10 appearance-none border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#064F32]/30 focus:border-[#064F32]/60 ${errors.program_id ? "border-red-500" : "border-gray-300"}`}>
+                            <option value="">Select Program</option>
+                            {programs.map((program) => (
+                              <option key={program.id} value={String(program.id)}>
+                                {program.program_code || program.program_name}
+                              </option>
+                            ))}
+                          </select>
+                          <ChevronDown
+                              size={20}
+                              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none"
+                          />
+                        </>
+                      )}
+                        </div>
+                      {errors.program_id && <p className="mt-1 text-xs text-red-600">{errors.program_id}</p>}
                     </div>
 
                     <div className="w-full">
-                      <label className="block text-sm text-gray-700 mb-2">Year</label>
+                      <label className="block text-sm text-gray-700 mb-2">Year & Section</label>
                       <div className="relative w-full">
-                      <select value={form.year} onChange={handleChange("year")} className={`w-full p-3 pr-10 appearance-none border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#064F32]/30 focus:border-[#064F32]/60 ${errors.year ? "border-red-500" : "border-gray-300"}`}>
-                        <option value="">Select Year</option>
-                        <option>1st year</option>
-                        <option>2nd year</option>
-                        <option>3rd year</option>
-                        <option>4th year</option>
-                      </select>
-                      <ChevronDown
-                          size={20}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none"
-                      />
+                      {fetchLoading ? (
+                        <div className="flex items-center justify-center p-3 border border-gray-300 rounded-lg bg-gray-50">
+                          <Loader2 className="h-5 w-5 animate-spin text-gray-500" />
+                          <span className="ml-2 text-sm text-gray-500">Loading sections...</span>
                         </div>
-                      {errors.year && <p className="mt-1 text-xs text-red-600">{errors.year}</p>}
+                      ) : (
+                        <>
+                          <select value={form.year_section_id} onChange={handleChange("year_section_id")} className={`w-full p-3 pr-10 appearance-none border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#064F32]/30 focus:border-[#064F32]/60 ${errors.year_section_id ? "border-red-500" : "border-gray-300"}`}>
+                            <option value="">Select Year & Section</option>
+                            {yearSections.map((ys) => (
+                              <option key={ys.id} value={String(ys.id)}>
+                                {ys.year_level} - {ys.section}
+                              </option>
+                            ))}
+                          </select>
+                          <ChevronDown
+                              size={20}
+                              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none"
+                          />
+                        </>
+                      )}
+                        </div>
+                      {errors.year_section_id && <p className="mt-1 text-xs text-red-600">{errors.year_section_id}</p>}
                     </div>
 
                     <div className="w-full">
@@ -277,8 +358,8 @@ export default function Edit_Student() {
                       <div className="relative w-full">
                       <select value={form.gender} onChange={handleChange("gender")} className={`w-full p-3 pr-10 appearance-none border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#064F32]/30 focus:border-[#064F32]/60 ${errors.gender ? "border-red-500" : "border-gray-300"}`}>
                         <option value="">Select Gender</option>
-                        <option>Male</option>
-                        <option>Female</option>
+                        <option value="Male">Male</option>
+                        <option value="Female">Female</option>
                       </select>
                       <ChevronDown
                           size={20}
@@ -286,6 +367,22 @@ export default function Edit_Student() {
                       />
                         </div>
                       {errors.gender && <p className="mt-1 text-xs text-red-600">{errors.gender}</p>}
+                    </div>
+
+                    <div className="w-full">
+                      <label className="block text-sm text-gray-700 mb-2">Status</label>
+                      <div className="relative w-full">
+                      <select value={form.status} onChange={handleChange("status")} className={`w-full p-3 pr-10 appearance-none border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#064F32]/30 focus:border-[#064F32]/60 ${errors.status ? "border-red-500" : "border-gray-300"}`}>
+                        <option value="">Select Status</option>
+                        <option value="Regular">Regular</option>
+                        <option value="Irregular">Irregular</option>
+                      </select>
+                      <ChevronDown
+                          size={20}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none"
+                      />
+                        </div>
+                      {errors.status && <p className="mt-1 text-xs text-red-600">{errors.status}</p>}
                     </div>
 
                     <div>

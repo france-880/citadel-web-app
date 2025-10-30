@@ -15,6 +15,18 @@ export default function Daily_Attendance() {
   const [selected, setSelected] = useState([]);
   const [students, setStudents] = useState([]);
   const [search, setSearch] = useState("");
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(
+    () => localStorage.getItem("sidebarCollapsed") === "true"
+  );
+
+  // Listen to sidebar toggle events
+  useEffect(() => {
+    const handleSidebarToggle = () => {
+      setIsSidebarCollapsed(localStorage.getItem("sidebarCollapsed") === "true");
+    };
+    window.addEventListener("sidebarToggle", handleSidebarToggle);
+    return () => window.removeEventListener("sidebarToggle", handleSidebarToggle);
+  }, []);
 
   // Fetch Students from backend
   useEffect(() => {
@@ -181,10 +193,7 @@ export default function Daily_Attendance() {
 
   if (isLoading) {
     return (
-      <div
-        className="flex"
-        style={{ paddingLeft: "260px", paddingTop: "70px" }}
-      >
+      <div className={`flex content_padding ${isSidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
         <Sidebar />
         <div className="flex-1">
           <Header />
@@ -200,7 +209,7 @@ export default function Daily_Attendance() {
 
   // UI update: match Dean Dashboard
   return (
-    <div className="flex" style={{ paddingLeft: "260px", paddingTop: "70px" }}>
+    <div className={`flex content_padding ${isSidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
       <Sidebar />
       <div className="flex-1">
         <Header />

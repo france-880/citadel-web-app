@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Header from "../Components/Header";
 import Sidebar from "../Components/Sidebar";
 import { Download } from "lucide-react";
@@ -8,6 +8,18 @@ import "react-day-picker/style.css";
 export default function Report() {
   const [selected, setSelected] = useState(null);
   const [showCalendar, setShowCalendar] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(
+    () => localStorage.getItem("sidebarCollapsed") === "true"
+  );
+
+  // Listen to sidebar toggle events
+  useEffect(() => {
+    const handleSidebarToggle = () => {
+      setIsSidebarCollapsed(localStorage.getItem("sidebarCollapsed") === "true");
+    };
+    window.addEventListener("sidebarToggle", handleSidebarToggle);
+    return () => window.removeEventListener("sidebarToggle", handleSidebarToggle);
+  }, []);
 
   const handleDateSelect = (date) => {
     setSelected(date);
@@ -20,7 +32,7 @@ export default function Report() {
   };
 
   return (
-    <div className="flex" style={{ paddingLeft: "260px", paddingTop: "70px" }}>
+    <div className={`flex content_padding ${isSidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
       <Sidebar />
       <div className="flex-1">
         <Header />

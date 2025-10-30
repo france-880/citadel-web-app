@@ -13,11 +13,11 @@ export default function Header() {
   return (
     <header className="fixed top-0 left-0 right-0 h-[70px] bg-[#064F32] shadow-md flex items-center justify-between px-6 z-50">
       <div className="flex items-center text-ml font-semibold">
-        <img src="/images/ucc.png" alt="University Logo" className="w-[50px] h-[50px]" />
+        <img src="/images/citadel.png" alt="University Logo" className="w-[50px] h-[50px]" />
         <h4 className="text-xl ml-5 font-bold text-white">Citadel</h4>
       </div>
 
-      <div className="relative flex items-center">
+      <div className="relative flex items-center gap-4">
         <div className="flex items-center">
           <img className="h-10 w-10 rounded-full mr-3" src="/images/user.png" alt="User" />
           <div className="text-white">

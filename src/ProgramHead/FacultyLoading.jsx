@@ -16,10 +16,15 @@ import api from '../api/axios';
 import toast from 'react-hot-toast';
 
 const FacultyLoading = () => {
-  const [academicYear, setAcademicYear] = useState('2024');
+  const [academicYear, setAcademicYear] = useState('2526');
   const [semester, setSemester] = useState('First');
   const [facultyName, setFacultyName] = useState('');
   const [selectedFaculty, setSelectedFaculty] = useState(null);
+
+  // Sidebar collapse state
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(
+    () => localStorage.getItem("sidebarCollapsed") === "true"
+  );
 
   // Faculty Loads State
   const [facultyLoads, setFacultyLoads] = useState([]);
@@ -29,6 +34,11 @@ const FacultyLoading = () => {
   const [selectedSubject, setSelectedSubject] = useState('');
   const [availableSubjects, setAvailableSubjects] = useState([]);
   const [isLoadingSubjects, setIsLoadingSubjects] = useState(false);
+  
+  // Program Filter State
+  const [availablePrograms, setAvailablePrograms] = useState([]);
+  const [selectedProgram, setSelectedProgram] = useState('');
+  const [isLoadingPrograms, setIsLoadingPrograms] = useState(false);
   
   // Add Subject Modal State
   const [showAddSubjectModal, setShowAddSubjectModal] = useState(false);
@@ -59,36 +69,95 @@ const FacultyLoading = () => {
     type: 'Part-time'
   });
 
-  // Function to fetch subjects from AcademicManagement API (view-only)
+  // Function to fetch programs from AcademicManagement
+  const fetchPrograms = async () => {
+    try {
+      setIsLoadingPrograms(true);
+      console.log('Fetching programs from AcademicManagement...');
+      const response = await api.get('/programs');
+      console.log('Programs API response:', response.data);
+      
+      // Check if response has success property and data
+      if (response.data.success && Array.isArray(response.data.data)) {
+        setAvailablePrograms(response.data.data);
+        console.log('Successfully fetched programs:', response.data.data);
+      } else if (Array.isArray(response.data)) {
+        setAvailablePrograms(response.data);
+        console.log('Successfully fetched programs:', response.data);
+      } else {
+        console.error('Invalid programs response format:', response.data);
+        setAvailablePrograms([]);
+      }
+    } catch (error) {
+      console.error('Error fetching programs:', error);
+      setAvailablePrograms([]);
+    } finally {
+      setIsLoadingPrograms(false);
+    }
+  };
+
+  // Function to fetch section offerings filtered by program and semester
   const fetchSubjects = async () => {
+    if (!selectedProgram) {
+      setAvailableSubjects([]);
+      return;
+    }
+    
     try {
       setIsLoadingSubjects(true);
-      console.log('Fetching subjects from AcademicManagement API...');
-      const response = await api.get('/subjects');
-      console.log('Subjects API response:', response.data);
+      console.log('Fetching section offerings...', {
+        program_id: selectedProgram,
+        academic_year: academicYear,
+        semester: semester
+      });
       
-      // Check if response.data is an array
-      if (!Array.isArray(response.data)) {
+      const response = await api.get('/section-offerings', {
+        params: {
+          program_id: selectedProgram,
+          academic_year: academicYear,
+          semester: semester
+        }
+      });
+      console.log('Section offerings API response:', response.data);
+      
+      // Check if response has success property and data
+      let offerings = [];
+      if (response.data.success && Array.isArray(response.data.data)) {
+        offerings = response.data.data;
+      } else if (Array.isArray(response.data)) {
+        offerings = response.data;
+      } else {
         console.error('Invalid response format:', response.data);
-        toast.error('Invalid subjects data format received');
         setAvailableSubjects([]);
         return;
       }
       
-      // Transform the API response to match the expected format (view-only)
-      const transformedSubjects = response.data.map(subject => ({
-        id: subject.id,
-        name: subject.subject_name,
-        code: subject.subject_code,
-        units: 3, // Default units - you might want to add this to your database
-        lecHours: 3, // Default lec hours - you might want to add this to your database
-        labHours: 0, // Default lab hours - you might want to add this to your database
-        type: subject.subject_type || 'Major'
+      console.log(`Found ${offerings.length} section offerings`);
+      
+      // Transform to match the UI format
+      const transformedSubjects = offerings.map(offering => ({
+        id: offering.id,
+        section_offering_id: offering.id,
+        subject_id: offering.subject_id,
+        name: offering.subject?.subject_name || 'Unknown Subject',
+        code: offering.subject?.subject_code || 'N/A',
+        units: offering.subject?.units || 3,
+        lecHours: offering.lec_hours || 0,
+        labHours: offering.lab_hours || 0,
+        slots: offering.slots || 0,
+        type: offering.subject?.subject_type || 'Major',
+        year_level: offering.year_level || 'N/A',
+        section: offering.parent_section || 'N/A',
+        year_section: `${offering.year_level} - ${offering.parent_section}`,
+        schedules: offering.schedules || [],
+        hasSchedules: offering.schedules && offering.schedules.length > 0,
+        program: offering.program?.program_name || 'N/A'
       }));
+      
       setAvailableSubjects(transformedSubjects);
-      console.log('Successfully fetched subjects for viewing:', transformedSubjects);
+      console.log('Successfully fetched section offerings:', transformedSubjects);
     } catch (error) {
-      console.error('Error fetching subjects:', error);
+      console.error('Error fetching section offerings:', error);
       console.error('Error details:', {
         message: error.message,
         status: error.response?.status,
@@ -101,7 +170,8 @@ const FacultyLoading = () => {
       } else if (error.response?.status === 403) {
         toast.error('Access denied. You do not have permission to view subjects.');
       } else if (error.response?.status === 404) {
-        toast.error('Subjects API endpoint not found.');
+        console.log('No section offerings found for this program/semester');
+        setAvailableSubjects([]);
       } else if (error.response?.status >= 500) {
         toast.error('Server error. Please try again later.');
       } else {
@@ -138,6 +208,15 @@ const FacultyLoading = () => {
       setLoading(false);
     }
   };
+
+  // Listen to sidebar toggle events
+  useEffect(() => {
+    const handleSidebarToggle = () => {
+      setIsSidebarCollapsed(localStorage.getItem("sidebarCollapsed") === "true");
+    };
+    window.addEventListener("sidebarToggle", handleSidebarToggle);
+    return () => window.removeEventListener("sidebarToggle", handleSidebarToggle);
+  }, []);
 
   // Initialize academic year and semester from sessionStorage on component mount
   useEffect(() => {
@@ -179,9 +258,9 @@ const FacultyLoading = () => {
       }
     };
 
-    // Fetch subjects from API and faculty data
-    console.log('Component mounted, fetching subjects...');
-    fetchSubjects();
+    // Fetch programs and faculty data
+    console.log('Component mounted, fetching programs and faculty data...');
+    fetchPrograms();
     fetchSelectedFaculty();
   }, []);
 
@@ -190,7 +269,25 @@ const FacultyLoading = () => {
     if (selectedFaculty) {
       fetchFacultySubjects(selectedFaculty);
     }
-  }, [academicYear, semester]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [academicYear, semester, selectedFaculty]);
+
+  // Refresh available subjects when program, academic year, or semester changes
+  useEffect(() => {
+    console.log('==== SUBJECT FETCH TRIGGER ====');
+    console.log('Selected Program ID:', selectedProgram);
+    console.log('Academic Year:', academicYear);
+    console.log('Semester:', semester);
+    
+    if (selectedProgram) {
+      console.log('✅ All conditions met, calling fetchSubjects...');
+      fetchSubjects();
+    } else {
+      console.log('⚠️ No program selected, clearing subjects');
+      setAvailableSubjects([]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedProgram, academicYear, semester]);
 
   // Generate time slots for timetable - grouped by 3 consecutive slots
   const generateTimeSlots = () => {
@@ -799,7 +896,7 @@ const FacultyLoading = () => {
               color: white;
               font-size: 14px;
             }
-            x
+            
             .toolbar-left {
               display: flex;
               align-items: center;
@@ -1533,7 +1630,7 @@ const FacultyLoading = () => {
 
 
   return ( 
-        <div className="flex content_padding">
+        <div className={`flex content_padding ${isSidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
         <Sidebar />
         <div className="flex-1">
           <Header />
@@ -1559,10 +1656,10 @@ const FacultyLoading = () => {
                     onChange={(e) => setAcademicYear(e.target.value)}
                     className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors min-w-[100px]"
                   >
-                    <option value="2024">2024</option>
-                    <option value="2025">2025</option>
-                    <option value="2026">2026</option>
-                    <option value="2027">2027</option>
+                    <option value="2524">2524</option>
+                    <option value="2525">2525</option>
+                    <option value="2526">2526</option>
+                    <option value="2527">2527</option>
                   </select>
                 </div>
                 <div className="flex items-center space-x-3">
@@ -1634,25 +1731,66 @@ const FacultyLoading = () => {
                 <div className="flex items-center justify-between mb-4">
                   <h4 className="text-lg font-semibold text-gray-900">Available Subjects</h4>
                   <div className="text-sm text-gray-500">
-                    {isLoadingSubjects ? 'Loading...' : `${availableSubjects.length} subjects available`}
+                    {isLoadingSubjects ? 'Loading...' : `${availableSubjects.length} section offering(s)`}
                   </div>
                 </div>
                 
+                {/* Program Filter Dropdown */}
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Filter by Program
+                    {isLoadingSubjects && (
+                      <span className="ml-2 text-xs text-blue-600">
+                        <span className="inline-block animate-spin">⟳</span> Loading subjects...
+                      </span>
+                    )}
+                  </label>
+                  <div className="relative">
+                    <select
+                      value={selectedProgram}
+                      onChange={(e) => {
+                        const programId = e.target.value;
+                        console.log('📌 Program selected:', programId);
+                        const program = availablePrograms.find(p => p.id.toString() === programId);
+                        console.log('Program details:', program);
+                        setSelectedProgram(programId);
+                        setSelectedSubject(''); // Reset selected subject when program changes
+                      }}
+                      disabled={isLoadingPrograms}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors disabled:bg-gray-100 disabled:cursor-not-allowed appearance-none bg-white"
+                    >
+                      <option value="">
+                        {isLoadingPrograms ? 'Loading programs...' : '-- Select a program --'}
+                      </option>
+                      {availablePrograms.map(program => (
+                        <option key={program.id} value={program.id}>
+                          {program.program_code} - {program.program_name}
+                        </option>
+                      ))}
+                    </select>
+                    <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                      <ChevronDown className="w-4 h-4 text-gray-400" />
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Subject Dropdown */}
                 <div className="relative">
                   <select
                     value={selectedSubject}
                     onChange={(e) => setSelectedSubject(e.target.value)}
-                    disabled={isLoadingSubjects}
+                    disabled={isLoadingSubjects || !selectedProgram}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors disabled:bg-gray-100 disabled:cursor-not-allowed appearance-none bg-white"
                   >
                     <option value="">
-                      {isLoadingSubjects ? 'Loading subjects...' : 
-                       availableSubjects.length === 0 ? 'No subjects available' :
+                      {!selectedProgram ? 'Please select a program first' :
+                       isLoadingSubjects ? 'Loading subjects...' : 
+                       availableSubjects.length === 0 ? 'No section offerings available' :
                        '-- Select a subject to view details --'}
                     </option>
                     {availableSubjects.map(subject => (
                       <option key={subject.id} value={subject.id}>
-                        {subject.code} - {subject.name} ({subject.units} units) - {subject.type}
+                        {subject.code} - {subject.name} ({subject.units} units) - Year {subject.year_level} Section {subject.section}
                       </option>
                     ))}
                   </select>
@@ -1680,23 +1818,62 @@ const FacultyLoading = () => {
                             </span>
                           </div>
                           <p className="text-sm text-green-700 mb-2">{subject.name}</p>
-                          <div className="flex items-center justify-between text-xs text-green-600 mb-3">
-                            <span>{subject.units} units</span>
-                            <span>{subject.lecHours}h LEC</span>
-                            {subject.labHours > 0 && <span>{subject.labHours}h LAB</span>}
+                          <div className="grid grid-cols-2 gap-2 text-xs text-green-600 mb-3">
+                            <span><strong>Units:</strong> {subject.units}</span>
+                            <span><strong>LEC:</strong> {subject.lecHours}h</span>
+                            <span><strong>LAB:</strong> {subject.labHours}h</span>
+                            <span><strong>Slots:</strong> {subject.slots}</span>
+                            <span><strong>Year Level:</strong> {subject.year_level}</span>
+                            <span><strong>Section:</strong> {subject.section}</span>
+                            <span><strong>Program:</strong> {subject.program}</span>
+                            <span>
+                              <strong>Schedule Status:</strong> 
+                              <span className={subject.hasSchedules ? 'text-green-600 font-semibold' : 'text-red-600 font-semibold'}>
+                                {subject.hasSchedules ? ' ✓ Has Schedule' : ' ✗ No Schedule'}
+                              </span>
+                            </span>
                           </div>
+                          
+                          {/* Display Schedules */}
+                          {subject.schedules && subject.schedules.length > 0 && (
+                            <div className="mb-3 p-2 bg-white rounded border border-green-200">
+                              <p className="text-xs font-semibold text-green-800 mb-1">Schedules:</p>
+                              <div className="space-y-1">
+                                {subject.schedules.map((schedule, idx) => (
+                                  <div key={idx} className="text-xs text-green-700">
+                                    • {schedule.day} {schedule.start_time}-{schedule.end_time}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          
+                          {/* Warning if no schedule */}
+                          {(!subject.schedules || subject.schedules.length === 0) && (
+                            <div className="mb-3 p-2 bg-yellow-50 rounded border border-yellow-200">
+                              <p className="text-xs text-yellow-700">
+                                ⚠️ This section offering has no schedule assigned yet.
+                              </p>
+                            </div>
+                          )}
+                          
                           <div className="flex gap-2">
                             <button
                               onClick={() => {
-                                // Pre-fill the add subject form with selected subject data
+                                // Format schedules for the schedule field
+                                const scheduleText = subject.schedules && subject.schedules.length > 0
+                                  ? subject.schedules.map(s => `${s.day.toUpperCase()} ${s.start_time}-${s.end_time}`).join(', ')
+                                  : '';
+                                
+                                // Pre-fill the add subject form with selected subject data including schedules
                                 setAddSubjectForm({
                                   subjectCode: subject.code,
                                   subjectDescription: subject.name,
                                   lecHours: subject.lecHours,
                                   labHours: subject.labHours,
                                   units: subject.units,
-                                  section: '',
-                                  schedule: '',
+                                  section: subject.year_section || '',
+                                  schedule: scheduleText,
                                   room: '',
                                   type: 'Part-time'
                                 });
@@ -1705,7 +1882,7 @@ const FacultyLoading = () => {
                               className="px-3 py-1 bg-green-600 text-white text-xs rounded-md hover:bg-green-700 transition-colors flex items-center gap-1"
                             >
                               <Plus className="w-3 h-3" />
-                              Add Subject
+                              Assign to Faculty
                             </button>
                             <button
                               onClick={() => setSelectedSubject('')}
@@ -1723,16 +1900,24 @@ const FacultyLoading = () => {
                 {availableSubjects.length > 0 && (
                   <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                     <div className="text-sm text-blue-700">
-                      <strong>Note:</strong> Select a subject above to view its details. 
-                      To add subjects to faculty load, use the "Add Subject" button below.
+                      <strong>Note:</strong> Select a subject above to view its details including section and schedule information. 
+                      Use the "Assign to Faculty" button to add subjects to the faculty load.
                     </div>
                   </div>
                 )}
                 
-                {availableSubjects.length === 0 && !isLoadingSubjects && (
+                {!selectedProgram && !isLoadingPrograms && availablePrograms.length > 0 && (
                   <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
                     <div className="text-sm text-yellow-700">
-                      <strong>No subjects found.</strong> Subjects need to be created in Academic Management first.
+                      <strong>👆 Please select a program</strong> from the dropdown above to view available section offerings for <strong>{semester} Semester {academicYear}</strong>.
+                    </div>
+                  </div>
+                )}
+                
+                {!selectedProgram && isLoadingPrograms && (
+                  <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                    <div className="text-sm text-blue-700">
+                      Loading programs...
                     </div>
                   </div>
                 )}
@@ -2046,16 +2231,19 @@ const FacultyLoading = () => {
 
                   <div className="md:col-span-2">
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Schedule *
+                      Schedule * (from Section Offering)
                     </label>
                     <input
                       type="text"
                       required
                       value={addSubjectForm.schedule}
-                      onChange={(e) => handleAddSubjectFormChange('schedule', e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors"
-                      placeholder="e.g., MONDAY 9:00AM-1:00PM"
+                      readOnly
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-gray-100 cursor-not-allowed text-gray-700"
+                      placeholder="Schedule will be auto-filled from section offering"
                     />
+                    <p className="text-xs text-gray-500 mt-1">
+                      This schedule is automatically taken from the selected section offering and cannot be edited.
+                    </p>
                   </div>
 
                   <div>

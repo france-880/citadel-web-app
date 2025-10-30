@@ -43,6 +43,18 @@ export default function Student_Registration() {
   const [selectedIds, setSelectedIds] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(
+    () => localStorage.getItem("sidebarCollapsed") === "true"
+  );
+
+  // Listen to sidebar toggle events
+  useEffect(() => {
+    const handleSidebarToggle = () => {
+      setIsSidebarCollapsed(localStorage.getItem("sidebarCollapsed") === "true");
+    };
+    window.addEventListener("sidebarToggle", handleSidebarToggle);
+    return () => window.removeEventListener("sidebarToggle", handleSidebarToggle);
+  }, []);
 
   // pagination data
   const [page, setPage] = useState(1);
@@ -229,9 +241,7 @@ export default function Student_Registration() {
     setDeleting(true);
 
     try {
-      const promise = studentAPI.delete("/students/delete-multiple", {
-        data: { ids },
-      });
+      const promise = studentAPI.deleteMultiple(ids);
 
       await toast.promise(promise, {
         loading: "Deleting student...",
@@ -264,10 +274,7 @@ export default function Student_Registration() {
 
   if (isLoading && students.length === 0) {
     return (
-      <div
-        className="flex"
-        style={{ paddingLeft: "260px", paddingTop: "70px" }}
-      >
+      <div className={`flex content_padding ${isSidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
         <Sidebar />
         <div className="flex-1">
           <Header />
@@ -282,7 +289,7 @@ export default function Student_Registration() {
   }
 
   return (
-    <div className="flex" style={{ paddingLeft: "260px", paddingTop: "70px" }}>
+    <div className={`flex content_padding ${isSidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
       <Sidebar />
       <div className="flex-1">
         <Header />

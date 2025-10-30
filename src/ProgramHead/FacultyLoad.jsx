@@ -19,6 +19,11 @@ export default function FacultyLoad() {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
 
+  // Sidebar collapse state
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(
+    () => localStorage.getItem("sidebarCollapsed") === "true"
+  );
+
   // Modal State
   const [showModal, setShowModal] = useState(false);
   const [selectedFaculty, setSelectedFaculty] = useState(null);
@@ -52,21 +57,33 @@ export default function FacultyLoad() {
     }
   };
 
+  // State for academic year and semester filters
+  const [academicYear, setAcademicYear] = useState('2526');
+  const [semester, setSemester] = useState('First');
+
   // Fetch faculty loads for a specific faculty
   const fetchFacultyLoads = async (facultyId) => {
     setLoadingLoads(true);
     try {
+      console.log('Fetching faculty loads...', {
+        faculty_id: facultyId,
+        academic_year: academicYear,
+        semester: semester
+      });
+
       const res = await api.get(`/faculty-loads/${facultyId}`, {
         params: {
-          academic_year: '2024', // Default academic year
-          semester: 'First' // Default semester
+          academic_year: academicYear,
+          semester: semester
         }
       });
       
+      console.log('Faculty loads response:', res.data);
       setFacultyLoads(res.data || []);
-      console.log(`Loaded ${res.data?.length || 0} subjects for faculty ID: ${facultyId}`);
+      console.log(`✅ Loaded ${res.data?.length || 0} subjects for faculty ID: ${facultyId}`);
     } catch (err) {
-      console.error("Error fetching faculty loads:", err);
+      console.error("❌ Error fetching faculty loads:", err);
+      console.error("Error details:", err.response?.data);
       toast.error("Failed to load faculty subjects.");
       setFacultyLoads([]);
     } finally {
@@ -74,15 +91,33 @@ export default function FacultyLoad() {
     }
   };
 
+  // Listen to sidebar toggle events
+  useEffect(() => {
+    const handleSidebarToggle = () => {
+      setIsSidebarCollapsed(localStorage.getItem("sidebarCollapsed") === "true");
+    };
+    window.addEventListener("sidebarToggle", handleSidebarToggle);
+    return () => window.removeEventListener("sidebarToggle", handleSidebarToggle);
+  }, []);
+
   // Effect to fetch data when search or page changes
   useEffect(() => {
     fetchFacultyData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search, page]);
 
   // Reset to page 1 when search changes
   useEffect(() => {
     setPage(1);
   }, [search]);
+
+  // Refetch faculty loads when academic year or semester changes
+  useEffect(() => {
+    if (selectedFaculty && showModal) {
+      fetchFacultyLoads(selectedFaculty.id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [academicYear, semester]);
 
   // Modal Functions
   const openModal = async (faculty) => {
@@ -125,7 +160,7 @@ export default function FacultyLoad() {
   };
 
   return (
-    <div className="flex content_padding">
+    <div className={`flex content_padding ${isSidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
       <Sidebar />
       <div className="flex-1">
         <Header />
@@ -174,7 +209,7 @@ export default function FacultyLoad() {
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                       Department
                     </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider w-64">
                       Actions
                     </th>
                   </tr>
@@ -211,19 +246,19 @@ export default function FacultyLoad() {
                           {faculty.department || "—"}
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-700">
-                          <div className="flex items-center gap-2">
+                          <div className="flex flex-col gap-2 w-52">
                             <button
                               onClick={() => openModal(faculty)}
-                              className="flex items-center gap-1 px-3 py-2 bg-[#064F32] text-white rounded-md hover:bg-[#053d27] transition-colors text-sm font-medium"
+                              className="flex items-center justify-center gap-1 px-3 py-2 bg-[#064F32] text-white rounded-md hover:bg-[#053d27] transition-colors text-xs font-medium w-full"
                             >
                               <Eye className="w-3 h-3" />
                               View Load
                             </button>
                             <button
                               onClick={() => navigateToFacultyLoading(faculty)}
-                              className="flex items-center gap-1 px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm font-medium"
+                              className="flex items-center justify-center gap-1 px-3 py-2 bg-[#064F32] text-white rounded-md hover:bg-[#053d27] transition-colors text-xs font-medium w-full"
                             >
-                              <Eye className="w-3 h-3" />
+                              <Calendar className="w-3 h-3" />
                               Faculty Loading
                             </button>
                           </div>
@@ -292,6 +327,49 @@ export default function FacultyLoad() {
 
             {/* Modal Content */}
             <div className="p-6">
+              {/* Academic Year and Semester Filters */}
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                <div className="flex flex-wrap items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <label className="text-sm font-medium text-gray-700">Academic Year:</label>
+                    <select
+                      value={academicYear}
+                      onChange={(e) => {
+                        const newYear = e.target.value;
+                        setAcademicYear(newYear);
+                        // Refetch will be triggered by the useEffect below
+                      }}
+                      className="border border-gray-300 rounded px-3 py-1 text-sm"
+                    >
+                      <option value="2524">2524</option>
+                      <option value="2525">2525</option>
+                      <option value="2526">2526</option>
+                      <option value="2527">2527</option>
+                    </select>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <label className="text-sm font-medium text-gray-700">Semester:</label>
+                    <select
+                      value={semester}
+                      onChange={(e) => {
+                        const newSemester = e.target.value;
+                        setSemester(newSemester);
+                        // Refetch will be triggered by the useEffect below
+                      }}
+                      className="border border-gray-300 rounded px-3 py-1 text-sm"
+                    >
+                      <option value="First">First</option>
+                      <option value="Second">Second</option>
+                      <option value="Summer">Summer</option>
+                    </select>
+                  </div>
+                  <div className="text-sm text-blue-700 ml-auto">
+                    <Clock className="w-4 h-4 inline mr-1" />
+                    Viewing loads for <strong>{semester} Semester {academicYear}</strong>
+                  </div>
+                </div>
+              </div>
+
               {/* Faculty Information */}
               <div className="bg-gray-50 rounded-lg p-6 mb-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Faculty Information</h3>
@@ -340,21 +418,60 @@ export default function FacultyLoad() {
                     <p className="text-sm text-gray-500 mt-1">Subjects can be assigned in Faculty Loading</p>
                   </div>
                 ) : (
-                  <div className="space-y-3">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {facultyLoads.map((load, index) => (
-                      <div key={load.id || index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-3">
-                            <span className="font-semibold text-blue-900">{load.subject_code}</span>
-                            <span className="text-sm text-gray-600">{load.subject_description}</span>
-                          </div>
-                          <div className="text-xs text-gray-500 mt-1">
-                            {load.section} • {load.schedule} • {load.room}
+                      <div key={load.id || index} className="bg-gradient-to-br from-green-50 to-blue-50 rounded-lg border border-green-200 p-3 hover:shadow-md transition-all hover:scale-[1.02]">
+                        {/* Header: Code + Units */}
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="px-2 py-1 bg-green-600 text-white font-bold rounded text-xs">
+                            {load.subject_code}
+                          </span>
+                          <div className="text-right">
+                            <span className="text-xl font-bold text-green-600">{load.units}</span>
+                            <span className="text-xs text-gray-500 ml-1">units</span>
                           </div>
                         </div>
-                        <div className="text-right text-sm">
-                          <div className="font-medium">{load.units} units</div>
-                          <div className="text-gray-500">{load.lec_hours}h LEC, {load.lab_hours}h LAB</div>
+
+                        {/* Subject Name */}
+                        <h4 className="font-semibold text-gray-800 text-sm mb-2 line-clamp-1" title={load.subject_description}>
+                          {load.subject_description}
+                        </h4>
+
+                        {/* Section & Type */}
+                        <div className="flex items-center gap-2 mb-2 text-xs">
+                          <div className="flex items-center gap-1 text-gray-600">
+                            <Users className="w-3 h-3" />
+                            <span className="font-medium">{load.section}</span>
+                          </div>
+                          <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded font-medium">
+                            {load.type}
+                          </span>
+                        </div>
+
+                        {/* Schedule */}
+                        <div className="bg-white rounded p-2 border border-gray-200 mb-2">
+                          <div className="flex items-start gap-1">
+                            <Clock className="w-3 h-3 text-gray-500 mt-0.5 flex-shrink-0" />
+                            <span className="text-xs text-gray-700 font-medium leading-tight">
+                              {load.schedule || 'No schedule'}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Bottom Row: Room + Hours */}
+                        <div className="flex items-center justify-between text-xs">
+                          <div className="flex items-center gap-1 text-gray-600">
+                            <BookOpen className="w-3 h-3" />
+                            <span className="font-semibold">{load.room || 'TBA'}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded font-medium">
+                              {load.lec_hours}h LEC
+                            </span>
+                            <span className="px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded font-medium">
+                              {load.lab_hours}h LAB
+                            </span>
+                          </div>
                         </div>
                       </div>
                     ))}

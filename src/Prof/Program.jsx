@@ -130,9 +130,9 @@ export default function Program() {
   }, [program, filteredFacultyLoads, semester, students]);
 
   return (
-    <div className="flex content_padding">
+    <div className={`flex content_padding ${isCollapsed ? 'sidebar-collapsed' : ''}`}>
       <Sidebar />
-      <div className={`flex-1 transition-all duration-300 ${isCollapsed ? 'ml-0' : 'ml-0'}`}>
+      <div className="flex-1">
         <Header />
 
       <main className="p-6 min-h-screen">

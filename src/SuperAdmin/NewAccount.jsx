@@ -227,7 +227,7 @@ export default function NewAccount() {
                             >
                               <option value="">Select College</option>
                               {colleges.map((college) => (
-                                <option key={college.id} value={college.id}>
+                                <option key={college.id} value={String(college.id)}>
                                   {college.college_name}
                                 </option>
                               ))}
@@ -289,11 +289,9 @@ export default function NewAccount() {
                         >
                           <option value="">Select Role</option>
                           <option value="super_admin">Super Admin</option>
-                          <option value="program_head">Program Head</option>
                           <option value="dean">Dean</option>
-                          <option value="secretary">Secretary</option>
-                          <option value="prof">Professor</option>{" "}
-                          {/* ✅ ADDED PROF OPTION */}
+                          <option value="secretary">College Secretary</option>
+                          <option value="program_head">Program Head</option>
                         </select>
                         <ChevronDown
                           size={20}

@@ -80,6 +80,11 @@
 .content_padding{
 padding-left:240px ;
 padding-top:70px ;
+transition: padding-left 300ms ease-in-out;
+}
+
+.content_padding.sidebar-collapsed{
+padding-left:70px ; /* Space for burger icon button */
 }
 
 

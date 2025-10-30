@@ -56,6 +56,15 @@ export const programAPI = {
   update: (id, data) => api.put(`/programs/${id}`, data),
   delete: (id) => api.delete(`/programs/${id}`),
   getAvailableProgramHeads: () => api.get("/programs/program-heads/available"),
+  
+  // Subject assignment methods
+  getSubjects: (programId) => api.get(`/programs/${programId}/subjects`),
+  assignSubject: (programId, subjectId, semester, yearLevel) => api.post(`/programs/${programId}/subjects`, { 
+    subject_id: subjectId,
+    semester: semester,
+    year_level: yearLevel
+  }),
+  unassignSubject: (programId, subjectId) => api.delete(`/programs/${programId}/subjects/${subjectId}`),
 };
 
 export const subjectAPI = {

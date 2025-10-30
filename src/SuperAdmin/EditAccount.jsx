@@ -43,9 +43,10 @@ export default function EditAccount() {
         
         // Set account data
         const accountData = accountRes.data;
+        console.log("Account data fetched:", accountData);
         setForm({
           fullname: accountData.fullname || "",
-          department: accountData.department || "",
+          college_id: accountData.college_id ? String(accountData.college_id) : "",
           dob: accountData.dob || "",
           role: accountData.role || "",
           gender: accountData.gender || "",
@@ -56,9 +57,14 @@ export default function EditAccount() {
           password: "", // Don't populate password field
         });
         
-        // Set colleges data - check response structure
-        if (collegesRes.data.success) {
-          setColleges(collegesRes.data.data || []); // Use data.data for API structure
+        // Set colleges data - handle different response structures
+        console.log("Colleges response:", collegesRes.data);
+        if (Array.isArray(collegesRes.data)) {
+          setColleges(collegesRes.data);
+        } else if (collegesRes.data.success && collegesRes.data.data) {
+          setColleges(collegesRes.data.data);
+        } else if (collegesRes.data.data) {
+          setColleges(collegesRes.data.data);
         } else {
           setColleges([]);
         }
@@ -85,7 +91,7 @@ export default function EditAccount() {
 
     if (currentStep === 1) {
       if (!form.fullname.trim()) formErrors.fullname = "Fullname is required";
-      if (!form.department) formErrors.department = "Department is required";
+      if (!form.college_id) formErrors.college_id = "College is required";
       if (!form.dob) formErrors.dob = "Date of Birth is required";
       if (!form.role) formErrors.role = "Role is required";
       if (!form.gender) formErrors.gender = "Gender is required";
@@ -116,9 +122,8 @@ export default function EditAccount() {
 
 
   const handleUpdate = async () => {
-    console.log('BUTTON CLICKED - handleUpdate started'); // Add this first
-    console.log('Token in localStorage:', localStorage.getItem('token')); // Debug token
-    console.log('Current user from AuthContext:', user); // Debug current user
+    console.log('BUTTON CLICKED - handleUpdate started');
+    console.log('Form data:', form);
   
     if (!validateForm()) {
       toast.error("Please complete all required fields before saving.");
@@ -129,7 +134,7 @@ export default function EditAccount() {
     try {
       const payload = {
         fullname: form.fullname,
-        college_id: form.college_id,
+        college_id: String(form.college_id),
         dob: form.dob,
         role: form.role,
         gender: form.gender,
@@ -144,10 +149,15 @@ export default function EditAccount() {
         payload.password = form.password;
       }
 
+      console.log('Payload being sent:', payload);
+
       const res = await toast.promise(api.put(`/accounts/${id}`, payload), {
         loading: "Updating account...",
         success: "Account updated successfully!",
-        error: "Failed to update account.",
+        error: (err) => {
+          console.error("API Error Response:", err.response?.data);
+          return err.response?.data?.message || "Failed to update account.";
+        },
       });
 
 
@@ -247,7 +257,7 @@ export default function EditAccount() {
                           >
                             <option value="">Select College</option>
                             {colleges.map(college => (
-                              <option key={college.id} value={college.id}>
+                              <option key={college.id} value={String(college.id)}>
                                 {college.college_name}
                               </option>
                             ))}
@@ -301,11 +311,10 @@ export default function EditAccount() {
                         }`}
                       >
                         <option value="">Select Role</option>
-                        <option>Super Admin</option>
-                        <option>Program Head</option>
-                        <option>Dean</option>
-                        <option>Secretary</option>
-                        <option>Guard</option>
+                        <option value="super_admin">Super Admin</option>
+                        <option value="program_head">Program Head</option>
+                        <option value="dean">Dean</option>
+                        <option value="secretary">College Secretary</option>
                       </select>
                       <ChevronDown
                         size={20}
@@ -330,8 +339,8 @@ export default function EditAccount() {
                         }`}
                       >
                         <option value="">Select Gender</option>
-                        <option>Male</option>
-                        <option>Female</option>
+                        <option value="Male">Male</option>
+                        <option value="Female">Female</option>
                       </select>
                       <ChevronDown
                         size={20}

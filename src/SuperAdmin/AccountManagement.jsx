@@ -197,6 +197,7 @@ export default function Account_Management() {
                   <option value="program_head">Program Head</option>
                   <option value="dean">Dean</option>
                   <option value="secretary">College Secretary</option>
+                  <option value="registrar">Registrar</option>
                 </select>
 
                 {selectedIds.length > 0 && (
@@ -270,6 +271,8 @@ export default function Account_Management() {
                                 ? "bg-blue-100 text-blue-800"
                                 : account.role === "secretary"
                                 ? "bg-green-100 text-green-800"
+                                : account.role === "registrar"
+                                ? "bg-indigo-100 text-indigo-800"
                                 : "bg-gray-100 text-gray-800"
                             }`}
                           >

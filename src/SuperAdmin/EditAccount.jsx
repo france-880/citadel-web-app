@@ -315,6 +315,7 @@ export default function EditAccount() {
                         <option value="program_head">Program Head</option>
                         <option value="dean">Dean</option>
                         <option value="secretary">College Secretary</option>
+                        <option value="registrar">Registrar</option>
                       </select>
                       <ChevronDown
                         size={20}

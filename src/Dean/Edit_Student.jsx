@@ -14,6 +14,9 @@ export default function Edit_Student() {
     const [errors, setErrors] = useState({});
     const [loading, setLoading] = useState(false);
     const [fetchLoading, setFetchLoading] = useState(true);
+    const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(
+        () => localStorage.getItem("sidebarCollapsed") === "true"
+    );
     
     // ✅ Backend data states
     const [programs, setPrograms] = useState([]);
@@ -36,6 +39,15 @@ export default function Edit_Student() {
         username: "",
         password: "",
     });
+
+    // Listen to sidebar toggle events
+    useEffect(() => {
+        const handleSidebarToggle = () => {
+            setIsSidebarCollapsed(localStorage.getItem("sidebarCollapsed") === "true");
+        };
+        window.addEventListener("sidebarToggle", handleSidebarToggle);
+        return () => window.removeEventListener("sidebarToggle", handleSidebarToggle);
+    }, []);
 
     // ✅ Fetch student data, programs, and year sections
     useEffect(() => {
@@ -218,7 +230,7 @@ export default function Edit_Student() {
         error: "Failed to update student.",
       });
 
-      navigate("/dean-student_registration", { state: { updatedStudent: res.data } });
+      navigate("/registrar-student-registration", { state: { updatedStudent: res.data } });
     } catch (err) {
       console.error("Update error:", err);
     } finally {
@@ -227,7 +239,7 @@ export default function Edit_Student() {
   };
 
   return (
-    <div className="flex content_padding">
+    <div className={`flex content_padding ${isSidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
       <Sidebar />
       <div className="flex-1">
         <Header />

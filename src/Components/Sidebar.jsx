@@ -186,6 +186,13 @@ export default function Sidebar() {
       roles: ["prof"],
     },
     {
+      label: "Student Registration",
+      path: "/registrar-student-registration",
+      icon: Users,
+      description: "Manage student registration",
+      roles: ["registrar"],
+    },
+    {
       label: "Report",
       path: "/prof_report",
       icon: BarChart3,

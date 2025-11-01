@@ -15,7 +15,7 @@ import ResetPassword from "./Pages/ResetPassword.jsx";
 import CheckEmail from "./Pages/CheckEmail.jsx";
 
 // Dean Routes
-import DeanStudentRegistration from "./Dean/Student_Registration.jsx";
+import RegistrarStudentRegistration from "./Registrar/Student_Registration.jsx";
 import DeanUserManagement from "./Dean/User_Management.jsx";
 import DeanDashboard from "./Dean/Dashboard.jsx";
 import DeanDailyAttendance from "./Dean/Daily_Attendance.jsx";
@@ -175,10 +175,29 @@ ReactDOM.createRoot(document.getElementById("root")).render(
       />
 
         <Route
-    path="/dean-student-registration"
+    path="/registrar-student-registration"
     element={
-      <RoleGuard allowed={['dean']}>
-        <DeanStudentRegistration />
+      <RoleGuard allowed={['registrar']}>
+        <RegistrarStudentRegistration />
+      </RoleGuard>
+    }
+  />
+
+  {/* Registrar Student Routes */}
+  <Route
+    path="/registrar-new-student"
+    element={
+      <RoleGuard allowed={['registrar']}>
+        <DeanNewStudent />
+      </RoleGuard>
+    }
+  />
+
+  <Route
+    path="/registrar-edit-student/:id"
+    element={
+      <RoleGuard allowed={['registrar']}>
+        <DeanEditStudent />
       </RoleGuard>
     }
   />
@@ -270,7 +289,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
 <Route
     path="/profile"
     element={
-      <RoleGuard allowed={['dean', 'prof','program_head',  'super_admin']}>
+      <RoleGuard allowed={['dean', 'prof','program_head',  'super_admin', 'registrar']}>
         <Profile />
       </RoleGuard>
     }

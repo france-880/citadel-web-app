@@ -40,7 +40,8 @@ export function AuthProvider({ children }) {
       program_head: '/faculty-load',
       dean: '/dean-dashboard',
       prof: '/prof_report',
-      super_admin: '/super-admin-dashboard'
+      super_admin: '/super-admin-dashboard',
+      registrar: '/registrar-student-registration'
     };
     navigate(roleToRoute[res.data.user.role] || '/dashboard');
   };

@@ -5,7 +5,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { Edit, Check } from "lucide-react";
 import { programAPI, yearSectionAPI, studentAPI } from "../api/axios"; // ✅ Added studentAPI
 import toast from "react-hot-toast";
-import View_Student from "./View_Student";
+import View_Student from "../Dean/View_Student";
 
 function CustomCheckbox({ checked, onChange }) {
   return (
@@ -220,7 +220,7 @@ export default function Student_Registration() {
     fetchYearSections();
   }, []);
 
-  const handleEdit = (id) => navigate(`/dean-edit-student/${id}`);
+  const handleEdit = (id) => navigate(`/registrar-edit-student/${id}`);
 
   // Checkbox management
   const handleCheckboxChange = (id) => {
@@ -261,7 +261,7 @@ export default function Student_Registration() {
     }
   };
 
-  const handleAddStudent = () => navigate("/dean-new-student");
+  const handleAddStudent = () => navigate("/registrar-new-student");
 
   // Clear all filters
   const clearFilters = () => {

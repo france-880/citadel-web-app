@@ -13,6 +13,9 @@ export default function New_Student() {
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(
+    () => localStorage.getItem("sidebarCollapsed") === "true"
+  );
 
   // ✅ Backend data states
   const [programs, setPrograms] = useState([]);
@@ -73,6 +76,15 @@ export default function New_Student() {
       <span>{text}</span>
     </li>
   );
+
+  // Listen to sidebar toggle events
+  useEffect(() => {
+    const handleSidebarToggle = () => {
+      setIsSidebarCollapsed(localStorage.getItem("sidebarCollapsed") === "true");
+    };
+    window.addEventListener("sidebarToggle", handleSidebarToggle);
+    return () => window.removeEventListener("sidebarToggle", handleSidebarToggle);
+  }, []);
 
   // ✅ Fixed data fetching for year sections
   useEffect(() => {
@@ -261,7 +273,7 @@ export default function New_Student() {
       });
 
       // ✅ Navigate with refresh trigger
-      navigate("/dean-student-registration", {
+      navigate("/registrar-student-registration", {
         state: { shouldRefresh: true },
       });
     } catch (err) {
@@ -275,7 +287,7 @@ export default function New_Student() {
   // Loading state for dropdown data
   if (isLoadingData) {
     return (
-      <div className="flex content_padding">
+      <div className={`flex content_padding ${isSidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
         <Sidebar />
         <div className="flex-1">
           <Header />
@@ -292,7 +304,7 @@ export default function New_Student() {
   }
 
   return (
-    <div className="flex content_padding">
+    <div className={`flex content_padding ${isSidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
       <Sidebar />
       <div className="flex-1">
         <Header />

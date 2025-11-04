@@ -1733,7 +1733,7 @@ const FacultyLoading = () => {
           <Header />
           <div className="p-4 space-y-4">
           <div className="flex items-center justify-between mb-3">
-            <h1 className="text-xl font-semibold text-[#064F32]">
+            <h1 className="text-xl font-semibold text-[#064F32] pl-4">
               Faculty Loading
             </h1>
           </div>

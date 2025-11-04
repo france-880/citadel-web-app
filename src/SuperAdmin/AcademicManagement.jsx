@@ -11,7 +11,25 @@ import {
   GraduationCap,
   BookOpen,
   Search,
+  Check,
 } from "lucide-react";
+
+function CustomCheckbox({ checked, onChange }) {
+  return (
+    <label className="relative inline-flex items-center cursor-pointer">
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={onChange}
+        className="peer appearance-none w-5 h-5 border-2 border-gray-300 rounded 
+                   checked:bg-[#FF7A00] checked:border-[#FF7A00] cursor-pointer"
+      />
+      {checked && (
+        <Check className="w-3 h-3 text-white absolute left-0.5 top-0.5 pointer-events-none" />
+      )}
+    </label>
+  );
+}
 
 export default function AcademicManagement() {
   const [isLoading, setIsLoading] = useState(true);
@@ -32,6 +50,11 @@ export default function AcademicManagement() {
   const [selectedYearLevel, setSelectedYearLevel] = useState(""); // For subject assignment year level
   const [error, setError] = useState(null);
   const [successMessage, setSuccessMessage] = useState(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteType, setDeleteType] = useState(""); // "college", "program", "subject"
+  const [itemToDelete, setItemToDelete] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+  const [selectedSubjectIds, setSelectedSubjectIds] = useState([]);
 
   // Backend data states
   const [colleges, setColleges] = useState([]);
@@ -382,53 +405,101 @@ export default function AcademicManagement() {
   };
 
   const deleteCollege = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this college?"))
-      return;
+    const college = colleges.find((c) => c.id === id);
+    setDeleteType("college");
+    setItemToDelete({ id, name: college?.college_name || "college" });
+    setShowDeleteModal(true);
+  };
 
+  const confirmDeleteCollege = async () => {
+    if (!itemToDelete) return;
+    setDeleting(true);
     try {
-      const response = await collegeAPI.delete(id);
+      const response = await collegeAPI.delete(itemToDelete.id);
       if (response.data.success) {
-        setColleges((prev) => prev.filter((c) => c.id !== id));
+        setColleges((prev) => prev.filter((c) => c.id !== itemToDelete.id));
         setSuccessMessage("College deleted successfully!");
         setTimeout(() => setSuccessMessage(null), 2000);
+        setShowDeleteModal(false);
+        setItemToDelete(null);
       }
     } catch (error) {
       console.error("Error deleting college:", error);
       setError(error.response?.data?.message || "Failed to delete college");
+    } finally {
+      setDeleting(false);
     }
   };
 
   const deleteProgram = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this program?"))
-      return;
+    const program = programs.find((p) => p.id === id);
+    setDeleteType("program");
+    setItemToDelete({ id, name: program?.program_name || "program" });
+    setShowDeleteModal(true);
+  };
 
+  const confirmDeleteProgram = async () => {
+    if (!itemToDelete) return;
+    setDeleting(true);
     try {
-      const response = await programAPI.delete(id);
+      const response = await programAPI.delete(itemToDelete.id);
       if (response.data.success) {
-        setPrograms((prev) => prev.filter((p) => p.id !== id));
+        setPrograms((prev) => prev.filter((p) => p.id !== itemToDelete.id));
         setSuccessMessage("Program deleted successfully!");
         setTimeout(() => setSuccessMessage(null), 2000);
+        setShowDeleteModal(false);
+        setItemToDelete(null);
       }
     } catch (error) {
       console.error("Error deleting program:", error);
       setError(error.response?.data?.message || "Failed to delete program");
+    } finally {
+      setDeleting(false);
     }
   };
 
-  const deleteSubject = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this subject?"))
-      return;
+  // Checkbox controls for subjects
+  const handleSubjectCheckboxChange = (id) => {
+    setSelectedSubjectIds((prev) =>
+      prev.includes(id) ? prev.filter((sid) => sid !== id) : [...prev, id]
+    );
+  };
 
+  const handleSelectAllSubjects = (e) => {
+    if (e.target.checked) {
+      setSelectedSubjectIds(filteredSubjects.map((s) => s.id));
+    } else {
+      setSelectedSubjectIds([]);
+    }
+  };
+
+  const handleDeleteSelectedSubjects = () => {
+    if (selectedSubjectIds.length === 0) return;
+    setDeleteType("subject");
+    setShowDeleteModal(true);
+  };
+
+  const confirmDeleteSubjects = async () => {
+    if (!selectedSubjectIds || selectedSubjectIds.length === 0) return;
+    setDeleting(true);
     try {
-      const response = await subjectAPI.delete(id);
-      if (response.data.success) {
-        setSubjects((prev) => prev.filter((s) => s.id !== id));
-        setSuccessMessage("Subject deleted successfully!");
+      // Delete subjects one by one (since there might not be a bulk delete endpoint)
+      const deletePromises = selectedSubjectIds.map((id) => subjectAPI.delete(id));
+      const results = await Promise.all(deletePromises);
+      
+      const successCount = results.filter((r) => r.data.success).length;
+      if (successCount > 0) {
+        setSubjects((prev) => prev.filter((s) => !selectedSubjectIds.includes(s.id)));
+        setSuccessMessage(`${successCount} subject(s) deleted successfully!`);
         setTimeout(() => setSuccessMessage(null), 2000);
+        setSelectedSubjectIds([]);
+        setShowDeleteModal(false);
       }
     } catch (error) {
-      console.error("Error deleting subject:", error);
-      setError(error.response?.data?.message || "Failed to delete subject");
+      console.error("Error deleting subjects:", error);
+      setError(error.response?.data?.message || "Failed to delete subjects");
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -509,6 +580,13 @@ export default function AcademicManagement() {
       .some((val) => val.toString().toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
+  // Clear subject selection when search changes
+  useEffect(() => {
+    if (activeTab === "subjects") {
+      setSelectedSubjectIds([]);
+    }
+  }, [searchTerm, activeTab]);
+
   if (isLoading) {
     return (
       <div className={`flex content_padding ${isSidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
@@ -558,9 +636,12 @@ export default function AcademicManagement() {
           {/* Tabs */}
           <div className="mb-6">
             <div className="border-b border-gray-200">
-              <nav className="-mb-px flex space-x-8">
+              <nav className="-mb-px flex space-x-8 gap-4">
                 <button
-                  onClick={() => setActiveTab("colleges")}
+                  onClick={() => {
+                    setActiveTab("colleges");
+                    setSelectedSubjectIds([]); // Clear selection when switching tabs
+                  }}
                   className={`py-2 px-1 border-b-2 font-medium text-sm ${
                     activeTab === "colleges"
                       ? "border-[#064F32] text-[#064F32]"
@@ -570,7 +651,10 @@ export default function AcademicManagement() {
                   Colleges ({colleges.length})
                 </button>
                 <button
-                  onClick={() => setActiveTab("subjects")}
+                  onClick={() => {
+                    setActiveTab("subjects");
+                    setSelectedSubjectIds([]); // Clear selection when switching tabs
+                  }}
                   className={`py-2 px-1 border-b-2 font-medium text-sm ${
                     activeTab === "subjects"
                       ? "border-[#064F32] text-[#064F32]"
@@ -587,32 +671,44 @@ export default function AcademicManagement() {
           <div className="flex justify-between items-center mb-6">
             <input
               type="text"
-              placeholder="Search colleges, programs, or administrators..."
+              placeholder="Search subject"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-[350px] p-1.5 rounded-md border border-gray-200 focus:ring-2 focus:ring-[#064F32]/30 focus:border-[#064F32]/60 outline-none"
+              className="w-[350px] p-2 rounded-md border border-gray-200 focus:ring-2 focus:ring-[#064F32]/30 focus:border-[#064F32]/60 outline-none"
             />
 
-            {/* Dynamic Add Button based on active tab */}
-            {activeTab === "colleges" && (
-              <button
-                onClick={() => openModal("add-college")}
-                className="px-4 py-2 rounded-md text-white bg-[#FF7A00] hover:opacity-90 transition flex items-center gap-2"
-              >
-                <Plus className="w-4 h-4" />
-                Add College
-              </button>
-            )}
+            <div className="flex items-center gap-3">
+              {/* Delete Selected Button for Subjects */}
+              {activeTab === "subjects" && selectedSubjectIds.length > 0 && (
+                <button
+                  onClick={handleDeleteSelectedSubjects}
+                  className="px-4 py-2 rounded-md text-white bg-red-600 hover:bg-red-700 transition"
+                >
+                  Delete Selected ({selectedSubjectIds.length})
+                </button>
+              )}
 
-            {activeTab === "subjects" && (
-              <button
-                onClick={() => openModal("add-subject")}
-                className="px-4 py-2 rounded-md text-white bg-[#FF7A00] hover:opacity-90 transition flex items-center gap-2"
-              >
-                <Plus className="w-4 h-4" />
-                Add Subject
-              </button>
-            )}
+              {/* Dynamic Add Button based on active tab */}
+              {activeTab === "colleges" && (
+                <button
+                  onClick={() => openModal("add-college")}
+                  className="px-4 py-2 rounded-md text-white bg-[#FF7A00] hover:opacity-90 transition flex items-center gap-2"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add College
+                </button>
+              )}
+
+              {activeTab === "subjects" && (
+                <button
+                  onClick={() => openModal("add-subject")}
+                  className="px-4 py-2 rounded-md text-white bg-[#FF7A00] hover:opacity-90 transition flex items-center gap-2"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add Subject
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Colleges Tab */}
@@ -626,7 +722,7 @@ export default function AcademicManagement() {
                   {/* College Header */}
                   <div className="p-6 border-b border-gray-100">
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-4">
+                      <div className="flex items-center space-x-4 gap-4">
                         <div className="p-3 bg-[#064F32] rounded-lg">
                           <Building2 className="w-6 h-6 text-white" />
                         </div>
@@ -637,14 +733,14 @@ export default function AcademicManagement() {
                           <p className="text-gray-600">
                             Code: {college.college_code}
                           </p>
-                          <div className="flex items-center space-x-4 mt-2">
-                            <div className="flex items-center space-x-2">
+                          <div className="flex items-center space-x-4 mt-2 gap-4">
+                            <div className="flex items-center space-x-2 gap-1">
                               <Users className="w-4 h-4 text-gray-400" />
                               <span className="text-sm text-gray-600">
                                 {college.students_count || 0} students
                               </span>
                             </div>
-                            <div className="flex items-center space-x-2">
+                            <div className="flex items-center space-x-2 gap-1">
                               <GraduationCap className="w-4 h-4 text-gray-400" />
                               <span className="text-sm text-gray-600">
                                 {
@@ -708,9 +804,9 @@ export default function AcademicManagement() {
                           setSelectedCollegeForProgram(college);
                           openModal("add-program", college);
                         }}
-                        className="px-3 py-1.5 rounded-md text-white bg-[#FF7A00] hover:opacity-90 transition flex items-center gap-2 text-sm"
+                        className="px-3 py-2 rounded-md text-white bg-[#FF7A00] hover:opacity-90 transition flex items-center gap-2 text-sm"
                       >
-                        <Plus className="w-4 h-4" />
+                        <Plus className="w-4 h-4 " />
                         Add Program
                       </button>
                     </div>
@@ -752,8 +848,8 @@ export default function AcademicManagement() {
                               </div>
                             </div>
                             <div className="text-sm text-gray-600">
-                              <div className="flex items-center justify-between mt-2">
-                                <div className="flex items-center gap-1">
+                              <div className="flex items-center justify-between mt-2 mb-2">
+                                <div className="flex items-center gap-2">
                                   <BookOpen className="w-3 h-3 text-gray-400" />
                                   <span>
                                     Program Head:{" "}
@@ -774,7 +870,7 @@ export default function AcademicManagement() {
 
                             {/* Assigned Subjects Section */}
                             <div className="mt-3 pt-3 border-t border-gray-200">
-                              <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center justify-between mb-2 mt-2">
                                 <span className="text-xs font-medium text-gray-700">
                                   Assigned Subjects ({program.subjects?.length || 0})
                                 </span>
@@ -834,15 +930,26 @@ export default function AcademicManagement() {
                 </h3>
                 <div className="overflow-x-auto">
                   <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <thead>
+                      <tr className="bg-[#064F32]/10 text-[#064F32]">
+                        <th className="px-3 py-3 text-left text-xs font-medium uppercase tracking-wider">
+                          <input
+                            type="checkbox"
+                            checked={
+                              filteredSubjects.length > 0 &&
+                              selectedSubjectIds.length === filteredSubjects.length
+                            }
+                            onChange={handleSelectAllSubjects}
+                            className="w-4 h-4"
+                          />
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">
                           Subject
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">
                           Units
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">
                           Actions
                         </th>
                       </tr>
@@ -850,7 +957,13 @@ export default function AcademicManagement() {
                     <tbody className="bg-white divide-y divide-gray-200">
                       {filteredSubjects.map((subject) => (
                         <tr key={subject.id} className="hover:bg-gray-50">
-                          <td className="px-6 py-4 whitespace-nowrap">
+                          <td className="px-3 py-3 whitespace-nowrap">
+                            <CustomCheckbox
+                              checked={selectedSubjectIds.includes(subject.id)}
+                              onChange={() => handleSubjectCheckboxChange(subject.id)}
+                            />
+                          </td>
+                          <td className="px-6 py-3 whitespace-nowrap">
                             <div>
                               <div className="text-sm font-medium text-gray-900">
                                 {subject.subject_name}
@@ -860,24 +973,19 @@ export default function AcademicManagement() {
                               </div>
                             </div>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-900">
                             {subject.units || "-"}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                          <td className="px-6 py-3 whitespace-nowrap text-sm font-medium">
                             <div className="flex items-center space-x-2">
                               <button
                                 onClick={() =>
                                   openModal("edit-subject", null, null, subject)
                                 }
-                                className="text-[#064F32] hover:text-[#053d27]"
+                                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                                title="Edit Subject"
                               >
-                                Edit
-                              </button>
-                              <button
-                                onClick={() => deleteSubject(subject.id)}
-                                className="text-red-600 hover:text-red-900"
-                              >
-                                Delete
+                                <Edit className="w-4 h-4 text-gray-600" />
                               </button>
                             </div>
                           </td>
@@ -1286,6 +1394,80 @@ export default function AcademicManagement() {
                     </div>
                   </form>
                 )}
+              </div>
+            </div>
+          )}
+
+          {/* Delete Confirmation Modal */}
+          {showDeleteModal && (
+            <div className="fixed inset-0 flex items-center justify-center bg-black/50 z-50">
+              <div className="bg-white p-6 rounded-lg shadow-lg text-center w-96">
+                <div className="flex justify-center mb-3">
+                  <svg
+                    className="w-12 h-12 text-red-600"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 
+                      2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M1 7h22M10 7V4a1 
+                      1 0 011-1h2a1 1 0 011 1v3"
+                    />
+                  </svg>
+                </div>
+                <h2 className="text-xl font-bold mb-2 mt-10">DELETE</h2>
+                <p className="mb-4">
+                  {deleteType === "subject" && selectedSubjectIds.length > 0 ? (
+                    <>
+                      Are you sure you want to delete{" "}
+                      <strong>{selectedSubjectIds.length}</strong> subject(s)?
+                    </>
+                  ) : (
+                    <>
+                      Are you sure you want to delete this {deleteType}?
+                      {itemToDelete?.name && (
+                        <span className="block mt-1 font-semibold">
+                          "{itemToDelete.name}"
+                        </span>
+                      )}
+                    </>
+                  )}
+                </p>
+                <div className="flex justify-center gap-4">
+                  <button
+                    onClick={() => {
+                      setShowDeleteModal(false);
+                      setItemToDelete(null);
+                      setDeleteType("");
+                    }}
+                    className="px-4 py-2 bg-gray-400 text-white rounded hover:bg-gray-500"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (deleteType === "college") {
+                        confirmDeleteCollege();
+                      } else if (deleteType === "program") {
+                        confirmDeleteProgram();
+                      } else if (deleteType === "subject") {
+                        confirmDeleteSubjects();
+                      }
+                    }}
+                    disabled={deleting}
+                    className={`px-4 py-2 text-white rounded ${
+                      deleting
+                        ? "bg-red-400 cursor-not-allowed"
+                        : "bg-red-700 hover:bg-red-800"
+                    }`}
+                  >
+                    {deleting ? "Deleting..." : "Confirm"}
+                  </button>
+                </div>
               </div>
             </div>
           )}

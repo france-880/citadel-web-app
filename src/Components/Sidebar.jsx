@@ -185,12 +185,6 @@ export default function Sidebar() {
       description: "Overview of daily attendance",
       roles: ["dean"]
     },
-    { label: "Student Registration",
-      path: "/dean-student-registration",
-      icon: Users,
-      description: "Manage student registration",
-      roles: ["dean"]
-    },
     { label: "User Management",
       path: "/dean-user-management",
       icon: Users,

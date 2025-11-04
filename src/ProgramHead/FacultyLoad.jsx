@@ -168,7 +168,7 @@ export default function FacultyLoad() {
           {/* Header */}
           <div className="flex items-center justify-between mb-6">
             <h1 className="text-2xl font-semibold text-[#064F32]">
-              Faculty Load
+              Faculty List
             </h1>
             <div className="text-sm text-gray-500">
               {loading ? "Loading..." : `${total} professors found`}
@@ -182,7 +182,7 @@ export default function FacultyLoad() {
                 <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4 pointer-events-none z-10" />
                 <input
                   type="text"
-                  placeholder="Search by name or email..."
+                  placeholder="Search by name..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   className="w-full pl-4 pr-10 py-2 rounded-md border border-gray-200 focus:ring-2 focus:ring-[#064F32]/30 focus:border-[#064F32]/60 outline-none relative z-0"
@@ -197,19 +197,16 @@ export default function FacultyLoad() {
               <table className="min-w-full text-left">
                 <thead>
                   <tr className="bg-[#064F32]/10 text-[#064F32]">
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                      #
+                    <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider">
+                      Code
                     </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                    <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider">
                       Name
                     </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                      Email
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                    <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider">
                       Department
                     </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider w-64">
+                    <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider w-64">
                       Actions
                     </th>
                   </tr>
@@ -217,7 +214,7 @@ export default function FacultyLoad() {
                 <tbody className="divide-y divide-gray-100">
                   {loading ? (
                     <tr>
-                      <td colSpan={5} className="px-6 py-8 text-center text-sm text-gray-500">
+                      <td colSpan={4} className="px-6 py-8 text-center text-sm text-gray-500">
                         <div className="flex items-center justify-center gap-2">
                           <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[#064F32]"></div>
                           Loading professors...
@@ -226,21 +223,18 @@ export default function FacultyLoad() {
                     </tr>
                   ) : facultyList.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="px-6 py-8 text-center text-sm text-gray-500">
+                      <td colSpan={4} className="px-6 py-8 text-center text-sm text-gray-500">
                         No professors found
                       </td>
                     </tr>
                   ) : (
                     facultyList.map((faculty, index) => (
                       <tr key={faculty.id} className="hover:bg-[#F6F7FB]">
-                        <td className="px-6 py-4 text-sm text-gray-700 text-center">
+                        <td className="px-6 py-4 text-sm text-gray-700 text-medium">
                           {from + index}
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-700 font-medium">
                           {faculty.fullname}
-                        </td>
-                        <td className="px-6 py-4 text-sm text-gray-700">
-                          {faculty.email}
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-700">
                           {faculty.department || "—"}
@@ -249,16 +243,16 @@ export default function FacultyLoad() {
                           <div className="flex flex-col gap-2 w-52">
                             <button
                               onClick={() => openModal(faculty)}
-                              className="flex items-center justify-center gap-1 px-3 py-2 bg-[#064F32] text-white rounded-md hover:bg-[#053d27] transition-colors text-xs font-medium w-full"
+                              className="flex items-center justify-center gap-2 px-3 py-2 bg-[#064F32] text-white rounded-md hover:bg-[#053d27] transition-colors text-xs font-medium w-full"
                             >
-                              <Eye className="w-3 h-3" />
+                              <Eye className="w-4 h-4" />
                               View Load
                             </button>
                             <button
                               onClick={() => navigateToFacultyLoading(faculty)}
-                              className="flex items-center justify-center gap-1 px-3 py-2 bg-[#064F32] text-white rounded-md hover:bg-[#053d27] transition-colors text-xs font-medium w-full"
+                              className="flex items-center justify-center gap-2 px-3 py-2 bg-[#064F32] text-white rounded-md hover:bg-[#053d27] transition-colors text-xs font-medium w-full"
                             >
-                              <Calendar className="w-3 h-3" />
+                              <Calendar className="w-4 h-4" />
                               Faculty Loading
                             </button>
                           </div>
@@ -306,11 +300,11 @@ export default function FacultyLoad() {
           onClick={closeModal}
         >
           <div 
-            className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto"
+            className="bg-white rounded-lg shadow-2xl max-w-4xl w-full max-h-[85vh] flex flex-col my-auto"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Header */}
-            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+            <div className="flex items-center justify-between p-6 border-b border-gray-200 flex-shrink-0">
               <div>
                 <h2 className="text-2xl font-bold text-[#064F32]">Faculty Load Details</h2>
                 <p className="text-gray-600 mt-1">
@@ -325,8 +319,8 @@ export default function FacultyLoad() {
               </button>
             </div>
 
-            {/* Modal Content */}
-            <div className="p-6">
+            {/* Modal Content - Scrollable */}
+            <div className="p-6 overflow-y-auto flex-1">
               {/* Academic Year and Semester Filters */}
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
                 <div className="flex flex-wrap items-center gap-4">
@@ -379,16 +373,8 @@ export default function FacultyLoad() {
                     <p className="text-lg text-gray-900">{selectedFaculty.name}</p>
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-gray-600">Email</p>
-                    <p className="text-lg text-gray-900">{selectedFaculty.email}</p>
-                  </div>
-                  <div>
                     <p className="text-sm font-medium text-gray-600">Department</p>
                     <p className="text-lg text-gray-900">{selectedFaculty.department || "—"}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-600">Role</p>
-                    <p className="text-lg text-gray-900 capitalize">{selectedFaculty.role}</p>
                   </div>
                 </div>
               </div>
@@ -481,7 +467,7 @@ export default function FacultyLoad() {
             </div>
 
             {/* Modal Footer */}
-            <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200">
+            <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200 flex-shrink-0">
               <button
                 onClick={closeModal}
                 className="px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors"

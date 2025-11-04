@@ -22,28 +22,37 @@ export function AuthProvider({ children }) {
   }, []);
 
   const login = async (email, password) => {
-    const res = await api.post('/login', { email, password });
-    localStorage.setItem('token', res.data.token);
-    
-    // Validate user data before setting
-    const userData = res.data.user;
-    console.log('Login response user data:', userData);
-    
-    if (!userData.fullname || userData.fullname.trim() === '') {
-      console.warn('User fullname is empty or missing in login response');
+    try {
+      console.log('🔐 Attempting login with:', { email, password: '***' });
+      const res = await api.post('/login', { email, password });
+      console.log('✅ Login successful:', res.data);
+      
+      localStorage.setItem('token', res.data.token);
+      
+      // Validate user data before setting
+      const userData = res.data.user;
+      console.log('Login response user data:', userData);
+      
+      if (!userData.fullname || userData.fullname.trim() === '') {
+        console.warn('User fullname is empty or missing in login response');
+      }
+      
+      setUser(userData);
+      // redirect by role
+      const roleToRoute = {
+        guard: '/dashboard',
+        program_head: '/faculty-load',
+        dean: '/dean-dashboard',
+        prof: '/prof_report',
+        super_admin: '/super-admin-dashboard',
+        registrar: '/registrar-student-registration'
+      };
+      navigate(roleToRoute[res.data.user.role] || '/dashboard');
+    } catch (error) {
+      console.error('❌ Login error:', error);
+      console.error('Error response:', error.response?.data);
+      throw error; // Re-throw to let Login component handle it
     }
-    
-    setUser(userData);
-    // redirect by role
-    const roleToRoute = {
-      guard: '/dashboard',
-      program_head: '/faculty-load',
-      dean: '/dean-dashboard',
-      prof: '/prof_report',
-      super_admin: '/super-admin-dashboard',
-      registrar: '/registrar-student-registration'
-    };
-    navigate(roleToRoute[res.data.user.role] || '/dashboard');
   };
 
   

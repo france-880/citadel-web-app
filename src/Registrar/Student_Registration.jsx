@@ -5,7 +5,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { Edit, Check } from "lucide-react";
 import { programAPI, yearSectionAPI, studentAPI } from "../api/axios"; // ✅ Added studentAPI
 import toast from "react-hot-toast";
-import View_Student from "../Dean/View_Student";
+import View_Student from "./View_Student";
 
 function CustomCheckbox({ checked, onChange }) {
   return (

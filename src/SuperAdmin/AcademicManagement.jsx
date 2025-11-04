@@ -1050,22 +1050,6 @@ export default function AcademicManagement() {
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Semester
-                      </label>
-                      <select
-                        value={selectedSemester}
-                        onChange={(e) => setSelectedSemester(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#064F32]"
-                      >
-                        <option value="">-- Select Semester --</option>
-                        <option value="1st Semester">1st Semester</option>
-                        <option value="2nd Semester">2nd Semester</option>
-                        <option value="Summer">Summer</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
                         Year Level
                       </label>
                       <select
@@ -1079,6 +1063,22 @@ export default function AcademicManagement() {
                         <option value="3">3rd Year</option>
                         <option value="4">4th Year</option>
                         <option value="5">5th Year</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Semester
+                      </label>
+                      <select
+                        value={selectedSemester}
+                        onChange={(e) => setSelectedSemester(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#064F32]"
+                      >
+                        <option value="">-- Select Semester --</option>
+                        <option value="1st Semester">1st Semester</option>
+                        <option value="2nd Semester">2nd Semester</option>
+                        <option value="Summer">Summer</option>
                       </select>
                     </div>
 

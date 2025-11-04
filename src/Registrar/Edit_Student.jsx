@@ -35,6 +35,7 @@ export default function Edit_Student() {
         address: "",
         guardianName: "",
         guardianContact: "",
+        guardian_email: "",
         guardianAddress: "",
         username: "",
         password: "",
@@ -96,6 +97,7 @@ export default function Edit_Student() {
               address: data.address || "",
               guardianName: data.guardian_name || "",
               guardianContact: data.guardian_contact || "",
+              guardian_email: data.guardian_email || "",
               guardianAddress: data.guardian_address || "",
               username: data.username || "",
               password: "",
@@ -168,6 +170,7 @@ export default function Edit_Student() {
       if (!/\S+@\S+\.\S+/.test(form.email)) {
         stepErrors.email = "Invalid email format";
       }
+    
       if (!/^(\+63|0)\d{10}$/.test(form.contact)) {
         stepErrors.contact = "Invalid contact number format";
       }
@@ -176,6 +179,9 @@ export default function Edit_Student() {
     if (currentStep === 2) {
       if (!form.guardianName.trim()) stepErrors.guardianName = "Guardian name is required";
       if (!form.guardianContact.trim()) stepErrors.guardianContact = "Guardian contact is required";
+      if (form.guardian_email && !/\S+@\S+\.\S+/.test(form.guardian_email)) {
+        stepErrors.guardian_email = "Invalid guardian email format";
+      }
       if (!form.guardianAddress.trim()) stepErrors.guardianAddress = "Guardian address is required";
     }
     if (currentStep === 3) {
@@ -215,6 +221,7 @@ export default function Edit_Student() {
         address: form.address,
         guardian_name: form.guardianName,
         guardian_contact: form.guardianContact,
+        guardian_email: form.guardian_email || null,
         guardian_address: form.guardianAddress,
         username: form.username,
       };
@@ -402,6 +409,8 @@ export default function Edit_Student() {
                       <input type="email" value={form.email} onChange={handleChange("email")} className={`w-full p-3 border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#064F32]/30 focus:border-[#064F32]/60 ${errors.email ? "border-red-500" : "border-gray-300"}`} />
                       {errors.email && <p className="mt-1 text-xs text-red-600">{errors.email}</p>}
                     </div>
+
+                  
                     
                     <div>
                       <label className="block text-sm text-gray-700 mb-2">Contact No.</label>
@@ -431,6 +440,11 @@ export default function Edit_Student() {
                       <label className="block text-sm text-gray-700 mb-2">Guardian Contact Number</label>
                       <input value={form.guardianContact} onChange={handleChange("guardianContact")} className={`w-full p-3 border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#064F32]/30 focus:border-[#064F32]/60 ${errors.guardianContact ? "border-red-500" : "border-gray-300"}`} />
                       {errors.guardianContact && <p className="mt-1 text-xs text-red-600">{errors.guardianContact}</p>}
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className="block text-sm text-gray-700 mb-2">Guardian Email</label>
+                      <input type="email" value={form.guardian_email} onChange={handleChange("guardian_email")} className={`w-full p-3 border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#064F32]/30 focus:border-[#064F32]/60 ${errors.guardian_email ? "border-red-500" : "border-gray-300"}`} placeholder="Enter Guardian Email (Optional)" />
+                      {errors.guardian_email && <p className="mt-1 text-xs text-red-600">{errors.guardian_email}</p>}
                     </div>
                     <div className="md:col-span-2">
                       <label className="block text-sm text-gray-700 mb-2">Guardian Address</label>

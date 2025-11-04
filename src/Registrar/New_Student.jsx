@@ -35,6 +35,7 @@ export default function New_Student() {
     address: "",
     guardianName: "",
     guardianContact: "",
+    guardian_email: "",
     guardianAddress: "",
     username: "",
     password: "",
@@ -189,6 +190,7 @@ export default function New_Student() {
       if (!/\S+@\S+\.\S+/.test(form.email)) {
         stepErrors.email = "Invalid email format";
       }
+    
       if (!/^(\+63|0)\d{10}$/.test(form.contact)) {
         stepErrors.contact = "Invalid contact number format";
       }
@@ -199,6 +201,9 @@ export default function New_Student() {
         stepErrors.guardianName = "Guardian name is required";
       if (!/^(\+63|0)\d{10}$/.test(form.guardianContact)) {
         stepErrors.guardianContact = "Invalid contact number format";
+      }
+      if (form.guardian_email && !/\S+@\S+\.\S+/.test(form.guardian_email)) {
+        stepErrors.guardian_email = "Invalid guardian email format";
       }
       if (!form.guardianAddress.trim())
         stepErrors.guardianAddress = "Guardian address is required";
@@ -250,6 +255,7 @@ export default function New_Student() {
       address: form.address,
       guardian_name: form.guardianName,
       guardian_contact: form.guardianContact,
+      guardian_email: form.guardian_email || null,
       guardian_address: form.guardianAddress,
       username: form.username,
       password: form.password,
@@ -558,6 +564,8 @@ export default function New_Student() {
                       )}
                     </div>
 
+                  
+
                     <div>
                       <label className="block text-sm text-gray-700 mb-2">
                         Contact No.
@@ -642,6 +650,25 @@ export default function New_Student() {
                       {errors.guardianContact && (
                         <p className="mt-1 text-xs text-red-600">
                           {errors.guardianContact}
+                        </p>
+                      )}
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className="block text-sm text-gray-700 mb-2">
+                        Guardian Email
+                      </label>
+                      <input
+                        type="email"
+                        value={form.guardian_email}
+                        onChange={handleChange("guardian_email")}
+                        className={`w-full p-3 border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#064F32]/30 focus:border-[#064F32]/60 ${
+                          errors.guardian_email ? "border-red-500" : "border-gray-300"
+                        }`}
+                        placeholder="Enter Guardian Email"
+                      />
+                      {errors.guardian_email && (
+                        <p className="mt-1 text-xs text-red-600">
+                          {errors.guardian_email}
                         </p>
                       )}
                     </div>

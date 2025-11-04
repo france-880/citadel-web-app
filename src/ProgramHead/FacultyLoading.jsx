@@ -115,7 +115,8 @@ const FacultyLoading = () => {
         params: {
           program_id: selectedProgram,
           academic_year: academicYear,
-          semester: semester
+          semester: semester,
+          exclude_assigned: 'true' // Exclude section offerings already assigned to any faculty
         }
       });
       console.log('Section offerings API response:', response.data);
@@ -200,6 +201,14 @@ const FacultyLoading = () => {
       
       setFacultyLoads(response.data || []);
       console.log(`Loaded ${response.data?.length || 0} subjects for ${faculty.fullname} (ID: ${faculty.id})`);
+      // Debug: Log all schedules
+      response.data?.forEach((load, index) => {
+        console.log(`Load ${index + 1}: ${load.computed_subject_code || load.subject_code}`, {
+          schedule: load.schedule,
+          computed_schedule: load.computed_schedule,
+          section_offering_id: load.section_offering_id
+        });
+      });
     } catch (error) {
       console.error('Error fetching faculty subjects:', error);
       toast.error('Failed to load faculty subjects');
@@ -368,7 +377,7 @@ const FacultyLoading = () => {
   };
 
   // Helper function to check if a time slot group should show a schedule
-  const getScheduleForTimeSlot = (day, timeSlotGroup) => {
+  const getScheduleForTimeSlot = (day, timeSlotGroup, facultyLoadId = null) => {
     // Check if any of the three times in the group match
     const startSlotTime = parseTime(timeSlotGroup.startDisplay);
     const middleSlotTime = parseTime(timeSlotGroup.middleDisplay);
@@ -377,17 +386,23 @@ const FacultyLoading = () => {
     // Simple debug logging
     console.log(`Checking ${day} at group ${timeSlotGroup.groupIndex} (${timeSlotGroup.startDisplay}, ${timeSlotGroup.middleDisplay}, ${timeSlotGroup.endDisplay}) - Faculty loads:`, facultyLoads.length);
 
-    // Check faculty loads
-    const facultyLoad = facultyLoads.find(load => {
-      if (!load.schedule) {
-        console.log(`No schedule for ${load.subject_code}`);
+    // Check faculty loads - if facultyLoadId is provided, only check that specific load
+    // Otherwise, find the first matching load
+    const facultyLoad = facultyLoadId 
+      ? facultyLoads.find(load => load.id === facultyLoadId)
+      : facultyLoads.find(load => {
+      // Use computed_schedule if available (from section offering), otherwise use schedule
+      const scheduleToCheck = load.computed_schedule || load.schedule || '';
+      
+      if (!scheduleToCheck) {
+        console.log(`No schedule for ${load.subject_code || load.computed_subject_code}`);
         return false;
       }
       
-      console.log(`Checking ${load.subject_code}: "${load.schedule}"`);
+      console.log(`Checking ${load.subject_code || load.computed_subject_code}: "${scheduleToCheck}"`);
       
       // Enhanced day matching for new formats
-      const schedule = load.schedule.toUpperCase();
+      const schedule = scheduleToCheck.toUpperCase();
       const dayUpper = day.toUpperCase();
       
       // Check if the day is mentioned in the schedule
@@ -414,12 +429,36 @@ const FacultyLoading = () => {
         (dayUpper.includes('THU') && schedule.includes('M/T/W/TH/F')) ||
         (dayUpper.includes('FRI') && schedule.includes('M/T/W/TH/F'));
       
-      console.log(`Day match for ${load.subject_code}: ${dayMatches}`);
+      const subjectCode = load.subject_code || load.computed_subject_code || 'Unknown';
+      console.log(`Day match for ${subjectCode}: ${dayMatches}`);
       
       if (!dayMatches) return false;
       
       // Enhanced time parsing - handle both AM/PM indicators
-      const timeMatch = schedule.match(/(\d{1,2}):?(\d{2})?(AM|PM)\s*-\s*(\d{1,2}):?(\d{2})?(AM|PM)/i);
+      // Also handle multiple schedules separated by commas
+      const scheduleStrings = schedule.split(',').map(s => s.trim());
+      let timeMatch = null;
+      let matchedSchedule = '';
+      
+      // Try to find a schedule that matches the current day
+      for (const scheduleStr of scheduleStrings) {
+        const dayInSchedule = scheduleStr.includes(dayUpper);
+        if (dayInSchedule) {
+          timeMatch = scheduleStr.match(/(\d{1,2}):?(\d{2})?(AM|PM)\s*-\s*(\d{1,2}):?(\d{2})?(AM|PM)/i);
+          if (timeMatch) {
+            matchedSchedule = scheduleStr;
+            break;
+          }
+        }
+      }
+      
+      // If no day-specific match found, try matching any schedule in the string
+      if (!timeMatch) {
+        timeMatch = schedule.match(/(\d{1,2}):?(\d{2})?(AM|PM)\s*-\s*(\d{1,2}):?(\d{2})?(AM|PM)/i);
+        if (timeMatch) {
+          matchedSchedule = schedule;
+        }
+      }
       
       if (timeMatch) {
         const startHour = parseInt(timeMatch[1]);
@@ -439,45 +478,59 @@ const FacultyLoading = () => {
         if (endPeriod === 'PM' && endHour !== 12) endTime24 += 12;
         if (endPeriod === 'AM' && endHour === 12) endTime24 = 0;
         
-        // Adjust end time to end at :59 instead of :00 of next hour
-        // e.g., 9:00AM-12:00PM becomes 9:00AM-11:59AM
+        // Convert to minutes for comparison
+        const startMinutes = startTime24 * 60 + startMin;
+        let endMinutes = endTime24 * 60 + endMin;
+        
+        // For classes ending at :00 (like 5:00 PM), treat it as ending at :59 of the previous hour
+        // This ensures the class doesn't include the next hour's slot group
+        // e.g., 1:00 PM - 5:00 PM means class runs from 1:00 PM to 4:59 PM (4 hours)
         if (endMin === 0) {
-          endTime24 = endTime24 - 1; // Go back one hour
-          endMin = 59; // Set to 59 minutes
+          endMinutes = endTime24 * 60 - 1; // End at :59 of previous hour
         }
         
-        const startMinutes = startTime24 * 60 + startMin;
-        const endMinutes = endTime24 * 60 + endMin;
+        // For classes that end at non-zero minutes (like 1:30 PM - 4:30 PM), keep the exact end time
         
         console.log(`Time range: ${startMinutes}-${endMinutes}`);
         console.log(`Parsed: ${startHour}:${startMin.toString().padStart(2, '0')}${startPeriod} - ${endHour}:${endMin.toString().padStart(2, '0')}${endPeriod}`);
         console.log(`Duration: ${endMinutes - startMinutes} minutes, Slots: ${Math.ceil((endMinutes - startMinutes) / 30)}`);
         
-        // Check if any of the three slot times in the group are in range
-        const isInRange = (startSlotTime >= startMinutes && startSlotTime <= endMinutes) ||
-                         (middleSlotTime >= startMinutes && middleSlotTime <= endMinutes) ||
-                         (endSlotTime >= startMinutes && endSlotTime <= endMinutes);
+        // Check if the slot group overlaps with the class time range
+        // A slot group represents an hour (e.g., 1:00 PM, 1:30 PM, 1:59 PM for the 1 PM hour)
+        // The slot group overlaps if:
+        // 1. Any slot time is within the class range [startMinutes, endMinutes), OR
+        // 2. The slot group's hour overlaps with the class range
+        const slotGroupStart = Math.min(startSlotTime, middleSlotTime, endSlotTime);
+        const slotGroupEnd = Math.max(startSlotTime, middleSlotTime, endSlotTime);
         
-        console.log(`Slot times: ${startSlotTime}, ${middleSlotTime}, ${endSlotTime}`);
+        // Check if slot group overlaps with class time
+        // For a 4-hour class (1:00 PM - 5:00 PM = 1:00 PM - 4:59 PM), we need to check if the slot's hour falls within the range
+        const isInRange = 
+          // Any slot time is within class range [startMinutes, endMinutes]
+          (startSlotTime >= startMinutes && startSlotTime <= endMinutes) ||
+          (middleSlotTime >= startMinutes && middleSlotTime <= endMinutes) ||
+          (endSlotTime >= startMinutes && endSlotTime <= endMinutes) ||
+          // Slot group hour overlaps with class (class starts before slot ends AND class ends after slot starts)
+          (slotGroupStart <= endMinutes && slotGroupEnd >= startMinutes);
+        
+        console.log(`Slot times: ${startSlotTime}, ${middleSlotTime}, ${endSlotTime} (group: ${slotGroupStart}-${slotGroupEnd})`);
+        console.log(`Class range: ${startMinutes}-${endMinutes}`);
         console.log(`In range: ${isInRange}`);
         
         return isInRange;
       }
       
-      console.log(`No time match found for ${load.subject_code}`);
+      console.log(`No time match found for ${subjectCode}`);
       return false;
     });
 
     if (facultyLoad) {
-      console.log(`Found match: ${facultyLoad.subject_code}`);
+      const subjectCode = facultyLoad.subject_code || facultyLoad.computed_subject_code || 'Subject';
+      console.log(`Found match: ${subjectCode}`);
       
       // Parse time for display with new format
-      const schedule = facultyLoad.schedule.toUpperCase();
-      const timeMatch = schedule.match(/(\d{1,2}):?(\d{2})?(AM|PM)\s*-\s*(\d{1,2}):?(\d{2})?(AM|PM)/i);
-      
-      // Determine which slot in the group should be the main display
-      let mainSlotTime = middleSlotTime; // Default to middle slot
-      let isStartTime = false;
+      const scheduleToUse = (facultyLoad.computed_schedule || facultyLoad.schedule || '').toUpperCase();
+      const timeMatch = scheduleToUse.match(/(\d{1,2}):?(\d{2})?(AM|PM)\s*-\s*(\d{1,2}):?(\d{2})?(AM|PM)/i);
       
       if (timeMatch) {
         const startHour = parseInt(timeMatch[1]);
@@ -487,30 +540,59 @@ const FacultyLoading = () => {
         let endMin = parseInt(timeMatch[5] || '0');
         const endPeriod = timeMatch[6].toUpperCase();
         
-        // Adjust end time for display (same logic as parsing)
+        let startTime24 = startHour;
+        if (startPeriod === 'PM' && startHour !== 12) startTime24 += 12;
+        if (startPeriod === 'AM' && startHour === 12) startTime24 = 0;
+        
+        let endTime24 = endHour;
+        if (endPeriod === 'PM' && endHour !== 12) endTime24 += 12;
+        if (endPeriod === 'AM' && endHour === 12) endTime24 = 0;
+        
+        const classStartMinutes = startTime24 * 60 + startMin;
+        let classEndMinutes = endTime24 * 60 + endMin;
+        
+        // Adjust end time for matching
+        if (endMin === 0) {
+          classEndMinutes = endTime24 * 60 - 1;
+        }
+        
+        // Check if this is the starting slot of the class
+        const slotGroupStart = Math.min(startSlotTime, middleSlotTime, endSlotTime);
+        const isStartSlot = classStartMinutes >= slotGroupStart && classStartMinutes <= Math.max(startSlotTime, middleSlotTime, endSlotTime);
+        
+        // Calculate how many slot groups this class spans
+        const allSlots = generateTimeSlots();
+        let startSlotIndex = -1;
+        let endSlotIndex = -1;
+        
+        allSlots.forEach((slot, index) => {
+          const slotStart = Math.min(
+            parseTime(slot.startDisplay),
+            parseTime(slot.middleDisplay),
+            parseTime(slot.endDisplay)
+          );
+          const slotEnd = Math.max(
+            parseTime(slot.startDisplay),
+            parseTime(slot.middleDisplay),
+            parseTime(slot.endDisplay)
+          );
+          
+          if (classStartMinutes >= slotStart && classStartMinutes <= slotEnd && startSlotIndex === -1) {
+            startSlotIndex = index;
+          }
+          if (classEndMinutes >= slotStart && classEndMinutes <= slotEnd) {
+            endSlotIndex = index;
+          }
+        });
+        
+        const rowSpan = startSlotIndex !== -1 && endSlotIndex !== -1 ? (endSlotIndex - startSlotIndex + 1) : 1;
+        
+        // Adjust end time for display
         let displayEndHour = endHour;
         let displayEndMin = endMin;
         if (endMin === 0) {
           displayEndHour = endHour - 1;
           displayEndMin = 59;
-        }
-        
-        let startTime24 = startHour;
-        if (startPeriod === 'PM' && startHour !== 12) startTime24 += 12;
-        if (startPeriod === 'AM' && startHour === 12) startTime24 = 0;
-        
-        const classStartMinutes = startTime24 * 60 + startMin;
-        
-        // If the class starts at the beginning of this group, use start slot
-        if (classStartMinutes === startSlotTime) {
-          mainSlotTime = startSlotTime;
-          isStartTime = true;
-        } else if (classStartMinutes === middleSlotTime) {
-          mainSlotTime = middleSlotTime;
-          isStartTime = true;
-        } else if (classStartMinutes === endSlotTime) {
-          mainSlotTime = endSlotTime;
-          isStartTime = true;
         }
         
         // Create adjusted display time range
@@ -521,21 +603,22 @@ const FacultyLoading = () => {
         
         return {
           type: 'class',
-          title: facultyLoad.subject_code || 'Subject',
-          room: facultyLoad.room || 'TBA',
+          title: facultyLoad.subject_code || facultyLoad.computed_subject_code || 'Subject',
+          room: facultyLoad.computed_room || facultyLoad.room || 'TBA',
           color: 'bg-green-500',
-          isStartTime: isStartTime,
+          isStartTime: isStartSlot,
           fullTimeRange: adjustedTimeRange,
-          subjectDescription: facultyLoad.subject_description || '',
-          section: facultyLoad.section || '',
-          lecHours: facultyLoad.lec_hours || 0,
-          labHours: facultyLoad.lab_hours || 0,
-          units: facultyLoad.units || 0,
+          subjectDescription: facultyLoad.subject_description || facultyLoad.computed_subject_description || '',
+          section: facultyLoad.section || facultyLoad.computed_section || '',
+          lecHours: facultyLoad.lec_hours || facultyLoad.computed_lec_hours || 0,
+          labHours: facultyLoad.lab_hours || facultyLoad.computed_lab_hours || 0,
+          units: facultyLoad.units || facultyLoad.computed_units || 0,
+          rowSpan: rowSpan,
+          loadId: facultyLoad.id, // Add load ID for uniqueness
           // Group information
           startTime: timeSlotGroup.startDisplay,
           middleTime: timeSlotGroup.middleDisplay,
-          endTime: timeSlotGroup.endDisplay,
-          mainSlotTime: mainSlotTime
+          endTime: timeSlotGroup.endDisplay
         };
       }
     }
@@ -1478,6 +1561,7 @@ const FacultyLoading = () => {
   // Reset add subject form
   const resetAddSubjectForm = () => {
     setAddSubjectForm({
+      section_offering_id: null,
       subjectCode: '',
       subjectDescription: '',
       lecHours: 0,
@@ -1506,28 +1590,41 @@ const FacultyLoading = () => {
 
     try {
       // Save to database
-      const response = await api.post('/faculty-loads', {
+      // If section_offering_id is provided, backend will derive most data from it
+      const payload = {
         faculty_id: selectedFaculty.id,
-        subject_id: null, // Manual subject entry
-        subject_code: addSubjectForm.subjectCode,
-        subject_description: addSubjectForm.subjectDescription,
-        lec_hours: addSubjectForm.lecHours,
-        lab_hours: addSubjectForm.labHours,
-        units: addSubjectForm.units,
-        section: addSubjectForm.section,
-        schedule: addSubjectForm.schedule,
-        room: addSubjectForm.room,
         type: addSubjectForm.type,
-        academic_year: academicYear,
-        semester: semester
-      });
+      };
 
-      // Add to local state
-      const newLoad = response.data.data;
-      setFacultyLoads(prev => [...prev, newLoad]);
+      if (addSubjectForm.section_offering_id) {
+        // Link to section offering - backend will derive data
+        payload.section_offering_id = addSubjectForm.section_offering_id;
+        // Allow overrides for room if needed
+        if (addSubjectForm.room) {
+          payload.room = addSubjectForm.room;
+        }
+      } else {
+        // Manual entry - provide all fields
+        payload.subject_id = null;
+        payload.subject_code = addSubjectForm.subjectCode;
+        payload.subject_description = addSubjectForm.subjectDescription;
+        payload.lec_hours = addSubjectForm.lecHours;
+        payload.lab_hours = addSubjectForm.labHours;
+        payload.units = addSubjectForm.units;
+        payload.section = addSubjectForm.section;
+        payload.schedule = addSubjectForm.schedule;
+        payload.room = addSubjectForm.room;
+        payload.academic_year = academicYear;
+        payload.semester = semester;
+      }
+
+      const response = await api.post('/faculty-loads', payload);
+
+      // Refetch faculty loads to ensure all schedules are properly loaded and computed
+      await fetchFacultySubjects(selectedFaculty);
       
       toast.success(`Subject ${addSubjectForm.subjectCode} added to ${selectedFaculty.fullname}'s load`);
-      console.log('Subject added to faculty load:', newLoad);
+      console.log('Subject added to faculty load:', response.data.data);
       
       closeAddSubjectModal();
     } catch (error) {
@@ -1634,21 +1731,19 @@ const FacultyLoading = () => {
         <Sidebar />
         <div className="flex-1">
           <Header />
-          <div className="p-6 space-y-8">
-          <div className="flex items-center justify-between mb-6">
-            <h1 className="text-2xl font-semibold text-[#064F32]">
+          <div className="p-4 space-y-4">
+          <div className="flex items-center justify-between mb-3">
+            <h1 className="text-xl font-semibold text-[#064F32]">
               Faculty Loading
             </h1>
           </div>
 
-    <div className="min-h-screen bg-gray-50">
+    <div className="bg-gray-50">
         <div className="bg-white rounded-lg shadow-sm">
-          {/* Navigation Tabs */}
-          <div className="border-b border-gray-200"> </div>
-          {/* Academic Year and Semester - Better Balanced */}
-          <div className="bg-white rounded-lg  shadow-sm pb-6 mx-6 mt-6 mb-6">
-            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+          {/* Academic Year and Semester */}
+          <div className="bg-white rounded-lg shadow-sm p-4 mb-3">
+            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-3">
+              <div className="flex flex-wrap items-center gap-3">
                 <div className="flex items-center space-x-3">
                   <label className="text-sm font-medium text-gray-700 whitespace-nowrap">Academic Year:</label>
                   <select
@@ -1682,62 +1777,55 @@ const FacultyLoading = () => {
                   Set Period
                 </button>
               </div>
-              <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-3">
-                <div className="text-sm font-medium text-gray-700">Current Faculty:</div>
-                <div className="text-lg font-semibold text-green-700">
+              <div className="bg-green-50 border border-green-200 rounded-lg px-3 py-2">
+                <div className="text-xs font-medium text-gray-700">Current Faculty:</div>
+                <div className="text-base font-semibold text-green-700">
                   {facultyName || 'No faculty selected'}
                 </div>
                 {selectedFaculty && (
-                  <div className="text-xs text-gray-600 mt-1">
-                    Department: {selectedFaculty.department || 'N/A'} | Email: {selectedFaculty.email}
+                  <div className="text-xs text-gray-600 mt-0.5">
+                    {selectedFaculty.department || 'N/A'} | {selectedFaculty.email}
                   </div>
                 )}
-                <div className="text-xs text-gray-600 mt-1">
-                  Academic Year: {academicYear} | Semester: {semester}
-                </div>
               </div>
             </div>
           </div>
 
 
             {/* Faculty Loads Section */}
-            <div className="bg-gray-50 rounded-lg ">
-              <h3 className="text-lg font-semibold text-gray-900 mb-6 mt-6 ml-6 border-b-2 border-green-500 pb-2 inline-block">
+            <div className="bg-gray-50 rounded-lg p-3">
+              <h3 className="text-base font-semibold text-gray-900 mb-3 border-b border-green-500 pb-1 inline-block">
                 Setup Faculty Loads
               </h3>
 
-
               {/* Faculty Subjects Info */}
-              <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-200 mb-6">
+              <div className="bg-white rounded-lg p-3 shadow-sm border border-gray-200 mb-3">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h4 className="text-lg font-semibold text-gray-900 mb-2">Faculty Load Summary</h4>
-                    <p className="text-sm text-gray-600">
-                      {selectedFaculty ? `Subjects assigned to ${selectedFaculty.fullname}` : 'No faculty selected'}
+                    <h4 className="text-sm font-semibold text-gray-900">Faculty Load Summary</h4>
+                    <p className="text-xs text-gray-600">
+                      {selectedFaculty ? `${selectedFaculty.fullname}` : 'No faculty selected'}
                     </p>
                   </div>
                   <div className="text-right">
-                    <div className="text-2xl font-bold text-green-600">{facultyLoads.length}</div>
-                    <div className="text-sm text-gray-500">Total Subjects</div>
-                    <div className="text-xs text-gray-400 mt-1">
-                      {facultyLoads.reduce((sum, load) => sum + (load.units || 0), 0)} total units
-                    </div>
+                    <div className="text-xl font-bold text-green-600">{facultyLoads.length}</div>
+                    <div className="text-xs text-gray-500">Subjects | {facultyLoads.reduce((sum, load) => sum + (load.units || 0), 0)} units</div>
                   </div>
                 </div>
               </div>
 
-              {/* Available Subjects Section (View Only Dropdown) */}
-              <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-200 mb-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h4 className="text-lg font-semibold text-gray-900">Available Subjects</h4>
-                  <div className="text-sm text-gray-500">
-                    {isLoadingSubjects ? 'Loading...' : `${availableSubjects.length} section offering(s)`}
+              {/* Available Subjects Section */}
+              <div className="bg-white rounded-lg p-3 shadow-sm border border-gray-200 mb-3">
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="text-sm font-semibold text-gray-900">Available Subjects</h4>
+                  <div className="text-xs text-gray-500">
+                    {isLoadingSubjects ? 'Loading...' : `${availableSubjects.length} available`}
                   </div>
                 </div>
                 
                 {/* Program Filter Dropdown */}
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                <div className="mb-2">
+                  <label className="block text-xs font-medium text-gray-700 mb-1">
                     Filter by Program
                     {isLoadingSubjects && (
                       <span className="ml-2 text-xs text-blue-600">
@@ -1801,14 +1889,14 @@ const FacultyLoading = () => {
                 
                 {/* Selected Subject Details */}
                 {selectedSubject && (
-                  <div className="mt-3 p-4 bg-green-50 border border-green-200 rounded-lg">
+                  <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded-lg">
                     {(() => {
                       const subject = availableSubjects.find(s => s.id.toString() === selectedSubject);
                       return subject ? (
                         <div>
-                          <div className="flex items-center justify-between mb-2">
-                            <h5 className="font-semibold text-green-800">{subject.code}</h5>
-                            <span className={`px-2 py-1 text-xs rounded-full ${
+                          <div className="flex items-center justify-between mb-1">
+                            <h5 className="text-sm font-semibold text-green-800">{subject.code}</h5>
+                            <span className={`px-1.5 py-0.5 text-xs rounded-full ${
                               subject.type === 'Major' ? 'bg-blue-100 text-blue-800' :
                               subject.type === 'General Education' ? 'bg-green-100 text-green-800' :
                               subject.type === 'Minor' ? 'bg-yellow-100 text-yellow-800' :
@@ -1817,63 +1905,45 @@ const FacultyLoading = () => {
                               {subject.type}
                             </span>
                           </div>
-                          <p className="text-sm text-green-700 mb-2">{subject.name}</p>
-                          <div className="grid grid-cols-2 gap-2 text-xs text-green-600 mb-3">
-                            <span><strong>Units:</strong> {subject.units}</span>
-                            <span><strong>LEC:</strong> {subject.lecHours}h</span>
-                            <span><strong>LAB:</strong> {subject.labHours}h</span>
-                            <span><strong>Slots:</strong> {subject.slots}</span>
-                            <span><strong>Year Level:</strong> {subject.year_level}</span>
-                            <span><strong>Section:</strong> {subject.section}</span>
-                            <span><strong>Program:</strong> {subject.program}</span>
-                            <span>
-                              <strong>Schedule Status:</strong> 
-                              <span className={subject.hasSchedules ? 'text-green-600 font-semibold' : 'text-red-600 font-semibold'}>
-                                {subject.hasSchedules ? ' ✓ Has Schedule' : ' ✗ No Schedule'}
-                              </span>
+                          <p className="text-xs text-green-700 mb-1">{subject.name}</p>
+                          <div className="grid grid-cols-3 gap-1 text-xs text-green-600 mb-2">
+                            <span>Units: {subject.units}</span>
+                            <span>LEC: {subject.lecHours}h</span>
+                            <span>LAB: {subject.labHours}h</span>
+                            <span>Year: {subject.year_level}</span>
+                            <span>Section: {subject.section}</span>
+                            <span className={subject.hasSchedules ? 'text-green-600' : 'text-red-600'}>
+                              {subject.hasSchedules ? '✓ Scheduled' : '✗ No Schedule'}
                             </span>
                           </div>
                           
                           {/* Display Schedules */}
                           {subject.schedules && subject.schedules.length > 0 && (
-                            <div className="mb-3 p-2 bg-white rounded border border-green-200">
+                            <div className="mb-2 p-1.5 bg-white rounded border border-green-200">
                               <p className="text-xs font-semibold text-green-800 mb-1">Schedules:</p>
-                              <div className="space-y-1">
+                              <div className="space-y-0.5">
                                 {subject.schedules.map((schedule, idx) => (
                                   <div key={idx} className="text-xs text-green-700">
-                                    • {schedule.day} {schedule.start_time}-{schedule.end_time}
+                                    {schedule.day} {schedule.start_time}-{schedule.end_time}
                                   </div>
                                 ))}
                               </div>
                             </div>
                           )}
                           
-                          {/* Warning if no schedule */}
-                          {(!subject.schedules || subject.schedules.length === 0) && (
-                            <div className="mb-3 p-2 bg-yellow-50 rounded border border-yellow-200">
-                              <p className="text-xs text-yellow-700">
-                                ⚠️ This section offering has no schedule assigned yet.
-                              </p>
-                            </div>
-                          )}
-                          
                           <div className="flex gap-2">
                             <button
                               onClick={() => {
-                                // Format schedules for the schedule field
-                                const scheduleText = subject.schedules && subject.schedules.length > 0
-                                  ? subject.schedules.map(s => `${s.day.toUpperCase()} ${s.start_time}-${s.end_time}`).join(', ')
-                                  : '';
-                                
-                                // Pre-fill the add subject form with selected subject data including schedules
+                                // Pre-fill the add subject form with selected subject data including section_offering_id
                                 setAddSubjectForm({
+                                  section_offering_id: subject.section_offering_id || subject.id, // Use section_offering_id from the offering
                                   subjectCode: subject.code,
                                   subjectDescription: subject.name,
                                   lecHours: subject.lecHours,
                                   labHours: subject.labHours,
                                   units: subject.units,
                                   section: subject.year_section || '',
-                                  schedule: scheduleText,
+                                  schedule: '', // Will be derived from section offering schedules
                                   room: '',
                                   type: 'Part-time'
                                 });
@@ -1897,61 +1967,44 @@ const FacultyLoading = () => {
                   </div>
                 )}
 
-                {availableSubjects.length > 0 && (
-                  <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                    <div className="text-sm text-blue-700">
-                      <strong>Note:</strong> Select a subject above to view its details including section and schedule information. 
-                      Use the "Assign to Faculty" button to add subjects to the faculty load.
-                    </div>
-                  </div>
-                )}
-                
                 {!selectedProgram && !isLoadingPrograms && availablePrograms.length > 0 && (
-                  <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                    <div className="text-sm text-yellow-700">
-                      <strong>👆 Please select a program</strong> from the dropdown above to view available section offerings for <strong>{semester} Semester {academicYear}</strong>.
-                    </div>
-                  </div>
-                )}
-                
-                {!selectedProgram && isLoadingPrograms && (
-                  <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                    <div className="text-sm text-blue-700">
-                      Loading programs...
-                    </div>
+                  <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs text-yellow-700">
+                    Select a program to view available section offerings
                   </div>
                 )}
               </div>
 
 
               {/* Faculty Loads Table */}
-              <div className="bg-white rounded-lg overflow-hidden shadow-lg border border-gray-200">
+              <div className="bg-white rounded-lg overflow-hidden shadow-sm border border-gray-200">
                 <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gradient-to-r from-blue-50 to-blue-100">
+                  <thead className="bg-blue-50">
                     <tr>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Subject Code</th>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Description</th>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">LEC</th>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">LAB</th>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Units</th>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Year & Section</th>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Schedule</th>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Type</th>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Actions</th>
+                      <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 uppercase">Code</th>
+                      <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 uppercase">Description</th>
+                      <th className="px-3 py-2 text-center text-xs font-semibold text-gray-700 uppercase">LEC</th>
+                      <th className="px-3 py-2 text-center text-xs font-semibold text-gray-700 uppercase">LAB</th>
+                      <th className="px-3 py-2 text-center text-xs font-semibold text-gray-700 uppercase">Units</th>
+                      <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 uppercase">Section</th>
+                      <th className="px-3 py-2 text-center text-xs font-semibold text-gray-700 uppercase">No. of Students</th>
+                      <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 uppercase">Schedule</th>
+                      <th className="px-3 py-2 text-center text-xs font-semibold text-gray-700 uppercase">Type</th>
+                      <th className="px-3 py-2 text-center text-xs font-semibold text-gray-700 uppercase">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {facultyLoads.map(load => (
-                      <tr key={load.id} className="hover:bg-gray-50 transition-colors duration-150">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-blue-900">{load.subject_code}</td>
-                        <td className="px-6 py-4 text-sm text-gray-700">{load.subject_description}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{load.lec_hours}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{load.lab_hours}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{load.units}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{load.section}</td>
-                        <td className="px-6 py-4 text-sm text-gray-700">{load.schedule}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                          <span className={`px-3 py-1 text-xs font-medium rounded-full ${
+                      <tr key={load.id} className="hover:bg-gray-50">
+                        <td className="px-3 py-2 whitespace-nowrap text-xs font-semibold text-blue-900">{load.computed_subject_code || load.subject_code}</td>
+                        <td className="px-3 py-2 text-xs text-gray-700">{load.computed_subject_description || load.subject_description}</td>
+                        <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-700 text-center">{load.computed_lec_hours || load.lec_hours}</td>
+                        <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-700 text-center">{load.computed_lab_hours || load.lab_hours}</td>
+                        <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-700 text-center">{load.computed_units || load.units}</td>
+                        <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-700">{load.computed_section || load.section}</td>
+                        <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-700 text-center font-semibold">{load.student_count || 0}</td>
+                        <td className="px-3 py-2 text-xs text-gray-700">{load.computed_schedule || load.schedule || '-'}</td>
+                        <td className="px-3 py-2 whitespace-nowrap text-xs text-center">
+                          <span className={`px-2 py-0.5 text-xs rounded-full ${
                             load.type === 'Full-time' 
                               ? 'bg-green-100 text-green-800' 
                               : 'bg-blue-100 text-blue-800'
@@ -1959,21 +2012,21 @@ const FacultyLoading = () => {
                             {load.type}
                           </span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                          <div className="flex space-x-2">
+                        <td className="px-3 py-2 whitespace-nowrap text-xs">
+                          <div className="flex justify-center gap-1">
                             <button 
                               onClick={() => handleEditSubject(load)}
-                              className="text-blue-600 hover:text-blue-800 transition-colors duration-150 p-1 rounded hover:bg-blue-50"
-                              title="Edit Subject"
+                              className="text-blue-600 hover:text-blue-800 p-1 rounded hover:bg-blue-50"
+                              title="Edit"
                             >
-                              <Edit className="w-4 h-4" />
+                              <Edit className="w-3.5 h-3.5" />
                             </button>
                             <button
                               onClick={() => removeSubject(load.id)}
-                              className="text-red-600 hover:text-red-800 transition-colors duration-150 p-1 rounded hover:bg-red-50"
-                              title="Remove Subject"
+                              className="text-red-600 hover:text-red-800 p-1 rounded hover:bg-red-50"
+                              title="Remove"
                             >
-                              <Trash2 className="w-4 h-4" />
+                              <Trash2 className="w-3.5 h-3.5" />
                             </button>
                           </div>
                         </td>
@@ -1981,22 +2034,19 @@ const FacultyLoading = () => {
                     ))}
                     {loading ? (
                       <tr>
-                        <td colSpan={9} className="px-6 py-12 text-center">
+                        <td colSpan={10} className="px-3 py-6 text-center">
                           <div className="flex flex-col items-center text-gray-500">
-                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mb-2"></div>
-                            <p className="text-sm">Loading faculty subjects...</p>
+                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-green-600 mb-1"></div>
+                            <p className="text-xs">Loading...</p>
                           </div>
                         </td>
                       </tr>
                     ) : facultyLoads.length === 0 ? (
                       <tr>
-                        <td colSpan={9} className="px-6 py-12 text-center">
+                        <td colSpan={10} className="px-3 py-6 text-center">
                           <div className="flex flex-col items-center text-gray-500">
-                            <User className="w-8 h-8 mb-2 opacity-50" />
-                            <p className="text-sm">No subjects assigned to this faculty</p>
-                            <p className="text-xs text-gray-400 mt-1">
-                              {selectedFaculty ? 'Add subjects using the dropdown above' : 'Please select a faculty first'}
-                            </p>
+                            <User className="w-6 h-6 mb-1 opacity-50" />
+                            <p className="text-xs">No subjects assigned</p>
                           </div>
                         </td>
                       </tr>
@@ -2006,109 +2056,209 @@ const FacultyLoading = () => {
               </div>
             </div>
 
-            {/* Timetable Section - Better Balanced */}
-            <div className="bg-gray-50 rounded-lg ">
-              <h3 className="text-lg font-semibold text-gray-900 mb-6 mt-6 ml-6 border-b-2 border-green-500 pb-2 inline-block">
-                Weekly Schedule Overview
+            {/* Timetable Section */}
+            <div className="bg-gray-50 rounded-lg p-3 mt-3">
+              <h3 className="text-base font-semibold text-gray-900 mb-3 border-b border-green-500 pb-1 inline-block">
+                Weekly Schedule
               </h3>
-              
               
               <div className="bg-white rounded-lg overflow-hidden shadow-sm border border-gray-200">
                 <div className="overflow-x-auto">
                   <table className="min-w-full">
                     <thead>
                       <tr>
-                        <th className="bg-gradient-to-r from-green-600 to-green-700 text-white p-4 text-sm font-bold text-center shadow-sm border border-gray-400">
+                        <th className="bg-green-600 text-white px-2 py-1.5 text-xs font-semibold text-center border border-gray-300">
                           Time
                         </th>
                         {days.map(day => (
-                          <th key={day} className="bg-gradient-to-r from-green-600 to-green-700 text-white p-4 text-sm font-bold text-center shadow-sm border border-gray-400">
+                          <th key={day} className="bg-green-600 text-white px-2 py-1.5 text-xs font-semibold text-center border border-gray-300">
                             {day}
                           </th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
-                      {timeSlots.map(slotGroup => (
-                        <tr key={slotGroup.groupIndex}>
-                          {/* Time label - grouped display */}
-                          <td className="bg-gradient-to-r from-gray-50 to-gray-100 text-xs text-center font-semibold text-gray-700 border border-gray-400 min-h-[80px] w-24">
-                            <div className="flex flex-col justify-center h-full">
-                              <div className="text-xs opacity-70">{slotGroup.startDisplay}</div>
-                              <div className="text-sm font-bold text-gray-800">{slotGroup.middleDisplay}</div>
-                              <div className="text-xs opacity-70">{slotGroup.endDisplay}</div>
-                            </div>
-                          </td>
-                          {/* Day slots */}
-                          {days.map(day => {
-                            const scheduleInfo = getScheduleForTimeSlot(day, slotGroup);
-                            
-                            if (scheduleInfo) {
+                      {(() => {
+                        // Track rendered classes across all rows
+                        const renderedClasses = new Set();
+                        
+                        return timeSlots.map((slotGroup, slotIndex) => (
+                          <tr key={slotGroup.groupIndex}>
+                            {/* Time label - grouped display */}
+                            <td className="bg-gray-100 text-xs text-center font-semibold text-gray-700 border border-gray-300 min-h-[60px] w-20">
+                              <div className="flex flex-col justify-center h-full py-1">
+                                <div className="text-xs opacity-70">{slotGroup.startDisplay}</div>
+                                <div className="text-xs font-bold text-gray-800">{slotGroup.middleDisplay}</div>
+                                <div className="text-xs opacity-70">{slotGroup.endDisplay}</div>
+                              </div>
+                            </td>
+                            {/* Day slots */}
+                            {days.map(day => {
+                              // Check all faculty loads to find matching schedules for this day and time slot
+                              const matchingLoads = facultyLoads.filter(load => {
+                                const scheduleToCheck = load.computed_schedule || load.schedule || '';
+                                if (!scheduleToCheck) return false;
+                                
+                                const schedule = scheduleToCheck.toUpperCase();
+                                const dayUpper = day.toUpperCase();
+                                
+                                // Split schedule by commas to handle multiple schedules
+                                const scheduleStrings = schedule.split(',').map(s => s.trim());
+                                
+                                // Check each schedule string for day and time match
+                                for (const scheduleStr of scheduleStrings) {
+                                  // Check day match for this specific schedule string
+                                  const dayMatches = 
+                                    scheduleStr.includes(dayUpper) ||
+                                    (dayUpper.includes('MON') && scheduleStr.includes('MON & TUE')) ||
+                                    (dayUpper.includes('TUE') && scheduleStr.includes('MON & TUE')) ||
+                                    (dayUpper.includes('WED') && scheduleStr.includes('WED & THU')) ||
+                                    (dayUpper.includes('THU') && scheduleStr.includes('WED & THU')) ||
+                                    (dayUpper.includes('FRI') && scheduleStr.includes('FRI & SAT')) ||
+                                    (dayUpper.includes('SAT') && scheduleStr.includes('FRI & SAT')) ||
+                                    (dayUpper.includes('MON') && scheduleStr.includes('M/W/F')) ||
+                                    (dayUpper.includes('WED') && scheduleStr.includes('M/W/F')) ||
+                                    (dayUpper.includes('FRI') && scheduleStr.includes('M/W/F')) ||
+                                    (dayUpper.includes('TUE') && scheduleStr.includes('T/TH')) ||
+                                    (dayUpper.includes('THU') && scheduleStr.includes('T/TH')) ||
+                                    (dayUpper.includes('MON') && scheduleStr.includes('M/T/W/TH/F')) ||
+                                    (dayUpper.includes('TUE') && scheduleStr.includes('M/T/W/TH/F')) ||
+                                    (dayUpper.includes('WED') && scheduleStr.includes('M/T/W/TH/F')) ||
+                                    (dayUpper.includes('THU') && scheduleStr.includes('M/T/W/TH/F')) ||
+                                    (dayUpper.includes('FRI') && scheduleStr.includes('M/T/W/TH/F'));
+                                  
+
+                                  if (!dayMatches) continue; // Try next schedule string
+                                  
+                                  // Check time overlap for this specific schedule
+                                  const timeMatch = scheduleStr.match(/(\d{1,2}):?(\d{2})?(AM|PM)\s*-\s*(\d{1,2}):?(\d{2})?(AM|PM)/i);
+                                  if (!timeMatch) continue; // Try next schedule string
+                                  
+                                  const startHour = parseInt(timeMatch[1]);
+                                  const startMin = parseInt(timeMatch[2] || '0');
+                                  const startPeriod = timeMatch[3].toUpperCase();
+                                  const endHour = parseInt(timeMatch[4]);
+                                  let endMin = parseInt(timeMatch[5] || '0');
+                                  const endPeriod = timeMatch[6].toUpperCase();
+                                  
+                                  
+                                  let startTime24 = startHour;
+                                  if (startPeriod === 'PM' && startHour !== 12) startTime24 += 12;
+                                  if (startPeriod === 'AM' && startHour === 12) startTime24 = 0;
+                                  
+                                  let endTime24 = endHour;
+                                  if (endPeriod === 'PM' && endHour !== 12) endTime24 += 12;
+                                  if (endPeriod === 'AM' && endHour === 12) endTime24 = 0;
+                                  
+                                  const startMinutes = startTime24 * 60 + startMin;
+                                  let endMinutes = endTime24 * 60 + endMin;
+                                  if (endMin === 0) {
+                                    endMinutes = endTime24 * 60 - 1;
+                                  }
+                                  
+                                  const startSlotTime = parseTime(slotGroup.startDisplay);
+                                  const middleSlotTime = parseTime(slotGroup.middleDisplay);
+                                  const endSlotTime = parseTime(slotGroup.endDisplay);
+                                  const slotGroupStart = Math.min(startSlotTime, middleSlotTime, endSlotTime);
+                                  const slotGroupEnd = Math.max(startSlotTime, middleSlotTime, endSlotTime);
+                                  
+                                  // If this schedule matches the day and overlaps with the time slot, return true
+                                  if (slotGroupStart <= endMinutes && slotGroupEnd >= startMinutes) {
+                                    return true;
+                                  }
+                                }
+                                
+                                return false; // No matching schedule found
+                              });
+                              
+                              // Get schedule info for each matching load
+                              const scheduleInfos = matchingLoads
+                                .map(load => getScheduleForTimeSlot(day, slotGroup, load.id))
+                                .filter(Boolean);
+                              
+                              // Find the first schedule that hasn't been rendered yet
+                              const scheduleInfo = scheduleInfos.find(info => {
+                                const classKey = `${day}-${info.loadId || info.title}-${info.fullTimeRange}-${info.section}`;
+                                return info.isStartTime && !renderedClasses.has(classKey);
+                              });
+                              
+                              if (!scheduleInfo) {
+                                // Check if any matching loads are continuations (already rendered)
+                                const isContinuation = scheduleInfos.some(info => {
+                                  const classKey = `${day}-${info.loadId || info.title}-${info.fullTimeRange}-${info.section}`;
+                                  return !info.isStartTime || renderedClasses.has(classKey);
+                                });
+                                
+                                if (isContinuation) {
+                                  return null; // Continuation, handled by rowSpan
+                                }
+                                
+                                // Empty slot
+                                return (
+                                  <td
+                                    key={`${day}-${slotGroup.groupIndex}`}
+                                    className="p-0.5 border border-gray-300 cursor-pointer transition-all duration-150 bg-white hover:bg-gray-50 min-h-[60px]"
+                                  >
+                                  </td>
+                                );
+                              }
+                              
+                              const classKey = `${day}-${scheduleInfo.loadId || scheduleInfo.title}-${scheduleInfo.fullTimeRange}-${scheduleInfo.section}`;
+                              renderedClasses.add(classKey);
+                              
                               return (
                                 <td
-                                  key={`${day}-${slotGroup.groupIndex}`}
-                                  className="p-1 border border-gray-400 cursor-pointer transition-all duration-150 hover:opacity-90 hover:shadow-md"
+                                  key={`${day}-${slotGroup.groupIndex}-${classKey}`}
+                                  rowSpan={scheduleInfo.rowSpan || 1}
+                                  className="p-0 border border-gray-400 cursor-pointer transition-all duration-150 hover:opacity-90 hover:shadow-md align-top"
                                 >
                                   <div 
-                                    className={`${scheduleInfo.color} text-white p-2 rounded-lg text-xs text-center shadow-lg w-full h-full flex flex-col justify-center min-h-[80px] border border-gray-300`}
+                                    className={`${scheduleInfo.color} text-white p-1.5 text-xs text-center shadow w-full h-full flex flex-col justify-center border border-gray-300`}
+                                    style={{ minHeight: `${(scheduleInfo.rowSpan || 1) * 60}px` }}
                                   >
-                                    <div className="font-semibold truncate" title={scheduleInfo.title}>
+                                    <div className="font-semibold truncate text-xs" title={scheduleInfo.title}>
                                       {scheduleInfo.title}
                                     </div>
-                                    <div className="text-xs opacity-90 truncate" title={scheduleInfo.subjectDescription}>
+                                    <div className="text-xs opacity-90 truncate mt-0.5" title={scheduleInfo.subjectDescription}>
                                       {scheduleInfo.subjectDescription}
                                     </div>
-                                    <div className="text-xs opacity-80 font-medium">
+                                    <div className="text-xs opacity-80 mt-0.5">
                                       {scheduleInfo.section} • {scheduleInfo.room}
                                     </div>
-                                    <div className="text-xs opacity-75">
-                                      Class • {scheduleInfo.fullTimeRange}
+                                    <div className="text-xs opacity-75 mt-0.5">
+                                      {scheduleInfo.fullTimeRange}
                                     </div>
-                                    {scheduleInfo.type === 'class' && (
-                                      <div className="text-xs opacity-70 mt-1">
-                                        LEC: {scheduleInfo.lecHours}h • LAB: {scheduleInfo.labHours}h • Units: {scheduleInfo.units}
-                                      </div>
-                                    )}
                                   </div>
                                 </td>
                               );
-                            } else {
-                              return (
-                                <td
-                                  key={`${day}-${slotGroup.groupIndex}`}
-                                  className="p-1 border border-gray-400 cursor-pointer transition-all duration-150 bg-white hover:bg-gray-50 hover:shadow-sm min-h-[80px]"
-                                >
-                                </td>
-                              );
-                            }
-                          })}
-                        </tr>
-                      ))}
+                            })}
+                          </tr>
+                        ));
+                      })()}
                     </tbody>
                   </table>
                 </div>
               </div>
               
               {/* Timetable Legend */}
-              <div className="mt-4 ml-3 mr-3 flex flex-wrap gap-4 text-sm">
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 bg-green-500 rounded"></div>
+              <div className="mt-2 flex flex-wrap gap-3 text-xs">
+                <div className="flex items-center gap-1.5">
+                  <div className="w-3 h-3 bg-green-500 rounded"></div>
                   <span className="text-gray-600">Faculty Classes</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 bg-white border border-gray-300 rounded"></div>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-3 h-3 bg-white border border-gray-300 rounded"></div>
                   <span className="text-gray-600">Available Slots</span>
                 </div>
               </div>
-              
             </div>
 
-          {/* Footer Actions - Better Balanced */}
-          <div className="bg-white rounded-lg p-6 shadow-sm mx-6 mb-6">
-            <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
+          {/* Footer Actions */}
+          <div className="bg-white rounded-lg p-3 shadow-sm mt-3">
+            <div className="flex justify-center">
               <button 
                 onClick={handlePrintForm}
-                className="flex items-center px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm gap-2"
+                className="flex items-center px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors gap-2"
               >
                 <FileText className="w-4 h-4" />
                 Open Faculty Assignment Form
@@ -2123,8 +2273,8 @@ const FacultyLoading = () => {
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
               {/* Modal Header */}
-              <div className="flex justify-between items-center p-6 border-b">
-                <h3 className="text-lg font-semibold text-gray-900">Add Subject to Faculty Load</h3>
+              <div className="flex justify-between items-center p-4 border-b">
+                <h3 className="text-base font-semibold text-gray-900">Add Subject to Faculty Load</h3>
                 <button
                   onClick={closeAddSubjectModal}
                   className="text-gray-400 hover:text-gray-600 transition-colors"
@@ -2134,18 +2284,18 @@ const FacultyLoading = () => {
               </div>
 
               {/* Modal Form */}
-              <form onSubmit={handleAddSubjectToFaculty} className="p-6">
-                <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                  <p className="text-sm text-blue-700">
+              <form onSubmit={handleAddSubjectToFaculty} className="p-4">
+                <div className="mb-3 p-2 bg-blue-50 border border-blue-200 rounded-lg">
+                  <p className="text-xs text-blue-700">
                     <strong>Faculty:</strong> {selectedFaculty?.fullname} | 
-                    <strong> Academic Year:</strong> {academicYear} | 
-                    <strong> Semester:</strong> {semester}
+                    <strong> AY:</strong> {academicYear} | 
+                    <strong> Sem:</strong> {semester}
                   </p>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
                       Subject Code *
                     </label>
                     <input
@@ -2153,13 +2303,13 @@ const FacultyLoading = () => {
                       required
                       value={addSubjectForm.subjectCode}
                       onChange={(e) => handleAddSubjectFormChange('subjectCode', e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors"
+                      className="w-full border border-gray-300 rounded px-2.5 py-1.5 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500"
                       placeholder="e.g., CS 101"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
                       Description *
                     </label>
                     <input
@@ -2167,13 +2317,13 @@ const FacultyLoading = () => {
                       required
                       value={addSubjectForm.subjectDescription}
                       onChange={(e) => handleAddSubjectFormChange('subjectDescription', e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors"
+                      className="w-full border border-gray-300 rounded px-2.5 py-1.5 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500"
                       placeholder="Subject description"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
                       LEC Hours
                     </label>
                     <input
@@ -2181,13 +2331,13 @@ const FacultyLoading = () => {
                       min="0"
                       value={addSubjectForm.lecHours}
                       onChange={(e) => handleAddSubjectFormChange('lecHours', parseInt(e.target.value) || 0)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors"
+                      className="w-full border border-gray-300 rounded px-2.5 py-1.5 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500"
                       placeholder="0"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
                       LAB Hours
                     </label>
                     <input
@@ -2195,13 +2345,13 @@ const FacultyLoading = () => {
                       min="0"
                       value={addSubjectForm.labHours}
                       onChange={(e) => handleAddSubjectFormChange('labHours', parseInt(e.target.value) || 0)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors"
+                      className="w-full border border-gray-300 rounded px-2.5 py-1.5 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500"
                       placeholder="0"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
                       Units *
                     </label>
                     <input
@@ -2210,13 +2360,13 @@ const FacultyLoading = () => {
                       required
                       value={addSubjectForm.units}
                       onChange={(e) => handleAddSubjectFormChange('units', parseInt(e.target.value) || 0)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors"
+                      className="w-full border border-gray-300 rounded px-2.5 py-1.5 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500"
                       placeholder="0"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
                       Year & Section *
                     </label>
                     <input
@@ -2224,13 +2374,13 @@ const FacultyLoading = () => {
                       required
                       value={addSubjectForm.section}
                       onChange={(e) => handleAddSubjectFormChange('section', e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors"
-                      placeholder="e.g., BSIT 4A, BSCS 4B"
+                      className="w-full border border-gray-300 rounded px-2.5 py-1.5 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                      placeholder="e.g., BSIT 4A"
                     />
                   </div>
 
                   <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
                       Schedule * (from Section Offering)
                     </label>
                     <input
@@ -2238,16 +2388,16 @@ const FacultyLoading = () => {
                       required
                       value={addSubjectForm.schedule}
                       readOnly
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-gray-100 cursor-not-allowed text-gray-700"
-                      placeholder="Schedule will be auto-filled from section offering"
+                      className="w-full border border-gray-300 rounded px-2.5 py-1.5 text-sm bg-gray-100 cursor-not-allowed text-gray-700"
+                      placeholder="Auto-filled from section offering"
                     />
-                    <p className="text-xs text-gray-500 mt-1">
-                      This schedule is automatically taken from the selected section offering and cannot be edited.
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      Schedule is automatically taken from the selected section offering.
                     </p>
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
                       Room *
                     </label>
                     <input
@@ -2255,13 +2405,13 @@ const FacultyLoading = () => {
                       required
                       value={addSubjectForm.room}
                       onChange={(e) => handleAddSubjectFormChange('room', e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors"
+                      className="w-full border border-gray-300 rounded px-2.5 py-1.5 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500"
                       placeholder="e.g., ROOM 303"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
                       Type
                     </label>
                     <select
@@ -2276,17 +2426,17 @@ const FacultyLoading = () => {
                 </div>
 
                 {/* Modal Actions */}
-                <div className="flex justify-end gap-4 mt-8 pt-6 border-t border-gray-200">
+                <div className="flex justify-end gap-3 mt-4 pt-3 border-t border-gray-200">
                   <button
                     type="button"
                     onClick={closeAddSubjectModal}
-                    className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                    className="px-4 py-1.5 text-sm border border-gray-300 text-gray-700 rounded hover:bg-gray-50 transition-colors"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2 shadow-sm"
+                    className="px-4 py-1.5 text-sm bg-green-600 text-white rounded hover:bg-green-700 transition-colors flex items-center gap-2"
                   >
                     <Plus className="w-4 h-4" />
                     Add Subject
@@ -2302,21 +2452,21 @@ const FacultyLoading = () => {
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
               {/* Modal Header */}
-              <div className="flex justify-between items-center p-6 border-b">
-                <h3 className="text-lg font-semibold text-gray-900">{modalTitle}</h3>
+              <div className="flex justify-between items-center p-4 border-b">
+                <h3 className="text-base font-semibold text-gray-900">{modalTitle}</h3>
                 <button
                   onClick={() => setShowModal(false)}
                   className="text-gray-400 hover:text-gray-600 transition-colors"
                 >
-                  <X className="w-6 h-6" />
+                  <X className="w-5 h-5" />
                 </button>
               </div>
 
-              {/* Modal Form - Better Balanced */}
-              <form onSubmit={handleSubjectSubmit} className="p-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Modal Form */}
+              <form onSubmit={handleSubjectSubmit} className="p-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
                       Subject Code *
                     </label>
                     <input
@@ -2324,13 +2474,13 @@ const FacultyLoading = () => {
                       required
                       value={subjectForm.subjectCode}
                       onChange={(e) => handleSubjectFormChange('subjectCode', e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                      className="w-full border border-gray-300 rounded px-2.5 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       placeholder="e.g., CS 101"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
                       Description *
                     </label>
                     <input
@@ -2338,13 +2488,13 @@ const FacultyLoading = () => {
                       required
                       value={subjectForm.subjectDescription}
                       onChange={(e) => handleSubjectFormChange('subjectDescription', e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                      className="w-full border border-gray-300 rounded px-2.5 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       placeholder="Subject description"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
                       LEC Hours
                     </label>
                     <input
@@ -2352,13 +2502,13 @@ const FacultyLoading = () => {
                       min="0"
                       value={subjectForm.lecHours}
                       onChange={(e) => handleSubjectFormChange('lecHours', parseInt(e.target.value) || 0)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                      className="w-full border border-gray-300 rounded px-2.5 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       placeholder="0"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
                       LAB Hours
                     </label>
                     <input
@@ -2366,13 +2516,13 @@ const FacultyLoading = () => {
                       min="0"
                       value={subjectForm.labHours}
                       onChange={(e) => handleSubjectFormChange('labHours', parseInt(e.target.value) || 0)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                      className="w-full border border-gray-300 rounded px-2.5 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       placeholder="0"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
                       Units *
                     </label>
                     <input
@@ -2381,13 +2531,13 @@ const FacultyLoading = () => {
                       required
                       value={subjectForm.units}
                       onChange={(e) => handleSubjectFormChange('units', parseInt(e.target.value) || 0)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                      className="w-full border border-gray-300 rounded px-2.5 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       placeholder="0"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
                       Year & Section *
                     </label>
                     <input
@@ -2395,13 +2545,13 @@ const FacultyLoading = () => {
                       required
                       value={subjectForm.section}
                       onChange={(e) => handleSubjectFormChange('section', e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                      placeholder="e.g., BSIT 4A, BSCS 4B"
+                      className="w-full border border-gray-300 rounded px-2.5 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="e.g., BSIT 4A"
                     />
                   </div>
 
                   <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
                       Schedule *
                     </label>
                     <input
@@ -2409,13 +2559,13 @@ const FacultyLoading = () => {
                       required
                       value={subjectForm.schedule}
                       onChange={(e) => handleSubjectFormChange('schedule', e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                      className="w-full border border-gray-300 rounded px-2.5 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       placeholder="e.g., MONDAY 9:00AM-1:00PM"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
                       Room *
                     </label>
                     <input
@@ -2423,19 +2573,19 @@ const FacultyLoading = () => {
                       required
                       value={subjectForm.room}
                       onChange={(e) => handleSubjectFormChange('room', e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                      className="w-full border border-gray-300 rounded px-2.5 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       placeholder="e.g., ROOM 303"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
                       Type
                     </label>
                     <select
                       value={subjectForm.type}
                       onChange={(e) => handleSubjectFormChange('type', e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                      className="w-full border border-gray-300 rounded px-2.5 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     >
                       <option value="Part-time">Part-time</option>
                       <option value="Full-time">Full-time</option>
@@ -2444,17 +2594,17 @@ const FacultyLoading = () => {
                 </div>
 
                 {/* Modal Actions */}
-                <div className="flex justify-end gap-4 mt-8 pt-6 border-t border-gray-200">
+                <div className="flex justify-end gap-3 mt-4 pt-3 border-t border-gray-200">
                   <button
                     type="button"
                     onClick={() => setShowModal(false)}
-                    className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                    className="px-4 py-1.5 text-sm border border-gray-300 text-gray-700 rounded hover:bg-gray-50 transition-colors"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 shadow-sm"
+                    className="px-4 py-1.5 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors flex items-center gap-2"
                   >
                     <Save className="w-4 h-4" />
                     Save Subject

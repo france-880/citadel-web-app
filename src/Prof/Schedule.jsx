@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, useEffect, useState, useCallback, useRef } from "react";
 import Sidebar from "../Components/Sidebar";
 import Header from "../Components/Header";
 import { useAuth } from "../Context/AuthContext";
@@ -7,10 +7,19 @@ import api from "../api/axios";
 export default function Schedule() {
   const { user } = useAuth();
   const [isCollapsed, setIsCollapsed] = useState(() => localStorage.getItem('sidebarCollapsed') === 'true');
-  const [facultyLoads, setFacultyLoads] = useState([]);
+  const [facultyLoads, setFacultyLoads] = useState(() => {
+    // Try to load from localStorage on mount for persistence
+    try {
+      const stored = localStorage.getItem('profFacultyLoads');
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  });
   const [loading, setLoading] = useState(false);
   const [academicYear, setAcademicYear] = useState('2024');
   const [semester, setSemester] = useState('First');
+  const hasFetchedRef = useRef(false); // Track if we've already fetched to prevent clearing on user changes
 
   // Listen for sidebar state changes
   useEffect(() => {
@@ -22,30 +31,108 @@ export default function Schedule() {
     return () => window.removeEventListener('sidebarToggle', handleSidebarToggle);
   }, []);
 
-  // Fetch professor's faculty loads
+  // Fetch professor's faculty loads - defined as regular function to avoid dependency issues
   const fetchFacultyLoads = async () => {
-    if (!user?.id || user?.role !== 'prof') return;
+    const currentUserId = user?.id;
+    const currentRole = user?.role;
+    const currentAcademicYear = academicYear || '2024';
+    const currentSemester = semester || 'First';
     
+    if (!currentUserId || currentRole !== 'prof') {
+      console.log('Skipping fetch - user not ready:', { id: currentUserId, role: currentRole });
+      return;
+    }
+    
+    // Prevent clearing existing data while fetching
     setLoading(true);
     try {
-      const response = await api.get(`/faculty-loads/${user.id}`, {
+      // First try with the current academic year and semester
+      let response = await api.get(`/faculty-loads/${currentUserId}`, {
         params: {
-          academic_year: academicYear,
-          semester: semester
+          academic_year: currentAcademicYear,
+          semester: currentSemester
         }
       });
       
-      setFacultyLoads(response.data || []);
-      console.log(`Loaded ${response.data?.length || 0} subjects for professor ${user.fullname}`);
-      console.log('Faculty loads data:', response.data);
+      let loads = response.data || [];
+      
+      // If no loads found, try multiple academic year/semester combinations in parallel
+      if (loads.length === 0) {
+        // Try most common combinations first (limit to avoid too many requests)
+        const combinationsToTry = [
+          ['2024', 'First'],
+          ['2526', 'First'],
+          ['2024', 'Second'],
+          ['2526', 'Second'],
+          ['2025', 'First'],
+        ];
+        
+        const allLoads = [];
+        const loadIds = new Set();
+
+        // Make parallel requests - all execute simultaneously
+        const requests = combinationsToTry.map(([year, sem]) =>
+          api.get(`/faculty-loads/${currentUserId}`, {
+            params: {
+              academic_year: year,
+              semester: sem
+            }
+          }).then(tryResponse => {
+            const tryLoads = tryResponse.data || [];
+            for (const load of tryLoads) {
+              if (load.id && !loadIds.has(load.id)) {
+                allLoads.push(load);
+                loadIds.add(load.id);
+              }
+            }
+            return tryLoads.length;
+          }).catch(() => 0) // Ignore errors, return 0
+        );
+
+        // Wait for all requests to complete (execute in parallel)
+        await Promise.allSettled(requests);
+        
+        if (allLoads.length > 0) {
+          loads = allLoads;
+          console.log(`Found ${loads.length} subjects across multiple academic years/semesters`);
+        }
+      }
+      
+      console.log(`Loaded ${loads.length} subjects for professor ${user?.fullname || 'Unknown'}`);
+      console.log('Faculty loads data:', loads);
+      
+      // Always update with the response data (even if empty array)
+      // Use functional update to ensure we're setting the latest data
+      setFacultyLoads(() => {
+        console.log('Setting faculty loads:', loads.length);
+        // Also persist to localStorage
+        try {
+          localStorage.setItem('profFacultyLoads', JSON.stringify(loads));
+        } catch (e) {
+          console.warn('Failed to persist faculty loads:', e);
+        }
+        return loads;
+      });
       
       // Debug: Log each schedule to verify format
-      response.data?.forEach(load => {
-        console.log(`Schedule: ${load.subject_code} - ${load.schedule} - ${load.section}`);
+      loads.forEach(load => {
+        console.log(`Schedule: ${load.computed_subject_code || load.subject_code}`, {
+          schedule: load.schedule,
+          computed_schedule: load.computed_schedule,
+          section_offering_id: load.section_offering_id
+        });
       });
     } catch (error) {
       console.error('Error fetching faculty loads:', error);
-      setFacultyLoads([]);
+      // Don't clear on auth errors - keep existing data
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        console.log('Auth error - keeping existing data');
+        // Don't update state - keep what we have
+      } else {
+        // For other errors, preserve existing data - don't clear
+        console.log('Error occurred but preserving existing data');
+        // Don't clear - keep existing data
+      }
     } finally {
       setLoading(false);
     }
@@ -56,20 +143,96 @@ export default function Schedule() {
     const storedAcademicYear = sessionStorage.getItem('currentAcademicYear');
     const storedSemester = sessionStorage.getItem('currentSemester');
     
+    // Set defaults if not in sessionStorage
     if (storedAcademicYear) {
       setAcademicYear(storedAcademicYear);
+    } else {
+      setAcademicYear('2024'); // Default fallback
     }
     if (storedSemester) {
       setSemester(storedSemester);
+    } else {
+      setSemester('First'); // Default fallback
     }
   }, []);
 
-  // Fetch faculty loads when component mounts or when academic year/semester changes
+  // Track previous values to prevent unnecessary re-fetches
+  const prevUserIdRef = useRef(null);
+  const prevAcademicYearRef = useRef(null);
+  const prevSemesterRef = useRef(null);
+
+  // Fetch faculty loads when component mounts or when dependencies change
   useEffect(() => {
-    if (user?.role === 'prof') {
-      fetchFacultyLoads();
+    // Early return if user is not ready yet - don't clear data during loading
+    if (!user) {
+      console.log('User not loaded yet - keeping existing data');
+      return;
     }
-  }, [user?.id, academicYear, semester]);
+
+    // Only proceed if we have all required data
+    // Use defaults if academicYear or semester are not set
+    const effectiveAcademicYear = academicYear || '2024';
+    const effectiveSemester = semester || 'First';
+    
+    if (!user.id || !user.role) {
+      console.log('Waiting for user:', { 
+        hasUserId: !!user.id, 
+        hasRole: !!user.role
+      });
+      return;
+    }
+
+    // Only fetch if user is a prof
+    if (user.role === 'prof') {
+      // Only fetch if something actually changed
+      const userIdChanged = prevUserIdRef.current !== user.id;
+      const academicYearChanged = prevAcademicYearRef.current !== effectiveAcademicYear;
+      const semesterChanged = prevSemesterRef.current !== effectiveSemester;
+      const shouldFetch = userIdChanged || academicYearChanged || semesterChanged || !hasFetchedRef.current;
+      
+      if (shouldFetch) {
+        console.log('Fetching faculty loads with:', { 
+          userId: user.id, 
+          academicYear: effectiveAcademicYear, 
+          semester: effectiveSemester,
+          userIdChanged,
+          academicYearChanged,
+          semesterChanged,
+          hasFetched: hasFetchedRef.current
+        });
+        
+        // Temporarily update state for fetch if needed
+        if (!academicYear) setAcademicYear(effectiveAcademicYear);
+        if (!semester) setSemester(effectiveSemester);
+        
+        fetchFacultyLoads();
+        hasFetchedRef.current = true;
+        
+        // Update refs IMMEDIATELY to prevent duplicate fetches
+        prevUserIdRef.current = user.id;
+        prevAcademicYearRef.current = effectiveAcademicYear;
+        prevSemesterRef.current = effectiveSemester;
+      } else {
+        console.log('Skipping fetch - no changes detected, keeping existing data');
+        // Don't re-fetch if we already have data - just keep what we have
+      }
+    } else {
+      // User is not a prof - clear data only if confirmed
+      console.log('Clearing loads - user is not a prof:', user.role);
+      if (hasFetchedRef.current) {
+        setFacultyLoads([]);
+        try {
+          localStorage.removeItem('profFacultyLoads');
+        } catch (e) {
+          console.warn('Failed to clear localStorage:', e);
+        }
+        hasFetchedRef.current = false;
+        prevUserIdRef.current = null;
+      }
+    }
+    // Removed fetchFacultyLoads from deps - it's now a regular function that uses current closure values
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, user?.role, academicYear || '2024', semester || 'First']);
 
   // Generate time slots for timetable - each slot represents a full hour
   const generateTimeSlots = () => {
@@ -137,20 +300,26 @@ export default function Schedule() {
   };
 
   // Helper function to check if a time slot group should show a schedule
-  const getScheduleForTimeSlot = (day, timeSlotGroup) => {
+  const getScheduleForTimeSlot = (day, timeSlotGroup, facultyLoadId = null) => {
     // Check if any of the three times in the group match
     const startSlotTime = parseTime(timeSlotGroup.startDisplay);
     const middleSlotTime = parseTime(timeSlotGroup.middleDisplay);
     const endSlotTime = parseTime(timeSlotGroup.endDisplay);
 
-    // Check faculty loads
-    const facultyLoad = facultyLoads.find(load => {
-      if (!load.schedule) {
+    // Check faculty loads - if facultyLoadId is provided, only check that specific load
+    // Otherwise, find the first matching load
+    const facultyLoad = facultyLoadId 
+      ? facultyLoads.find(load => load.id === facultyLoadId)
+      : facultyLoads.find(load => {
+      // Use computed_schedule if available (from section offering), otherwise use schedule
+      const scheduleToCheck = load.computed_schedule || load.schedule || '';
+      
+      if (!scheduleToCheck) {
         return false;
       }
       
       // Enhanced day matching for new formats
-      const schedule = load.schedule.toUpperCase();
+      const schedule = scheduleToCheck.toUpperCase();
       const dayUpper = day.toUpperCase();
       
       // Check if the day is mentioned in the schedule
@@ -180,7 +349,30 @@ export default function Schedule() {
       if (!dayMatches) return false;
       
       // Enhanced time parsing - handle both AM/PM indicators
-      const timeMatch = schedule.match(/(\d{1,2}):?(\d{2})?(AM|PM)\s*-\s*(\d{1,2}):?(\d{2})?(AM|PM)/i);
+      // Also handle multiple schedules separated by commas
+      const scheduleStrings = schedule.split(',').map(s => s.trim());
+      let timeMatch = null;
+      let matchedSchedule = '';
+      
+      // Try to find a schedule that matches the current day
+      for (const scheduleStr of scheduleStrings) {
+        const dayInSchedule = scheduleStr.includes(dayUpper);
+        if (dayInSchedule) {
+          timeMatch = scheduleStr.match(/(\d{1,2}):?(\d{2})?(AM|PM)\s*-\s*(\d{1,2}):?(\d{2})?(AM|PM)/i);
+          if (timeMatch) {
+            matchedSchedule = scheduleStr;
+            break;
+          }
+        }
+      }
+      
+      // If no day-specific match found, try matching any schedule in the string
+      if (!timeMatch) {
+        timeMatch = schedule.match(/(\d{1,2}):?(\d{2})?(AM|PM)\s*-\s*(\d{1,2}):?(\d{2})?(AM|PM)/i);
+        if (timeMatch) {
+          matchedSchedule = schedule;
+        }
+      }
       
       if (timeMatch) {
         const startHour = parseInt(timeMatch[1]);
@@ -200,26 +392,27 @@ export default function Schedule() {
         if (endPeriod === 'PM' && endHour !== 12) endTime24 += 12;
         if (endPeriod === 'AM' && endHour === 12) endTime24 = 0;
         
-        // Adjust end time to end at :59 instead of :00 of next hour
+        // Convert to minutes for comparison
+        const startMinutes = startTime24 * 60 + startMin;
+        let endMinutes = endTime24 * 60 + endMin;
+        
+        // For classes ending at :00 (like 5:00 PM), treat it as ending at :59 of the previous hour
         if (endMin === 0) {
-          endTime24 = endTime24 - 1;
-          endMin = 59;
+          endMinutes = endTime24 * 60 - 1; // End at :59 of previous hour
         }
         
-        const startMinutes = startTime24 * 60 + startMin;
-        const endMinutes = endTime24 * 60 + endMin;
+        // Check if the slot group overlaps with the class time range
+        const slotGroupStart = Math.min(startSlotTime, middleSlotTime, endSlotTime);
+        const slotGroupEnd = Math.max(startSlotTime, middleSlotTime, endSlotTime);
         
-        // For multi-hour classes like 7AM-10AM, we need to check if this hour slot overlaps
-        // Each time slot represents a full hour (e.g., 7:00-7:59)
-        const slotStartMinutes = Math.min(startSlotTime, middleSlotTime, endSlotTime);
-        const slotEndMinutes = Math.max(startSlotTime, middleSlotTime, endSlotTime);
-        
-        // Check if the time slot overlaps with the class time
-        // For a class 7AM-10AM (420-600 minutes), it should show in slots:
-        // 7:00-7:59 (420-479 minutes) - YES
-        // 8:00-8:59 (480-539 minutes) - YES  
-        // 9:00-9:59 (540-599 minutes) - YES
-        const isInRange = (slotStartMinutes < endMinutes && slotEndMinutes > startMinutes);
+        // Check if slot group overlaps with class time
+        const isInRange = 
+          // Any slot time is within class range [startMinutes, endMinutes]
+          (startSlotTime >= startMinutes && startSlotTime <= endMinutes) ||
+          (middleSlotTime >= startMinutes && middleSlotTime <= endMinutes) ||
+          (endSlotTime >= startMinutes && endSlotTime <= endMinutes) ||
+          // Slot group hour overlaps with class (class starts before slot ends AND class ends after slot starts)
+          (slotGroupStart <= endMinutes && slotGroupEnd >= startMinutes);
         
         return isInRange;
       }
@@ -228,13 +421,11 @@ export default function Schedule() {
     });
 
     if (facultyLoad) {
-      // Parse time for display with new format
-      const schedule = facultyLoad.schedule.toUpperCase();
-      const timeMatch = schedule.match(/(\d{1,2}):?(\d{2})?(AM|PM)\s*-\s*(\d{1,2}):?(\d{2})?(AM|PM)/i);
+      const subjectCode = facultyLoad.subject_code || facultyLoad.computed_subject_code || 'Subject';
       
-      // Determine which slot in the group should be the main display
-      let mainSlotTime = middleSlotTime; // Default to middle slot
-      let isStartTime = false;
+      // Parse time for display with new format
+      const scheduleToUse = (facultyLoad.computed_schedule || facultyLoad.schedule || '').toUpperCase();
+      const timeMatch = scheduleToUse.match(/(\d{1,2}):?(\d{2})?(AM|PM)\s*-\s*(\d{1,2}):?(\d{2})?(AM|PM)/i);
       
       if (timeMatch) {
         const startHour = parseInt(timeMatch[1]);
@@ -244,30 +435,59 @@ export default function Schedule() {
         let endMin = parseInt(timeMatch[5] || '0');
         const endPeriod = timeMatch[6].toUpperCase();
         
+        let startTime24 = startHour;
+        if (startPeriod === 'PM' && startHour !== 12) startTime24 += 12;
+        if (startPeriod === 'AM' && startHour === 12) startTime24 = 0;
+        
+        let endTime24 = endHour;
+        if (endPeriod === 'PM' && endHour !== 12) endTime24 += 12;
+        if (endPeriod === 'AM' && endHour === 12) endTime24 = 0;
+        
+        const classStartMinutes = startTime24 * 60 + startMin;
+        let classEndMinutes = endTime24 * 60 + endMin;
+        
+        // Adjust end time for matching
+        if (endMin === 0) {
+          classEndMinutes = endTime24 * 60 - 1;
+        }
+        
+        // Check if this is the starting slot of the class
+        const slotGroupStart = Math.min(startSlotTime, middleSlotTime, endSlotTime);
+        const isStartSlot = classStartMinutes >= slotGroupStart && classStartMinutes <= Math.max(startSlotTime, middleSlotTime, endSlotTime);
+        
+        // Calculate how many slot groups this class spans
+        const allSlots = generateTimeSlots();
+        let startSlotIndex = -1;
+        let endSlotIndex = -1;
+        
+        allSlots.forEach((slot, index) => {
+          const slotStart = Math.min(
+            parseTime(slot.startDisplay),
+            parseTime(slot.middleDisplay),
+            parseTime(slot.endDisplay)
+          );
+          const slotEnd = Math.max(
+            parseTime(slot.startDisplay),
+            parseTime(slot.middleDisplay),
+            parseTime(slot.endDisplay)
+          );
+          
+          if (classStartMinutes >= slotStart && classStartMinutes <= slotEnd && startSlotIndex === -1) {
+            startSlotIndex = index;
+          }
+          if (classEndMinutes >= slotStart && classEndMinutes <= slotEnd) {
+            endSlotIndex = index;
+          }
+        });
+        
+        const rowSpan = startSlotIndex !== -1 && endSlotIndex !== -1 ? (endSlotIndex - startSlotIndex + 1) : 1;
+        
         // Adjust end time for display
         let displayEndHour = endHour;
         let displayEndMin = endMin;
         if (endMin === 0) {
           displayEndHour = endHour - 1;
           displayEndMin = 59;
-        }
-        
-        let startTime24 = startHour;
-        if (startPeriod === 'PM' && startHour !== 12) startTime24 += 12;
-        if (startPeriod === 'AM' && startHour === 12) startTime24 = 0;
-        
-        const classStartMinutes = startTime24 * 60 + startMin;
-        
-        // If the class starts at the beginning of this group, use start slot
-        if (classStartMinutes === startSlotTime) {
-          mainSlotTime = startSlotTime;
-          isStartTime = true;
-        } else if (classStartMinutes === middleSlotTime) {
-          mainSlotTime = middleSlotTime;
-          isStartTime = true;
-        } else if (classStartMinutes === endSlotTime) {
-          mainSlotTime = endSlotTime;
-          isStartTime = true;
         }
         
         // Create adjusted display time range
@@ -278,21 +498,22 @@ export default function Schedule() {
         
         return {
           type: 'class',
-          title: facultyLoad.subject_code || 'Subject',
-          room: facultyLoad.room || 'TBA',
+          title: facultyLoad.subject_code || facultyLoad.computed_subject_code || 'Subject',
+          room: facultyLoad.computed_room || facultyLoad.room || 'TBA',
           color: 'bg-green-500',
-          isStartTime: isStartTime,
+          isStartTime: isStartSlot,
           fullTimeRange: adjustedTimeRange,
-          subjectDescription: facultyLoad.subject_description || '',
-          section: facultyLoad.section || '',
-          lecHours: facultyLoad.lec_hours || 0,
-          labHours: facultyLoad.lab_hours || 0,
-          units: facultyLoad.units || 0,
+          subjectDescription: facultyLoad.subject_description || facultyLoad.computed_subject_description || '',
+          section: facultyLoad.section || facultyLoad.computed_section || '',
+          lecHours: facultyLoad.lec_hours || facultyLoad.computed_lec_hours || 0,
+          labHours: facultyLoad.lab_hours || facultyLoad.computed_lab_hours || 0,
+          units: facultyLoad.units || facultyLoad.computed_units || 0,
+          rowSpan: rowSpan,
+          loadId: facultyLoad.id,
           // Group information
           startTime: timeSlotGroup.startDisplay,
           middleTime: timeSlotGroup.middleDisplay,
-          endTime: timeSlotGroup.endDisplay,
-          mainSlotTime: mainSlotTime
+          endTime: timeSlotGroup.endDisplay
         };
       }
     }
@@ -344,15 +565,15 @@ export default function Schedule() {
                   ) : facultyLoads.length > 0 ? (
                     facultyLoads.map((load, index) => (
                       <tr key={load.id || index} className="border-t">
-                        <td className="p-2">{load.schedule || 'TBA'}</td>
+                        <td className="p-2">{load.computed_schedule || load.schedule || 'TBA'}</td>
                         <td className="p-2">
                           <div>
-                            <div className="font-semibold">{load.subject_code}</div>
-                            <div className="text-xs text-gray-600">{load.subject_description}</div>
+                            <div className="font-semibold">{load.computed_subject_code || load.subject_code}</div>
+                            <div className="text-xs text-gray-600">{load.computed_subject_description || load.subject_description}</div>
                           </div>
                         </td>
-                        <td className="p-2">{load.room || 'TBA'}</td>
-                        <td className="p-2">{load.section}</td>
+                        <td className="p-2">{load.computed_room || load.room || 'TBA'}</td>
+                        <td className="p-2">{load.computed_section || load.section}</td>
                       </tr>
                     ))
                   ) : (
@@ -389,40 +610,153 @@ export default function Schedule() {
                       </tr>
                     </thead>
                     <tbody>
-                      {timeSlots.map(slotGroup => (
-                        <tr key={slotGroup.groupIndex}>
-                          {/* Time label - grouped display */}
-                          <td className="bg-gradient-to-r from-gray-50 to-gray-100 text-xs text-center font-semibold text-gray-700 border border-gray-400 min-h-[80px] w-24">
-                            <div className="flex flex-col justify-center h-full">
-                              <div className="text-xs opacity-70">{slotGroup.startDisplay}</div>
-                              <div className="text-sm font-bold text-gray-800">{slotGroup.middleDisplay}</div>
-                              <div className="text-xs opacity-70">{slotGroup.endDisplay}</div>
-                            </div>
-                          </td>
-                          {/* Day slots */}
-                          {days.map(day => {
-                            const scheduleInfo = getScheduleForTimeSlot(day, slotGroup);
-                            
-                            if (scheduleInfo) {
+                      {(() => {
+                        // Track rendered classes across all rows - use load ID to ensure uniqueness
+                        const renderedClasses = new Set();
+                        
+                        return timeSlots.map((slotGroup, slotIndex) => (
+                          <tr key={slotGroup.groupIndex}>
+                            {/* Time label - grouped display */}
+                            <td className="bg-gradient-to-r from-gray-50 to-gray-100 text-xs text-center font-semibold text-gray-700 border border-gray-400 min-h-[80px] w-24">
+                              <div className="flex flex-col justify-center h-full">
+                                <div className="text-xs opacity-70">{slotGroup.startDisplay}</div>
+                                <div className="text-sm font-bold text-gray-800">{slotGroup.middleDisplay}</div>
+                                <div className="text-xs opacity-70">{slotGroup.endDisplay}</div>
+                              </div>
+                            </td>
+                            {/* Day slots */}
+                            {days.map(day => {
+                              // Check all faculty loads to find matching schedules for this day and time slot
+                              const matchingLoads = facultyLoads.filter(load => {
+                                const scheduleToCheck = load.computed_schedule || load.schedule || '';
+                                if (!scheduleToCheck) return false;
+                                
+                                const schedule = scheduleToCheck.toUpperCase();
+                                const dayUpper = day.toUpperCase();
+                                
+                                // Split schedule by commas to handle multiple schedules
+                                const scheduleStrings = schedule.split(',').map(s => s.trim());
+                                
+                                // Check each schedule string for day and time match
+                                for (const scheduleStr of scheduleStrings) {
+                                  // Check day match for this specific schedule string
+                                  const dayMatches = 
+                                    scheduleStr.includes(dayUpper) ||
+                                    (dayUpper.includes('MON') && scheduleStr.includes('MON & TUE')) ||
+                                    (dayUpper.includes('TUE') && scheduleStr.includes('MON & TUE')) ||
+                                    (dayUpper.includes('WED') && scheduleStr.includes('WED & THU')) ||
+                                    (dayUpper.includes('THU') && scheduleStr.includes('WED & THU')) ||
+                                    (dayUpper.includes('FRI') && scheduleStr.includes('FRI & SAT')) ||
+                                    (dayUpper.includes('SAT') && scheduleStr.includes('FRI & SAT')) ||
+                                    (dayUpper.includes('MON') && scheduleStr.includes('M/W/F')) ||
+                                    (dayUpper.includes('WED') && scheduleStr.includes('M/W/F')) ||
+                                    (dayUpper.includes('FRI') && scheduleStr.includes('M/W/F')) ||
+                                    (dayUpper.includes('TUE') && scheduleStr.includes('T/TH')) ||
+                                    (dayUpper.includes('THU') && scheduleStr.includes('T/TH')) ||
+                                    (dayUpper.includes('MON') && scheduleStr.includes('M/T/W/TH/F')) ||
+                                    (dayUpper.includes('TUE') && scheduleStr.includes('M/T/W/TH/F')) ||
+                                    (dayUpper.includes('WED') && scheduleStr.includes('M/T/W/TH/F')) ||
+                                    (dayUpper.includes('THU') && scheduleStr.includes('M/T/W/TH/F')) ||
+                                    (dayUpper.includes('FRI') && scheduleStr.includes('M/T/W/TH/F'));
+                                  
+                                  if (!dayMatches) continue; // Try next schedule string
+                                  
+                                  // Check time overlap for this specific schedule
+                                  const timeMatch = scheduleStr.match(/(\d{1,2}):?(\d{2})?(AM|PM)\s*-\s*(\d{1,2}):?(\d{2})?(AM|PM)/i);
+                                  if (!timeMatch) continue; // Try next schedule string
+                                  
+                                  const startHour = parseInt(timeMatch[1]);
+                                  const startMin = parseInt(timeMatch[2] || '0');
+                                  const startPeriod = timeMatch[3].toUpperCase();
+                                  const endHour = parseInt(timeMatch[4]);
+                                  let endMin = parseInt(timeMatch[5] || '0');
+                                  const endPeriod = timeMatch[6].toUpperCase();
+                                  
+                                  let startTime24 = startHour;
+                                  if (startPeriod === 'PM' && startHour !== 12) startTime24 += 12;
+                                  if (startPeriod === 'AM' && startHour === 12) startTime24 = 0;
+                                  
+                                  let endTime24 = endHour;
+                                  if (endPeriod === 'PM' && endHour !== 12) endTime24 += 12;
+                                  if (endPeriod === 'AM' && endHour === 12) endTime24 = 0;
+                                  
+                                  const startMinutes = startTime24 * 60 + startMin;
+                                  let endMinutes = endTime24 * 60 + endMin;
+                                  if (endMin === 0) {
+                                    endMinutes = endTime24 * 60 - 1;
+                                  }
+                                  
+                                  const startSlotTime = parseTime(slotGroup.startDisplay);
+                                  const middleSlotTime = parseTime(slotGroup.middleDisplay);
+                                  const endSlotTime = parseTime(slotGroup.endDisplay);
+                                  const slotGroupStart = Math.min(startSlotTime, middleSlotTime, endSlotTime);
+                                  const slotGroupEnd = Math.max(startSlotTime, middleSlotTime, endSlotTime);
+                                  
+                                  // If this schedule matches the day and overlaps with the time slot, return true
+                                  if (slotGroupStart <= endMinutes && slotGroupEnd >= startMinutes) {
+                                    return true;
+                                  }
+                                }
+                                
+                                return false; // No matching schedule found
+                              });
+                              
+                              // Get schedule info for each matching load
+                              const scheduleInfos = matchingLoads
+                                .map(load => getScheduleForTimeSlot(day, slotGroup, load.id))
+                                .filter(Boolean);
+                              
+                              // Find the first schedule that hasn't been rendered yet
+                              const scheduleInfo = scheduleInfos.find(info => {
+                                const classKey = `${day}-${info.loadId || info.title}-${info.fullTimeRange}-${info.section}`;
+                                return info.isStartTime && !renderedClasses.has(classKey);
+                              });
+                              
+                              if (!scheduleInfo) {
+                                // Check if any matching loads are continuations (already rendered)
+                                const isContinuation = scheduleInfos.some(info => {
+                                  const classKey = `${day}-${info.loadId || info.title}-${info.fullTimeRange}-${info.section}`;
+                                  return !info.isStartTime || renderedClasses.has(classKey);
+                                });
+                                
+                                if (isContinuation) {
+                                  return null; // Continuation, handled by rowSpan
+                                }
+                                
+                                // Empty slot
+                                return (
+                                  <td
+                                    key={`${day}-${slotGroup.groupIndex}`}
+                                    className="p-1 border border-gray-400 cursor-pointer transition-all duration-150 bg-white hover:bg-gray-50 hover:shadow-sm min-h-[80px]"
+                                  >
+                                  </td>
+                                );
+                              }
+                              
+                              const classKey = `${day}-${scheduleInfo.loadId || scheduleInfo.title}-${scheduleInfo.fullTimeRange}-${scheduleInfo.section}`;
+                              renderedClasses.add(classKey);
+                              
                               return (
                                 <td
-                                  key={`${day}-${slotGroup.groupIndex}`}
-                                  className="p-1 border border-gray-400 cursor-pointer transition-all duration-150 hover:opacity-90 hover:shadow-md"
+                                  key={`${day}-${slotGroup.groupIndex}-${classKey}`}
+                                  rowSpan={scheduleInfo.rowSpan || 1}
+                                  className="p-0 border border-gray-400 cursor-pointer transition-all duration-150 hover:opacity-90 hover:shadow-md align-top"
                                 >
                                   <div 
-                                    className={`${scheduleInfo.color} text-white p-2 rounded-lg text-xs text-center shadow-lg w-full h-full flex flex-col justify-center min-h-[80px] border border-gray-300`}
+                                    className={`${scheduleInfo.color} text-white p-2 rounded-lg text-xs text-center shadow-lg w-full h-full flex flex-col justify-center border border-gray-300`}
+                                    style={{ minHeight: `${(scheduleInfo.rowSpan || 1) * 80}px` }}
                                   >
                                     <div className="font-semibold truncate" title={scheduleInfo.title}>
                                       {scheduleInfo.title}
                                     </div>
-                                    <div className="text-xs opacity-90 truncate" title={scheduleInfo.subjectDescription}>
+                                    <div className="text-xs opacity-90 truncate mt-0.5" title={scheduleInfo.subjectDescription}>
                                       {scheduleInfo.subjectDescription}
                                     </div>
-                                    <div className="text-xs opacity-80 font-medium">
+                                    <div className="text-xs opacity-80 font-medium mt-0.5">
                                       {scheduleInfo.section} • {scheduleInfo.room}
                                     </div>
-                                    <div className="text-xs opacity-75">
-                                      Class • {scheduleInfo.fullTimeRange}
+                                    <div className="text-xs opacity-75 mt-0.5">
+                                      {scheduleInfo.fullTimeRange}
                                     </div>
                                     {scheduleInfo.type === 'class' && (
                                       <div className="text-xs opacity-70 mt-1">
@@ -432,18 +766,10 @@ export default function Schedule() {
                                   </div>
                                 </td>
                               );
-                            } else {
-                              return (
-                                <td
-                                  key={`${day}-${slotGroup.groupIndex}`}
-                                  className="p-1 border border-gray-400 cursor-pointer transition-all duration-150 bg-white hover:bg-gray-50 hover:shadow-sm min-h-[80px]"
-                                >
-                                </td>
-                              );
-                            }
-                          })}
-                        </tr>
-                      ))}
+                            })}
+                          </tr>
+                        ));
+                      })()}
                     </tbody>
                   </table>
                 </div>

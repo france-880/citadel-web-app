@@ -82,7 +82,8 @@ export default function ViewAccount({ account }) {
             </p>
           </div>
 
-          <div className="space-y-5">
+          {/* ✅ Scrollable content with hidden scrollbar */}
+          <div className="space-y-5 max-h-[70vh] overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] pr-2 [&::-webkit-scrollbar]:hidden">
             {/* Personal Information */}
             <InfoCard icon={User} title="Personal Information">
               <div className="grid grid-cols-2 gap-x-6 gap-y-4">

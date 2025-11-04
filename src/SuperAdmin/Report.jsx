@@ -11,6 +11,8 @@ import {
   CalendarCheck,
 } from "lucide-react";
 import { programAPI } from "../api/axios";
+import api from "../api/axios";
+import { toast } from "react-toastify";
 
 export default function Reports() {
   const [programs, setPrograms] = useState([]);
@@ -33,68 +35,81 @@ export default function Reports() {
     return () => window.removeEventListener("sidebarToggle", handleSidebarToggle);
   }, []);
 
-  // Mock programs
+  // Fetch programs
   useEffect(() => {
     const fetchProgram = async () => {
       try {
-        setLoading(true);
-        const response = await programAPI.getAll("/api/programs");
-        console.log("Prorgams fetched:", response.data);
+        const response = await programAPI.getAll();
+        console.log("Programs fetched:", response.data);
         if (response.data.success) {
           setPrograms(response.data.data);
+        } else if (Array.isArray(response.data)) {
+          // Handle case where response is directly an array
+          setPrograms(response.data);
         }
       } catch (error) {
         console.error("Error fetching programs:", error);
-      } finally {
-        setLoading(false);
+        toast.error('Failed to load programs');
       }
     };
 
     fetchProgram();
-    const timer = setTimeout(() => setIsLoading(false), 1000);
-    return () => clearTimeout(timer);
   }, []);
 
-  // Simulated data fetching
+  // Fetch reports from backend
   const fetchReport = async () => {
-    setLoading(true);
-    const mock = [
-      {
-        studentId: "S001",
-        name: "Juan Dela Cruz",
-        program: "BSIT",
-        inTime: "2025-10-24 07:35",
-        outTime: "2025-10-24 17:20",
-        status: "Outside",
-      },
-      {
-        studentId: "S109",
-        name: "Maria Santos",
-        program: "BSCS",
-        inTime: "2025-10-24 08:05",
-        outTime: "",
-        status: "Inside",
-      },
-      {
-        studentId: "S230",
-        name: "Pedro Tan",
-        program: "BSBA",
-        inTime: "2025-10-24 07:50",
-        outTime: "2025-10-24 12:00",
-        status: "Outside",
-      },
-    ];
+    try {
+      setLoading(true);
+      
+      const params = {};
+      if (selectedProgram) {
+        params.program_code = selectedProgram;
+      }
+      if (fromDate) {
+        params.from_date = fromDate;
+      }
+      if (toDate) {
+        params.to_date = toDate;
+      }
 
-    setTimeout(() => {
-      const filtered = mock.filter(
-        (r) =>
-          !selectedProgram ||
-          selectedProgram === "" ||
-          r.program.includes(selectedProgram)
-      );
-      setReportRows(filtered);
+      console.log('Fetching report with params:', params);
+      const response = await api.get('/reports/students', { params });
+      console.log('Report response:', response.data);
+      
+      if (response.data.success && response.data.data) {
+        // Transform backend data to match frontend format
+        const data = Array.isArray(response.data.data) ? response.data.data : [];
+        const transformed = data.map(row => ({
+          studentId: row.student_id || 'N/A',
+          name: row.name || 'N/A',
+          program: row.program || 'N/A',
+          programName: row.program_name || 'N/A',
+          inTime: null, // No attendance data yet
+          outTime: null, // No attendance data yet
+          status: null // No attendance data yet
+        }));
+        
+        console.log('Transformed rows:', transformed);
+        setReportRows(transformed);
+        
+        if (transformed.length === 0) {
+          toast.info('No students found for the selected filters');
+        } else {
+          toast.success(`Report generated: ${transformed.length} student(s) found`);
+        }
+      } else {
+        console.error('Invalid response format:', response.data);
+        toast.error(response.data?.message || 'Failed to generate report');
+        setReportRows([]);
+      }
+    } catch (error) {
+      console.error('Error fetching report:', error);
+      console.error('Error response:', error.response?.data);
+      toast.error(error.response?.data?.message || 'Failed to generate report');
+      setReportRows([]);
+    } finally {
       setLoading(false);
-    }, 500);
+    }
   };
 
   // CSV Export
@@ -129,13 +144,13 @@ export default function Reports() {
 
   const filteredRows = reportRows.filter((r) => {
     if (!q) return true;
-    const text = (r.studentId + r.name + r.program + r.status).toLowerCase();
+    const text = (r.studentId + r.name + r.program + (r.status || '')).toLowerCase();
     return text.includes(q.toLowerCase());
   });
 
   const summary = {
     totalRows: filteredRows.length,
-    currentlyInside: filteredRows.filter((r) => r.status === "Inside").length,
+    currentlyInside: 0 // No attendance data yet
   };
 
   return (
@@ -151,7 +166,7 @@ export default function Reports() {
               Reports
             </h1>
             <p className="text-gray-600">
-              Generate and export student attendance reports across all programs
+              Generate and export student reports across all programs
             </p>
           </div>
 
@@ -270,7 +285,7 @@ export default function Reports() {
                             colSpan={6}
                             className="text-center py-8 text-gray-500"
                           >
-                            No records found. Click “Generate Report”.
+                            No records found. Click "Generate Report".
                           </td>
                         </tr>
                       ) : (
@@ -279,9 +294,9 @@ export default function Reports() {
                             <td className="py-2 px-4">{r.studentId}</td>
                             <td className="py-2 px-4">{r.name}</td>
                             <td className="py-2 px-4">{r.program}</td>
-                            <td className="py-2 px-4">{r.inTime}</td>
-                            <td className="py-2 px-4">{r.outTime || "-"}</td>
-                            <td className="py-2 px-4">{r.status}</td>
+                            <td className="py-2 px-4">-</td>
+                            <td className="py-2 px-4">-</td>
+                            <td className="py-2 px-4">-</td>
                           </tr>
                         ))
                       )}

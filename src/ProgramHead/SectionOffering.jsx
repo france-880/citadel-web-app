@@ -1987,7 +1987,7 @@ const FacultyLoading = () => {
           {/* Navigation Tabs */}
           <div className="border-b border-gray-200"> </div>
           {/* Filters Section - Course, Academic Year, Semester, Year Level, Parent Section */}
-          <div className="bg-white rounded-lg shadow-sm pb-6 mx-6 mt-6 mb-6">
+          <div className="bg-white rounded-lg shadow-sm pb-6 mx-6 mt-6 mb-6 ml-3 mr-3">
             <div className="space-y-4">
               {/* Course - First Row */}
               <div className="flex flex-col">
@@ -2088,7 +2088,7 @@ const FacultyLoading = () => {
             {/* Faculty Loads Section */}
             <div className="bg-gray-50 rounded-lg ">
               {/* Faculty Subjects Info */}
-              <div className="bg-white rounded-lg overflow-hidden shadow-lg border border-gray-200">
+              <div className="bg-white rounded-lg overflow-hidden shadow-lg border border-gray-200 ml-3 mr-3">
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gradient-to-r from-blue-50 to-blue-100">
                     <tr>
@@ -2158,12 +2158,6 @@ const FacultyLoading = () => {
                                 title="Edit Subject"
                               >
                                 <Edit className="w-4 h-4" />
-                              </button>
-                              <button
-                                className="text-red-600 hover:text-red-800 transition-colors duration-150 p-1 rounded hover:bg-red-50"
-                                title="Remove Subject"
-                              >
-                                <Trash2 className="w-4 h-4" />
                               </button>
                             </div>
                           </td>

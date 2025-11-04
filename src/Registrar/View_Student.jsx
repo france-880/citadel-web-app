@@ -96,6 +96,7 @@ export default function View_Student({ student }) {
         guardianName: student.guardianName || student.guardian_name || "N/A",
         guardianContact:
           student.guardianContact || student.guardian_contact || "N/A",
+        guardianEmail: student.guardian_email || "N/A",
         guardianAddress:
           student.guardianAddress || student.guardian_address || "N/A",
 
@@ -246,6 +247,11 @@ export default function View_Student({ student }) {
                     label="Guardian Contact"
                     value={displayStudent.guardianContact}
                     icon={Phone}
+                  />
+                  <InfoItem
+                    label="Guardian Email"
+                    value={displayStudent.guardianEmail}
+                    icon={Mail}
                   />
                 </div>
                 <div className="pt-2">

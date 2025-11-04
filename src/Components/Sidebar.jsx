@@ -47,20 +47,70 @@ export default function Sidebar() {
 
     setLoadingSections(true);
     try {
+      // Get academic year and semester with fallbacks
       const academicYear =
         sessionStorage.getItem("currentAcademicYear") || "2024";
       const semester = sessionStorage.getItem("currentSemester") || "First";
+      
+      // Ensure we have valid values
+      const effectiveAcademicYear = academicYear || "2024";
+      const effectiveSemester = semester || "First";
 
-      // For professors, get sections assigned to them
-      const response = await api.get(`/faculty-loads/${user.id}/sections`, {
+      // First try with the current academic year and semester
+      let response = await api.get(`/faculty-loads/${user.id}/sections`, {
         params: {
-          academic_year: academicYear,
-          semester: semester,
+          academic_year: effectiveAcademicYear,
+          semester: effectiveSemester,
         },
       });
 
-      setDynamicSections(response.data || []);
-      console.log("Loaded dynamic sections for professor:", response.data);
+      let sections = response.data || [];
+
+      // If no sections found, try multiple academic year/semester combinations in parallel
+      if (sections.length === 0) {
+        // Try most common combinations first (limit to avoid too many requests)
+        const combinationsToTry = [
+          ['2024', 'First'],
+          ['2526', 'First'],
+          ['2024', 'Second'],
+          ['2526', 'Second'],
+          ['2025', 'First'],
+        ];
+        
+        const allSections = [];
+        const sectionSet = new Set();
+
+        // Make parallel requests with early exit if we find data
+        const requests = combinationsToTry.map(([year, sem]) =>
+          api.get(`/faculty-loads/${user.id}/sections`, {
+            params: {
+              academic_year: year,
+              semester: sem,
+            },
+          }).then(response => {
+            const trySections = response.data || [];
+            for (const section of trySections) {
+              const sectionStr = section.toString().trim();
+              if (sectionStr && !sectionSet.has(sectionStr)) {
+                allSections.push(sectionStr);
+                sectionSet.add(sectionStr);
+              }
+            }
+            return trySections.length;
+          }).catch(() => 0) // Ignore errors, return 0
+        );
+
+        // Wait for all requests to complete (execute in parallel)
+        await Promise.allSettled(requests);
+
+        if (allSections.length > 0) {
+          sections = allSections.sort();
+          console.log(`Found ${sections.length} sections across multiple academic years/semesters`);
+        }
+      }
+
+      setDynamicSections(sections);
+      console.log("Loaded dynamic sections for professor:", sections);
     } catch (error) {
       console.error("Error fetching dynamic sections:", error);
       // Fallback to static sections if API fails
@@ -72,7 +122,7 @@ export default function Sidebar() {
 
   // Fetch sections when component mounts or user changes
   useEffect(() => {
-    if (user?.role === "prof") {
+    if (user?.role === "prof" && user?.id) {
       fetchDynamicSections();
     }
   }, [user?.role, user?.id]);
@@ -284,22 +334,34 @@ export default function Sidebar() {
                           Loading sections...
                         </div>
                       ) : dynamicSections.length > 0 ? (
-                        dynamicSections.map((prog) => (
-                          <button
-                            key={prog}
-                            onClick={() => {
-                              setSelectedProgram(prog);
-                              navigate("/program");
-                            }}
-                            className={`w-full px-3 py-2 rounded-md text-sm transition-colors ${
-                              selectedProgram === prog
-                                ? "bg-[#1C4F06]/30 text-[#064F32]"
-                                : "text-gray-600 hover:text-[#064F32] hover:bg-[#064F32]/5"
-                            }`}
-                          >
-                            {prog.replace("-", " ")}
-                          </button>
-                        ))
+                        dynamicSections.map((prog) => {
+                          // Display formatted section as-is (e.g., "BSCS 4C")
+                          // Convert to storage format for localStorage (e.g., "BSCS-4C")
+                          const displayName = prog.trim(); // Already formatted from backend
+                          const storageKey = prog.replace(/\s+/g, '-').toUpperCase(); // Convert to storage format
+                          
+                          // Check if selected - handle both old format (with dashes) and new format (with spaces)
+                          const isSelected = selectedProgram === storageKey || 
+                                           selectedProgram === prog ||
+                                           selectedProgram.replace(/-/g, ' ').toUpperCase() === displayName.toUpperCase();
+                          
+                          return (
+                            <button
+                              key={prog}
+                              onClick={() => {
+                                setSelectedProgram(storageKey);
+                                navigate("/program");
+                              }}
+                              className={`w-full px-3 py-2 rounded-md text-sm transition-colors ${
+                                isSelected
+                                  ? "bg-[#1C4F06]/30 text-[#064F32]"
+                                  : "text-gray-600 hover:text-[#064F32] hover:bg-[#064F32]/5"
+                              }`}
+                            >
+                              {displayName}
+                            </button>
+                          );
+                        })
                       ) : (
                         <div className="px-3 py-2 text-sm text-gray-500">
                           No sections assigned

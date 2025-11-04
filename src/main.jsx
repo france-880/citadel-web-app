@@ -15,18 +15,21 @@ import ResetPassword from "./Pages/ResetPassword.jsx";
 import CheckEmail from "./Pages/CheckEmail.jsx";
 
 // Dean Routes
-import RegistrarStudentRegistration from "./Registrar/Student_Registration.jsx";
 import DeanUserManagement from "./Dean/User_Management.jsx";
 import DeanDashboard from "./Dean/Dashboard.jsx";
 import DeanDailyAttendance from "./Dean/Daily_Attendance.jsx";
-import DeanNewStudent from "./Dean/New_Student.jsx";
+
+import RegistrarStudentRegistration from "./Registrar/Student_Registration.jsx";
+import RegistrarNewStudent from "./Registrar/New_Student.jsx";
+import RegistrarEditStudent from "./Registrar/Edit_Student.jsx";
+import RegistrarViewStudent from "./Registrar/View_Student.jsx";  
+
 import DeanNewUser from "./Dean/New_User.jsx";
 import DeanReport from "./Dean/Report.jsx";
 import DeanProfile from "./Dean/Profile.jsx";
-import DeanViewStudent from "./Dean/View_Student.jsx";
 import DeanViewUser from "./Dean/View_User.jsx";
 import DeanEditUser from "./Dean/Edit_User.jsx";
-import DeanEditStudent from "./Dean/Edit_Student.jsx";
+
 
 // Generic Profile component (temporary - using DeanProfile for now)
 import Profile from "./Dean/Profile.jsx";
@@ -188,7 +191,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
     path="/registrar-new-student"
     element={
       <RoleGuard allowed={['registrar']}>
-        <DeanNewStudent />
+        <RegistrarNewStudent />
       </RoleGuard>
     }
   />
@@ -197,7 +200,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
     path="/registrar-edit-student/:id"
     element={
       <RoleGuard allowed={['registrar']}>
-        <DeanEditStudent />
+        <RegistrarEditStudent />
       </RoleGuard>
     }
   />
@@ -212,17 +215,8 @@ ReactDOM.createRoot(document.getElementById("root")).render(
     }
   />
 
-<Route
-    path="/dean-new-student"
-    element={
-      <RoleGuard allowed={['dean']}>
-        <DeanNewStudent />
-      </RoleGuard>
-    }
-  />
-
   {/* Dean's New User - Professors Only */}
-<Route
+  <Route
     path="/dean-new-user"
     element={
       <RoleGuard allowed={['dean']}>
@@ -231,16 +225,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
     }
   />
 
-<Route
-    path="/dean-view-student"
-    element={
-      <RoleGuard allowed={['dean']}>
-        <DeanViewStudent />
-      </RoleGuard>
-    }
-  />
-
-<Route
+  <Route
     path="/dean-view-user"
     element={
       <RoleGuard allowed={['dean']}>
@@ -249,20 +234,11 @@ ReactDOM.createRoot(document.getElementById("root")).render(
     }
   />
 
-<Route
+  <Route
     path="/dean-edit-user/:id"
     element={
       <RoleGuard allowed={['dean']}>
         <DeanEditUser />
-      </RoleGuard>
-    }
-  />
-
-<Route
-    path="/dean-edit-student/:id"
-    element={
-      <RoleGuard allowed={['dean']}>
-        <DeanEditStudent />
       </RoleGuard>
     }
   />

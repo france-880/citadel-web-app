@@ -7,7 +7,7 @@ import NewModalStyle from "../Components/NewModalStyle"; // import the modal
 function InfoCard({ icon: Icon, title, children, accentColor = "#064F32" }) {
   return (
     <div className="bg-gradient-to-br from-gray-50 to-white border border-gray-200 rounded-xl p-5 shadow-sm hover:shadow-md transition-all duration-200">
-      <div className="flex Eyems-center gap-3 mb-4 pb-3 border-b border-gray-200">
+      <div className="flex items-center gap-3 mb-4 pb-3 border-b border-gray-200">
         <div 
           className="w-9 h-9 rounded-lg flex items-center justify-center"
           style={{ backgroundColor: `${accentColor}15` }}
@@ -81,7 +81,8 @@ export default function View_User({ user }) {
             </p>
             </div>
 
-          <div className="space-y-5">
+          {/* ✅ Scrollable content with hidden scrollbar */}
+          <div className="space-y-5 max-h-[70vh] overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] pr-2 [&::-webkit-scrollbar]:hidden">
             {/* Personal Information */}
             <InfoCard icon={User} title="Personal Information">
               <div className="grid grid-cols-2 gap-x-6 gap-y-4">

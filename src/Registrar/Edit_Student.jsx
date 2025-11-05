@@ -21,6 +21,7 @@ export default function Edit_Student() {
     // ✅ Backend data states
     const [programs, setPrograms] = useState([]);
     const [yearSections, setYearSections] = useState([]);
+    const [studentData, setStudentData] = useState(null); // Store raw student data
     
     const [form, setForm] = useState({
         fullname: "",
@@ -78,33 +79,14 @@ export default function Edit_Student() {
             console.log("Full response:", studentRes.data);
             console.log("Processed data:", data);
             console.log("Status:", data.status);
-            console.log("Guardian name:", data.guardian_name);
-            console.log("Guardian contact:", data.guardian_contact);
-            console.log("Guardian address:", data.guardian_address);
+            console.log("Guardian name:", data.guardianName || data.guardian_name);
+            console.log("Guardian contact:", data.guardianContact || data.guardian_contact);
+            console.log("Guardian address:", data.guardianAddress || data.guardian_address);
             console.log("Program ID:", data.program_id);
             console.log("Year Section ID:", data.year_section_id);
             
-            const formData = {
-              fullname: data.fullname || "",
-              studentNo: data.student_no || "",
-              program_id: data.program_id ? String(data.program_id) : "",
-              year_section_id: data.year_section_id ? String(data.year_section_id) : "",
-              status: data.status || "",
-              dob: data.dob || "",
-              gender: data.gender || "",
-              email: data.email || "",
-              contact: data.contact || "",
-              address: data.address || "",
-              guardianName: data.guardian_name || "",
-              guardianContact: data.guardian_contact || "",
-              guardian_email: data.guardian_email || "",
-              guardianAddress: data.guardian_address || "",
-              username: data.username || "",
-              password: "",
-            };
-            
-            console.log("Form data being set:", formData);
-            setForm(formData);
+            // Store raw student data first
+            setStudentData(data);
             
             // Set programs
             let programsData = [];
@@ -138,6 +120,37 @@ export default function Edit_Student() {
         
         fetchData();
       }, [id]);
+
+  // ✅ Set form data when student data and dropdowns are ready
+  useEffect(() => {
+    // Only set form if we have student data and we're not currently loading
+    // This ensures dropdowns are available when form values are set
+    if (studentData && !fetchLoading) {
+      const formData = {
+        fullname: studentData.fullname || "",
+        studentNo: studentData.studentNo || studentData.student_no || "",
+        program_id: studentData.program_id ? String(studentData.program_id) : "",
+        year_section_id: studentData.year_section_id ? String(studentData.year_section_id) : "",
+        status: studentData.status || "",
+        dob: studentData.dob || "",
+        gender: studentData.gender || "",
+        email: studentData.email || "",
+        contact: studentData.contact || "",
+        address: studentData.address || "",
+        guardianName: studentData.guardianName || studentData.guardian_name || "",
+        guardianContact: studentData.guardianContact || studentData.guardian_contact || "",
+        guardian_email: studentData.guardian_email || "",
+        guardianAddress: studentData.guardianAddress || studentData.guardian_address || "",
+        username: studentData.username || "", // Pre-populate username
+        password: "", // Never pre-populate password for security
+      };
+      
+      console.log("Form data being set:", formData);
+      console.log("Available programs:", programs.length);
+      console.log("Available year sections:", yearSections.length);
+      setForm(formData);
+    }
+  }, [studentData, programs, yearSections, fetchLoading]);
 
   // ✅ Debug: Log form state whenever it changes
   useEffect(() => {
@@ -210,7 +223,7 @@ export default function Edit_Student() {
     try {
       const payload = {
         fullname: form.fullname,
-        student_no: form.studentNo,
+        studentNo: form.studentNo, // Backend expects camelCase
         program_id: form.program_id,
         year_section_id: form.year_section_id,
         status: form.status,
@@ -219,10 +232,10 @@ export default function Edit_Student() {
         email: form.email,
         contact: form.contact,
         address: form.address,
-        guardian_name: form.guardianName,
-        guardian_contact: form.guardianContact,
+        guardianName: form.guardianName, // Backend expects camelCase
+        guardianContact: form.guardianContact, // Backend expects camelCase
         guardian_email: form.guardian_email || null,
-        guardian_address: form.guardianAddress,
+        guardianAddress: form.guardianAddress, // Backend expects camelCase
         username: form.username,
       };
 
@@ -234,12 +247,25 @@ export default function Edit_Student() {
       const res = await toast.promise(api.put(`/students/${id}`, payload), {
         loading: "Updating student...",
         success: "Student updated successfully!",
-        error: "Failed to update student.",
+        error: (err) => {
+          // Show validation errors if available
+          if (err.response?.data?.errors) {
+            const errors = err.response.data.errors;
+            const errorMessages = Object.values(errors).flat().join(", ");
+            return errorMessages || "Failed to update student.";
+          }
+          return err.response?.data?.message || "Failed to update student.";
+        },
       });
 
       navigate("/registrar-student-registration", { state: { updatedStudent: res.data } });
     } catch (err) {
       console.error("Update error:", err);
+      console.error("Error response:", err.response?.data);
+      // Show detailed error in console for debugging
+      if (err.response?.data?.errors) {
+        console.error("Validation errors:", err.response.data.errors);
+      }
     } finally {
       setLoading(false);
     }

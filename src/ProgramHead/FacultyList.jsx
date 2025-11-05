@@ -6,7 +6,7 @@ import { useNavigate } from "react-router-dom";
 import api from "../api/axios";
 import toast from "react-hot-toast";
 
-export default function FacultyLoad() {
+export default function FacultyList() {
   const navigate = useNavigate();
   
   // Table State for Faculty List
@@ -194,19 +194,19 @@ export default function FacultyLoad() {
           {/* Table */}
           <div className="bg-white rounded-lg shadow overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="min-w-full text-left">
+              <table className="min-w-full">
                 <thead>
                   <tr className="bg-[#064F32]/10 text-[#064F32]">
-                    <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider">
+                    <th className="px-6 py-4 text-center text-xs font-semibold uppercase tracking-wider">
                       Code
                     </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider">
+                    <th className="px-6 py-4 text-center text-xs font-semibold uppercase tracking-wider">
                       Name
                     </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider">
+                    <th className="px-6 py-4 text-center text-xs font-semibold uppercase tracking-wider">
                       Department
                     </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider w-64">
+                    <th className="px-6 py-4 text-center text-xs font-semibold uppercase tracking-wider w-64">
                       Actions
                     </th>
                   </tr>
@@ -230,17 +230,17 @@ export default function FacultyLoad() {
                   ) : (
                     facultyList.map((faculty, index) => (
                       <tr key={faculty.id} className="hover:bg-[#F6F7FB]">
-                        <td className="px-6 py-4 text-sm text-gray-700 text-medium">
+                        <td className="px-6 py-4 text-sm text-gray-700 text-medium text-center">
                           {from + index}
                         </td>
-                        <td className="px-6 py-4 text-sm text-gray-700 font-medium">
+                        <td className="px-6 py-4 text-sm text-gray-700 font-medium text-center">
                           {faculty.fullname}
                         </td>
-                        <td className="px-6 py-4 text-sm text-gray-700">
+                        <td className="px-6 py-4 text-sm text-gray-700 text-center">
                           {faculty.department || "—"}
                         </td>
-                        <td className="px-6 py-4 text-sm text-gray-700">
-                          <div className="flex flex-col gap-2 w-52">
+                        <td className="px-6 py-4 text-sm text-gray-700 text-center">
+                          <div className="flex flex-col gap-2 w-52 mx-auto">
                             <button
                               onClick={() => openModal(faculty)}
                               className="flex items-center justify-center gap-2 px-3 py-2 bg-[#064F32] text-white rounded-md hover:bg-[#053d27] transition-colors text-xs font-medium w-full"
@@ -265,7 +265,7 @@ export default function FacultyLoad() {
             </div>
 
             {/* Pagination Section */}
-            <div className="flex items-center justify-between p-4 border-t border-gray-100 bg-white">
+            <div className="flex items-center justify-between p-4 border-t border-gray-100">
               <p className="text-sm text-gray-600">
                 Showing {from}–{to} of {total} professors
               </p>
@@ -273,17 +273,17 @@ export default function FacultyLoad() {
                 <button
                   disabled={page === 1}
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  className="px-3 py-1 rounded-md border border-gray-200 text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                  className="px-3 py-1 rounded-md border border-gray-200 text-gray-400 cursor-not-allowed disabled:opacity-50"
                 >
                   Prev
                 </button>
-                <span className="px-3 py-1 text-sm text-gray-600">
-                  Page {page} of {lastPage}
-                </span>
+                <button className="px-3 py-1 rounded-md bg-[#064F32] text-white hover:opacity-90">
+                  {page}
+                </button>
                 <button
                   disabled={page >= lastPage}
                   onClick={() => setPage((p) => Math.min(lastPage, p + 1))}
-                  className="px-3 py-1 rounded-md border border-gray-200 text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                  className="px-3 py-1 rounded-md border border-gray-200 text-gray-400 cursor-not-allowed disabled:opacity-50"
                 >
                   Next
                 </button>
@@ -293,7 +293,7 @@ export default function FacultyLoad() {
         </div>
       </div>
 
-      {/* Faculty Load Modal */}
+      {/* Faculty Load Details Modal */}
       {showModal && selectedFaculty && (
         <div 
           className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
@@ -322,7 +322,7 @@ export default function FacultyLoad() {
             {/* Modal Content - Scrollable */}
             <div className="p-6 overflow-y-auto flex-1">
               {/* Academic Year and Semester Filters */}
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+              <div className="bg-[#064F32]/10 border border-[#064F32]/30 rounded-lg p-4 mb-6">
                 <div className="flex flex-wrap items-center gap-4">
                   <div className="flex items-center gap-2">
                     <label className="text-sm font-medium text-gray-700">Academic Year:</label>

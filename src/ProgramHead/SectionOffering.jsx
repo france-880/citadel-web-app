@@ -262,7 +262,6 @@ const FacultyLoading = () => {
           await fetchFacultySubjects(facultyData);
         } else {
           console.log('No faculty data found in sessionStorage');
-          toast.error('No faculty selected. Please go back to Faculty Load page and select a faculty.');
         }
       } catch (error) {
         console.error('Error parsing faculty data from sessionStorage:', error);
@@ -2090,17 +2089,17 @@ const FacultyLoading = () => {
               {/* Faculty Subjects Info */}
               <div className="bg-white rounded-lg overflow-hidden shadow-lg border border-gray-200 ml-3 mr-3">
                 <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gradient-to-r from-blue-50 to-blue-100">
+                  <thead className="bg-[#064F32]/10 text-[#064F32]">
                     <tr>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Subject Code</th>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Description</th>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">LEC</th>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">LAB</th>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Units</th>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Year & Section</th>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Schedule</th>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Slots</th>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Actions</th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider">Subject Code</th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider">Description</th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider">LEC</th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider">LAB</th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider">Units</th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider">Year & Section</th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider">Schedule</th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider">Slots</th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">

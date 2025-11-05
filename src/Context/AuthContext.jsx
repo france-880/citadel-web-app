@@ -41,7 +41,7 @@ export function AuthProvider({ children }) {
       // redirect by role
       const roleToRoute = {
         guard: '/dashboard',
-        program_head: '/faculty-load',
+        program_head: '/faculty-list',
         dean: '/dean-dashboard',
         prof: '/prof_report',
         super_admin: '/super-admin-dashboard',

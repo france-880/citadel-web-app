@@ -201,7 +201,7 @@ export default function Sidebar() {
     // Program Head specific menu items
     {
       label: "Faculty List",
-      path: "/faculty-load",
+      path: "/faculty-list",
       icon: Users,
       description: "Manage faculty loads",
       roles: ["program_head"],

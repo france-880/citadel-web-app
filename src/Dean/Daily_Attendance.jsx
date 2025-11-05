@@ -12,12 +12,15 @@ export default function Daily_Attendance() {
   const [yearLevels, setYearLevels] = useState([]);
   const [sections, setSections] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [selected, setSelected] = useState([]);
   const [students, setStudents] = useState([]);
   const [search, setSearch] = useState("");
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(
     () => localStorage.getItem("sidebarCollapsed") === "true"
   );
+
+  // Pagination state
+  const [page, setPage] = useState(1);
+  const perPage = 10;
 
   // Listen to sidebar toggle events
   useEffect(() => {
@@ -172,17 +175,18 @@ export default function Daily_Attendance() {
     });
   }, [students, search, selectedProgram, selectedYearLevel, selectedSection]);
 
-  const toggleSelect = (id) => {
-    setSelected((prev) =>
-      prev.includes(id) ? prev.filter((sid) => sid !== id) : [...prev, id]
-    );
-  };
+  // Calculate pagination
+  const total = filtered.length;
+  const lastPage = Math.ceil(total / perPage);
+  const from = total === 0 ? 0 : (page - 1) * perPage + 1;
+  const to = Math.min(page * perPage, total);
+  const paginatedStudents = filtered.slice((page - 1) * perPage, page * perPage);
 
-  const toggleSelectAll = () => {
-    setSelected(
-      selected.length === filtered.length ? [] : filtered.map((s) => s.id)
-    );
-  };
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setPage(1);
+  }, [search, selectedProgram, selectedYearLevel, selectedSection]);
+
 
   // Add debug logging para makita ang current state
   useEffect(() => {
@@ -307,24 +311,6 @@ export default function Daily_Attendance() {
                 </select>
               </div>
 
-              {/* Export Button */}
-              <button className="flex items-center gap-2 px-6 py-2 rounded-md text-white bg-[#FF7A00] hover:opacity-90 transition shadow-sm">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="w-4 h-4"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3"
-                  />
-                </svg>
-                Export
-              </button>
             </div>
           </div>
 
@@ -334,89 +320,61 @@ export default function Daily_Attendance() {
               <table className="min-w-full text-left text-sm">
                 <thead className="bg-[#064F32]/10 text-[#064F32]">
                   <tr>
-                    <th className="px-4 py-3">
-                      <input
-                        type="checkbox"
-                        checked={
-                          selected.length === filtered.length &&
-                          filtered.length > 0
-                        }
-                        onChange={toggleSelectAll}
-                      />
-                    </th>
-                    <th className="px-4 py-3">Student No.</th>
-                    <th className="px-4 py-3">Name</th>
-                    <th className="px-4 py-3">Program</th>
-                    <th className="px-4 py-3">Year & Section</th>
-                    <th className="px-4 py-3">Status</th>
-                    <th className="px-4 py-3">Time In</th>
-                    <th className="px-4 py-3">Time Out</th>
-                    <th className="px-4 py-3">Actions</th>
+                    <th className="table-title">Student No.</th>
+                    <th className="table-title">Name</th>
+                    <th className="table-title">Program</th>
+                    <th className="table-title">Year & Section</th>
+                    <th className="table-title">Time In</th>
+                    <th className="table-title">Time Out</th>
+                    <th className="table-title">Date</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {filtered.length === 0 ? (
+                  {paginatedStudents.length === 0 ? (
                     <tr>
                       <td
-                        colSpan={9}
+                        colSpan={7}
                         className="px-4 py-6 text-center text-gray-500"
                       >
                         No students found
                       </td>
                     </tr>
                   ) : (
-                    filtered.map((student) => (
+                    paginatedStudents.map((student) => (
                       <tr key={student.id} className="hover:bg-[#F6F7FB]">
-                        <td className="px-4 py-3">
-                          <input
-                            type="checkbox"
-                            checked={selected.includes(student.id)}
-                            onChange={() => toggleSelect(student.id)}
-                          />
-                        </td>
-                        <td className="px-4 py-3">{student.student_no || student.studentNo}</td>
-                        <td className="px-4 py-3">{student.fullname}</td>
-                        <td className="px-4 py-3">{student.program}</td>
-                        <td className="px-4 py-3">{student.year} - {student.section}</td>
-                        <td className="px-4 py-3 text-gray-400">
-                          —
-                        </td>
-                        <td className="px-4 py-3 text-gray-400">—</td>
-                        <td className="px-4 py-3 text-gray-400">—</td>
-                        <td className="px-4 py-3">
-                          <div className="flex gap-2">
-                            <button className="px-2 py-1 text-sm rounded-md border border-[#064F32]/40 text-[#064F32] hover:bg-[#064F32]/5">
-                              View
-                            </button>
-                            <button className="px-2 py-1 text-sm rounded-md border border-[#2B7811]/40 text-[#2B7811] hover:bg-[#2B7811]/5">
-                              Edit
-                            </button>
-                          </div>
-                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-700 text-center">{student.student_no || student.studentNo}</td>
+                        <td className="px-4 py-3 text-sm text-gray-700 text-center">{student.fullname}</td>
+                        <td className="px-4 py-3 text-sm text-gray-700 text-center">{student.program}</td>
+                        <td className="px-4 py-3 text-sm text-gray-700 text-center">{student.year} - {student.section}</td>
+                        <td className="px-4 py-3 text-sm text-gray-400 text-center">—</td>
+                        <td className="px-4 py-3 text-sm text-gray-400 text-center">—</td>
+                        <td className="px-4 py-3 text-sm text-gray-400 text-center">—</td>
                       </tr>
                     ))
                   )}
                 </tbody>
               </table>
             </div>
-            {/* Table Footer */}
+            {/* Pagination Section */}
             <div className="flex items-center justify-between p-4 border-t border-gray-100">
               <p className="text-sm text-gray-600">
-                Showing {filtered.length} of {students.length}
+                Showing {from}–{to} of {total} students
               </p>
               <div className="flex gap-2">
                 <button
-                  disabled
-                  className="px-3 py-1 rounded-md border border-gray-200 text-gray-400 cursor-not-allowed"
+                  disabled={page === 1}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  className="px-3 py-1 rounded-md border border-gray-200 text-gray-400 cursor-not-allowed disabled:opacity-50"
                 >
                   Prev
                 </button>
                 <button className="px-3 py-1 rounded-md bg-[#064F32] text-white hover:opacity-90">
-                  1
+                  {page}
                 </button>
                 <button
-                  disabled
-                  className="px-3 py-1 rounded-md border border-gray-200 text-gray-400 cursor-not-allowed"
+                  disabled={page >= lastPage}
+                  onClick={() => setPage((p) => Math.min(lastPage, p + 1))}
+                  className="px-3 py-1 rounded-md border border-gray-200 text-gray-400 cursor-not-allowed disabled:opacity-50"
                 >
                   Next
                 </button>

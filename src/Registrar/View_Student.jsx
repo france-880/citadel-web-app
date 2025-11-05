@@ -13,6 +13,7 @@ import {
   IdCard,
   BookOpen,
   Home,
+  Badge,
 } from "lucide-react";
 import NewModalStyle from "../Components/NewModalStyle";
 
@@ -91,6 +92,7 @@ export default function View_Student({ student }) {
         program: student.program || student.program_name || "N/A",
         year: student.year || student.year_level || "N/A",
         section: student.section || "N/A",
+        status: student.status || "N/A",
 
         // Guardian Info
         guardianName: student.guardianName || student.guardian_name || "N/A",
@@ -212,7 +214,7 @@ export default function View_Student({ student }) {
                 title="Academic Information"
                 accentColor="#FF7A00"
               >
-                <div className="grid grid-cols-3 gap-x-6 gap-y-4">
+                <div className="grid grid-cols-2 gap-x-6 gap-y-4">
                   <InfoItem
                     label="Program"
                     value={displayStudent.program}
@@ -227,6 +229,11 @@ export default function View_Student({ student }) {
                     label="Section"
                     value={displayStudent.section}
                     icon={Users}
+                  />
+                  <InfoItem
+                    label="Status"
+                    value={displayStudent.status}
+                    icon={Badge}
                   />
                 </div>
               </InfoCard>

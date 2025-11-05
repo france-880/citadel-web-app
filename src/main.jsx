@@ -26,17 +26,15 @@ import RegistrarViewStudent from "./Registrar/View_Student.jsx";
 
 import DeanNewUser from "./Dean/New_User.jsx";
 import DeanReport from "./Dean/Report.jsx";
-import DeanProfile from "./Dean/Profile.jsx";
 import DeanViewUser from "./Dean/View_User.jsx";
 import DeanEditUser from "./Dean/Edit_User.jsx";
 
-
-// Generic Profile component (temporary - using DeanProfile for now)
-import Profile from "./Dean/Profile.jsx";
+// Profile component (moved to Pages folder)
+import Profile from "./Pages/Profile.jsx";
 
 // Program Head Routes
 import FacultyLoading from "./ProgramHead/FacultyLoading.jsx";
-import FacultyLoad from "./ProgramHead/FacultyLoad.jsx";
+import FacultyList from "./ProgramHead/FacultyList.jsx";
 import SectionOffering from "./ProgramHead/SectionOffering.jsx";
 
 // Professor Routes
@@ -57,6 +55,11 @@ import SuperAdminSystemMaintenance from "./SuperAdmin/SystemMaintenance.jsx";
 
 import ChangePassword from "./Components/ChangePassword.jsx";
 
+// Error Pages
+import Error404 from "./ErrorPage/Error404.jsx";
+import Error403 from "./ErrorPage/Error403.jsx";
+import Error500 from "./ErrorPage/Error500.jsx";
+
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <BrowserRouter>
@@ -66,6 +69,11 @@ ReactDOM.createRoot(document.getElementById("root")).render(
       {/* Public Routes - No Authentication Required */}
       <Route path="/login" element={<Login />} />
       <Route path="/landing" element={<Landing_Page />} />
+      
+      {/* Error Pages - For Testing/Preview */}
+      <Route path="/error-404" element={<Error404 />} />
+      <Route path="/error-403" element={<Error403 />} />
+      <Route path="/error-500" element={<Error500 />} />
       
       {/* Protected Routes */}
       <Route
@@ -281,9 +289,9 @@ ReactDOM.createRoot(document.getElementById("root")).render(
   />
 
 <Route
-    path="/faculty-load"
+    path="/faculty-list"
     element={
-      <FacultyLoad />
+      <FacultyList />
     }
   />
 

@@ -130,7 +130,7 @@ const handleSaveChanges = async () => {
           </div>
 
           <div className="bg-white rounded-lg shadow-md p-8">
-            <div className="flex gap-8">
+            <div className="flex gap-8 pl-4">
               {/* Left Side Navigation */}
               <div className="w-64 flex-shrink-0">
                 <div className="flex flex-col gap-3">
@@ -173,7 +173,7 @@ const handleSaveChanges = async () => {
               </div>
 
               {/* Right Side Content */}
-              <div className="flex-1">
+              <div className="flex-1 pl-4 ml-4">
                 <h3 className="text-xl font-bold text-gray-800 mb-8">
                   Edit Profile
                 </h3>

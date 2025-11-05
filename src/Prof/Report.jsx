@@ -53,20 +53,26 @@ export default function ProfReport() {
           </div>
 
           {/* Calendar with Input */}
-          <div className="mb-6 flex flex-col sm:flex-row justify-start items-start gap-4">
+          <div className="mb-6 flex flex-row justify-end items-center gap-4">
+            {/* Export button */}
+            <button className="px-3 py-2 flex items-center text-sm gap-2 rounded-md text-white bg-[#FF7A00] hover:opacity-90 transition">
+              <Download className="w-4 h-4 text-white" />
+              Export
+            </button>
+            
             {/* Input + Calendar wrapper */}
-            <div className="relative w-full sm:w-auto">
+            <div className="relative">
               <input
                 type="text"
                 placeholder="Select date (YYYY-MM-DD)"
                 value={formatDate(selected)}
                 onClick={() => setShowCalendar(!showCalendar)}
                 readOnly
-                className="w-full sm:w-[240px] md:w-[280px] p-2 md:p-1.5 rounded-md border border-gray-200 bg-white focus:ring-2 focus:ring-[#064F32]/30 focus:border-[#064F32]/60 outline-none cursor-pointer text-sm"
+                className="w-80 p-2 md:p-1.5 rounded-md border border-gray-200 bg-white focus:ring-2 focus:ring-[#064F32]/30 focus:border-[#064F32]/60 outline-none cursor-pointer text-sm"
               />
 
               {showCalendar && (
-                <div className="absolute top-full left-0 mt-2 z-10 bg-white rounded-lg shadow-lg border border-gray-200 p-4">
+                <div className="absolute top-full right-0 mt-2 z-10 bg-white rounded-lg shadow-lg border border-gray-200 p-4 w-80">
                   <DayPicker
                     mode="single"
                     selected={selected}
@@ -75,44 +81,38 @@ export default function ProfReport() {
                 </div>
               )}
             </div>
-
-            {/* Export button */}
-            <button className="px-3 py-2 flex items-center text-sm gap-2 rounded-md text-white bg-[#FF7A00] hover:opacity-90 transition">
-              <Download className="w-4 h-4 text-white" />
-              Export
-            </button>
           </div>
 
 
           {/* Table Card */}
           <div className="bg-white rounded-lg shadow overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="min-w-full text-left">
+              <table className="min-w-full">
                 <thead>
                   <tr className="bg-[#064F32]/10 text-[#064F32]">
-                    <th className="table-title">Student No.</th>
-                    <th className="table-title">Name</th>
-                    <th className="table-title">Program, Year Level & Section</th>
-                    <th className="table-title">Status</th>
-                    <th className="table-title">Time In</th>
-                    <th className="table-title">Time Out</th>
-                    <th className="table-title">Date</th>
+                    <th className="table-title text-center">Student No.</th>
+                    <th className="table-title text-center">Name</th>
+                    <th className="table-title text-center">Program, Year Level & Section</th>
+                    <th className="table-title text-center">Status</th>
+                    <th className="table-title text-center">Time In</th>
+                    <th className="table-title text-center">Time Out</th>
+                    <th className="table-title text-center">Date</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                    {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
                      <tr key={i} className="hover:bg-[#F6F7FB]">
-                       <td className="px-2 py-2 text-sm text-gray-700">
+                       <td className="px-2 py-2 text-sm text-gray-700 text-center">
                          202220810-N
                        </td>
-                       <td className="px-2 py-2 text-sm text-gray-800">
+                       <td className="px-2 py-2 text-sm text-gray-800 text-center">
                          Jessie Course
                        </td>
-                       <td className="px-2 py-2 text-sm text-gray-700">BSIT 4C</td>
-                       <td className="px-2 py-2 text-sm text-gray-700">Present</td>
-                       <td className="px-2 py-2 text-sm text-gray-700">10:00 AM</td>
-                       <td className="px-2 py-2 text-sm text-gray-700">1:00 PM</td>
-                       <td className="px-2 py-2 text-sm text-gray-700">
+                       <td className="px-2 py-2 text-sm text-gray-700 text-center">BSIT 4C</td>
+                       <td className="px-2 py-2 text-sm text-gray-700 text-center">Present</td>
+                       <td className="px-2 py-2 text-sm text-gray-700 text-center">10:00 AM</td>
+                       <td className="px-2 py-2 text-sm text-gray-700 text-center">1:00 PM</td>
+                       <td className="px-2 py-2 text-sm text-gray-700 text-center">
                          Aug 8, 2025
                        </td>
                      </tr>

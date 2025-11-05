@@ -546,13 +546,13 @@ export default function Schedule() {
             <div className="bg-white rounded-lg shadow p-2 md:p-3">
             <div className="text-sm text-slate-500 mb-2">Schedule</div>
             <div className="overflow-x-auto">
-              <table className="w-full text-xs md:text-sm">
+              <table className="w-full text-xs md:text-sm table-fixed">
                 <thead>
-                  <tr className="bg-[var(--brand-100)] text-left">
-                    <th className="p-2">Time</th>
-                    <th className="p-2">Subject/Course</th>
-                    <th className="p-2">Room</th>
-                    <th className="p-2">Section</th>
+                  <tr className="bg-[#064F32]/10 text-[#064F32]">
+                    <th className="p-2 text-center" style={{ width: '290px' }}>Time</th>
+                    <th className="p-2 text-center">Subject/Course</th>
+                    <th className="p-2 text-center">Room</th>
+                    <th className="p-2 text-center">Section</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -565,15 +565,15 @@ export default function Schedule() {
                   ) : facultyLoads.length > 0 ? (
                     facultyLoads.map((load, index) => (
                       <tr key={load.id || index} className="border-t">
-                        <td className="p-2">{load.computed_schedule || load.schedule || 'TBA'}</td>
-                        <td className="p-2">
+                        <td className="p-2 text-center" style={{ width: '290px' }}>{load.computed_schedule || load.schedule || 'TBA'}</td>
+                        <td className="p-2 text-center">
                           <div>
                             <div className="font-semibold">{load.computed_subject_code || load.subject_code}</div>
                             <div className="text-xs text-gray-600">{load.computed_subject_description || load.subject_description}</div>
                           </div>
                         </td>
-                        <td className="p-2">{load.computed_room || load.room || 'TBA'}</td>
-                        <td className="p-2">{load.computed_section || load.section}</td>
+                        <td className="p-2 text-center">{load.computed_room || load.room || 'TBA'}</td>
+                        <td className="p-2 text-center">{load.computed_section || load.section}</td>
                       </tr>
                     ))
                   ) : (

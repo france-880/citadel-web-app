@@ -599,17 +599,16 @@ export default function Program() {
         <div className="overflow-x-auto">
           <table className="w-full text-xs md:text-sm">
             <thead>
-              <tr className="bg-[var(--brand-100)] text-left">
+              <tr className="bg-[#064F32]/10 text-[#064F32]">
                 <th className="p-2">Student No.</th>
                 <th className="p-2">Name</th>
                 <th className="p-2">Status</th>
-                <th className="p-2">Actions</th>
               </tr>
             </thead>
             <tbody>
               {loadingStudents ? (
                 <tr>
-                  <td colSpan="4" className="p-4 text-center text-gray-500">
+                  <td colSpan="3" className="p-4 text-center text-gray-500">
                     Loading students...
                   </td>
                 </tr>
@@ -624,7 +623,6 @@ export default function Program() {
                       <td className="p-2">
                         <div>
                           <div className="font-semibold">{student.fullname}</div>
-                          <div className="text-xs text-gray-600">{student.email}</div>
                         </div>
                       </td>
                       <td className="p-2">
@@ -636,38 +634,12 @@ export default function Program() {
                           {currentStatus}
                         </span>
                       </td>
-                      <td className="p-2">
-                        <div className="flex gap-2">
-                          <button 
-                            onClick={() => handleMarkAttendance(studentId, 'Present')}
-                            className={`p-1 rounded transition-colors ${
-                              currentStatus === 'Present'
-                                ? 'text-green-800 bg-green-100'
-                                : 'text-green-600 hover:text-green-800 hover:bg-green-50'
-                            }`}
-                            title="Mark Present"
-                          >
-                            ✓
-                          </button>
-                          <button 
-                            onClick={() => handleMarkAttendance(studentId, 'Absent')}
-                            className={`p-1 rounded transition-colors ${
-                              currentStatus === 'Absent'
-                                ? 'text-red-800 bg-red-100'
-                                : 'text-red-600 hover:text-red-800 hover:bg-red-50'
-                            }`}
-                            title="Mark Absent"
-                          >
-                            ✗
-                          </button>
-                        </div>
-                      </td>
                     </tr>
                   );
                 })
               ) : (
                 <tr>
-                  <td colSpan="4" className="p-4 text-center text-gray-500">
+                  <td colSpan="3" className="p-4 text-center text-gray-500">
                     No students found for {content.title}
                   </td>
                 </tr>

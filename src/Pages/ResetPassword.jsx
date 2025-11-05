@@ -95,7 +95,7 @@ export default function ResetPassword() {
         {/* Logo */}
         <div className="flex justify-center mb-6">
           <img 
-            src="/images/ucc.png" 
+            src="/images/citadel.png" 
             alt="UCC Logo" 
             className="h-20 w-20 object-contain"
           />

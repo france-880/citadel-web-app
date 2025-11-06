@@ -268,20 +268,20 @@ export default function Sidebar() {
         <nav className="flex flex-col h-full">
           {/* Header */}
           <div
-            className={`flex items-center ${
-              isCollapsed ? "justify-center" : "justify-between"
+            className={`flex items-center relative ${
+              isCollapsed ? "justify-center" : "justify-center"
             } px-4 py-4 border-b border-gray-100`}
           >
-              <div className="flex items-center space-x-3">
+              <div className="flex items-center justify-center">
                 <img
                   src="/images/ucc.png"
                   alt="University Logo"
-                  className="w-[50px] h-[50px]"
+                  className="w-[58px] h-[58px]"
                 />
               </div>
             <button
               onClick={() => setIsCollapsed(!isCollapsed)}
-              className="p-2 rounded-lg hover:bg-gray-100 transition-colors flex items-center justify-center"
+              className="absolute right-4 p-2 rounded-lg hover:bg-gray-100 transition-colors flex items-center justify-center"
               title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
             >
               {isCollapsed ? (

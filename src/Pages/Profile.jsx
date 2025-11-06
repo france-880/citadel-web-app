@@ -10,7 +10,7 @@ export default function Profile() {
   const navigate = useNavigate();
   const { user, refreshUser } = useAuth() || {}; // current logged-in user if available
   const [isSaving, setIsSaving] = useState(false);
-  const [previewImage, setPreviewImage] = useState("/api/placeholder/150/150");
+  const [previewImage, setPreviewImage] = useState(null);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(
     () => localStorage.getItem("sidebarCollapsed") === "true"
   );
@@ -54,7 +54,9 @@ export default function Profile() {
           address: res.data.address || "",
           username: res.data.username || "",
         });
-        if (res.data.profileImage) setPreviewImage(res.data.profileImage);
+        if (res.data.profileImage && res.data.profileImage !== "/api/placeholder/150/150") {
+          setPreviewImage(res.data.profileImage);
+        }
       } catch (error) {
         console.error('Profile fetch error:', error);
         toast.error("Failed to load profile details");
@@ -66,6 +68,47 @@ export default function Profile() {
   // ✅ Input change handler
   const handleChange = (field) => (e) => {
     setForm((prev) => ({ ...prev, [field]: e.target.value }));
+  };
+
+  // ✅ Avatar generation functions (like mobile app)
+  const getInitials = (fullName) => {
+    if (!fullName || fullName.trim() === "") return "?";
+    
+    const parts = fullName.trim().split(" ");
+    if (parts.length === 1) {
+      // Single name: take first 2 letters
+      return parts[0].substring(0, parts[0].length >= 2 ? 2 : 1).toUpperCase();
+    } else {
+      // Multiple names: take first letter of first and last name
+      return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+    }
+  };
+
+  const getColorForName = (fullName) => {
+    const avatarColors = [
+      "#6366F1", // Indigo
+      "#EC4899", // Pink
+      "#8B5CF6", // Purple
+      "#06B6D4", // Cyan
+      "#10B981", // Green
+      "#F59E0B", // Amber
+      "#EF4444", // Red
+      "#3B82F6", // Blue
+      "#14B8A6", // Teal
+      "#F97316", // Orange
+    ];
+
+    if (!fullName || fullName === "") {
+      return avatarColors[0];
+    }
+
+    // Use sum of character codes to get consistent color
+    let sum = 0;
+    for (let i = 0; i < fullName.length; i++) {
+      sum += fullName.charCodeAt(i);
+    }
+
+    return avatarColors[sum % avatarColors.length];
   };
 
   // ✅ Image change
@@ -123,20 +166,20 @@ const handleSaveChanges = async () => {
       <div className="flex-1">
         <Header />
         <main className="p-6 min-h-screen">
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center justify-between mb-6 pl-[160px]">
             <h1 className="text-2xl font-semibold text-[#064F32]">
               Personal Information
             </h1>
           </div>
 
           <div className="bg-white rounded-lg shadow-md p-8">
-            <div className="flex gap-8 pl-4">
+            <div className="flex pl-4">
               {/* Left Side Navigation */}
               <div className="w-64 flex-shrink-0">
                 <div className="flex flex-col gap-3">
                   <button
                     onClick={() => navigate("/profile")}
-                    className="flex items-center gap-3 px-4 py-3 text-left rounded-lg transition-colors border-l-4 border-[#064F32] bg-[#E8F5E9] text-[#064F32] font-medium"
+                    className="flex items-center gap-3 px-3 py-3 text-left rounded-lg transition-colors border-l-4 border-[#064F32] bg-[#1C4F06]/30 text-[#064F32] font-medium"
                   >
                     <svg
                       className="w-5 h-5"
@@ -154,7 +197,7 @@ const handleSaveChanges = async () => {
 
                   <button
                     onClick={() => navigate("/changepassword")}
-                    className="flex items-center gap-3 px-4 py-3 text-left rounded-lg transition-colors border-l-4 border-transparent text-gray-600 hover:bg-gray-50"
+                    className="flex items-center gap-3 px-3 py-3 text-left rounded-lg transition-colors border-l-4 border-transparent text-gray-700 hover:text-[#064F32] hover:bg-[#064F32]/5"
                   >
                     <svg
                       className="w-5 h-5"
@@ -173,20 +216,26 @@ const handleSaveChanges = async () => {
               </div>
 
               {/* Right Side Content */}
-              <div className="flex-1 pl-4 ml-4">
-                <h3 className="text-xl font-bold text-gray-800 mb-8">
+              <div className="flex-1" style={{ marginLeft: '80px' }}>
+                <h3 className="text-2xl font-bold text-gray-800 mb-8 ">
                   Edit Profile
                 </h3>
 
                 {/* Profile Photo */}
                 <div className="flex flex-col items-center mb-8">
                   <div className="relative mb-6">
-                    <div className="w-32 h-32 rounded-full overflow-hidden bg-gradient-to-br from-purple-200 to-purple-300 border-4 border-white shadow-lg">
-                      <img
-                        src={previewImage}
-                        alt="Profile"
-                        className="w-full h-full object-cover"
-                      />
+                    <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-white shadow-lg flex items-center justify-center" style={{ backgroundColor: getColorForName(form.fullname || user?.fullname) }}>
+                      {previewImage ? (
+                        <img
+                          src={previewImage}
+                          alt="Profile"
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <span className="text-white text-8xl font-bold">
+                          {getInitials(form.fullname || user?.fullname || "?")}
+                        </span>
+                      )}
                     </div>
                     <label
                       htmlFor="photo-upload"
@@ -225,48 +274,59 @@ const handleSaveChanges = async () => {
                 {/* Profile Form */}
                 <div className="space-y-6 max-w-md mx-auto">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-base font-medium text-gray-700 mb-3">
                       Full Name
                     </label>
                     <input
                       type="text"
                       value={form.fullname}
                       onChange={handleChange("fullname")}
-                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#064F32]/30 focus:border-[#064F32]/60 transition-all pr-10"
+                      className="px-4 py-3 mb-5 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#064F32]/30 focus:border-[#064F32]/60 transition-all"
+                      style={{ width: '500px' }}
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-base font-medium text-gray-700 mb-3">
                       Email
                     </label>
                     <input
                       type="email"
                       value={form.email}
                       onChange={handleChange("email")}
-                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#064F32]/30 focus:border-[#064F32]/60 transition-all pr-10"
-                    />
+                      className=" px-4 py-3 mb-5 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#064F32]/30 focus:border-[#064F32]/60 transition-all"
+                      style={{ width: '500px' }}
+                   />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-base font-medium text-gray-700 mb-3">
                       Contact Number
                     </label>
                     <input
                       type="text"
                       value={form.contact}
                       onChange={handleChange("contact")}
-                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#064F32]/30 focus:border-[#064F32]/60 transition-all pr-10"
+                      className=" px-4 py-3 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#064F32]/30 focus:border-[#064F32]/60 transition-all"
+                      style={{ width: '500px' }}
                     />
                   </div>
 
                   <div className="flex justify-center mt-8">
                     <button
+                      type="button"
                       onClick={handleSaveChanges}
                       disabled={isSaving}
-                      className={`px-8 py-2.5 bg-orange-500 hover:bg-orange-600 text-white font-medium rounded-lg transition-colors shadow-md ${
-                        isSaving ? "opacity-70 cursor-not-allowed" : ""
-                      }`}
+                      className="text-base rounded-lg font-semibold transition-colors shadow-xl flex items-center gap-2 z-10 text-white"
+                      style={{ 
+                        backgroundColor: isSaving ? '#9ca3af' : '#f97316',
+                        paddingLeft: '32px',
+                        paddingRight: '32px',
+                        paddingTop: '12px',
+                        paddingBottom: '12px',
+                        opacity: isSaving ? 0.7 : 1,
+                        cursor: isSaving ? 'not-allowed' : 'pointer'
+                      }}
                     >
                       {isSaving ? "Saving..." : "Save Changes"}
                     </button>

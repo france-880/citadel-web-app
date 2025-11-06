@@ -139,20 +139,20 @@ export default function ChangePassword() {
       <div className="flex-1">
         <Header />
         <main className="p-6 min-h-screen">
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center justify-between mb-6 pl-[160px]">
             <h1 className="text-2xl font-semibold text-[#064F32]">
               Personal Information
             </h1>
           </div>
 
           <div className="bg-white rounded-lg shadow-md p-8">
-            <div className="flex gap-8 pl-4">
+            <div className="flex pl-4">
               {/* Left Side - Navigation Tabs */}
               <div className="w-64 flex-shrink-0">
                 <div className="flex flex-col gap-3">
                   <button
                     onClick={() => navigate("/profile")}
-                    className="flex items-center gap-3 px-4 py-3 text-left rounded-lg transition-colors border-l-4 border-transparent text-gray-600 hover:bg-gray-50"
+                    className="flex items-center gap-3 px-3 py-3 text-left rounded-lg transition-colors border-l-4 border-transparent text-gray-700 hover:text-[#064F32] hover:bg-[#064F32]/5"
                   >
                     <svg
                       className="w-5 h-5"
@@ -170,7 +170,7 @@ export default function ChangePassword() {
 
                   <button
                     onClick={() => navigate("/changepassword")}
-                    className="flex items-center gap-3 px-4 py-3 text-left rounded-lg transition-colors border-l-4 border-[#064F32] bg-[#E8F5E9] text-[#064F32] font-medium"
+                    className="flex items-center gap-3 px-3 py-3 text-left rounded-lg transition-colors border-l-4 border-[#064F32] bg-[#1C4F06]/30 text-[#064F32] font-medium"
                   >
                     <svg
                       className="w-5 h-5"
@@ -189,29 +189,29 @@ export default function ChangePassword() {
               </div>
 
               {/* Right Side - Content */}
-              <div className="flex-1 pl-4 ml-4">
-                <div>
-                  <h3 className="text-xl font-bold text-gray-800 mb-8">
-                    Change Password
-                  </h3>
+              <div className="flex-1" style={{ marginLeft: '80px' }}>
+                <h3 className="text-2xl font-bold text-gray-800 mb-8 ml-20">
+                  Change Password
+                </h3>
 
-                  <div className="space-y-6 max-w-md">
+                <div className="space-y-6 max-w-md">
                     {/* Current Password */}
                     <div>
                       <label
                         htmlFor="current-password"
-                        className="block text-sm font-medium text-gray-700 mb-2"
+                        className="block text-base font-medium text-gray-700 mb-3"
                       >
                         Current Password
                       </label>
-                      <div className="relative">
+                      <div className="relative mb-5">
                         <input
                           id="current-password"
                           type={showCurrentPassword ? "text" : "password"}
                           value={currentPassword}
                           onChange={(e) => setCurrentPassword(e.target.value)}
-                          className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#064F32]/30 focus:border-[#064F32]/60 transition-all pr-10"
+                          className=" px-4 py-3 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#064F32]/30 focus:border-[#064F32]/60 transition-all pr-12"
                           placeholder="Enter current password"
+                          style={{ width: '500px' }}
                         />
                         <button
                           type="button"
@@ -232,7 +232,7 @@ export default function ChangePassword() {
                     <div>
                       <label
                         htmlFor="new-password"
-                        className="block text-sm font-medium text-gray-700 mb-2"
+                        className="block text-base font-medium text-gray-700 mb-3"
                       >
                         New Password
                       </label>
@@ -247,14 +247,15 @@ export default function ChangePassword() {
                               setPasswordTouched(true);
                             }
                           }}
-                          className={`w-full px-4 py-2.5 rounded-lg border transition-all pr-10 focus:outline-none focus:ring-2 focus:ring-[#064F32]/30 focus:border-[#064F32]/60 transition-all pr-10${
+                          className={` px-4 py-3 text-base rounded-lg border pr-12 focus:outline-none focus:ring-2 transition-all ${
                             newPassword && isPasswordValid
-                              ? "border-green-600 focus:ring-green-500"
+                              ? "border-green-600 focus:ring-green-500/30 focus:border-green-600"
                               : newPassword
-                              ? "border-red-500 focus:ring-red-400"
-                              : "border-gray-300 focus:ring-[#064F32]"
+                              ? "border-red-500 focus:ring-red-400/30 focus:border-red-500"
+                              : "border-gray-300 focus:ring-[#064F32]/30 focus:border-[#064F32]/60"
                           }`}
                           placeholder="Enter new password"
+                          style={{ width: '500px' }}
                         />
                         <button
                           type="button"
@@ -264,17 +265,17 @@ export default function ChangePassword() {
                         >
                           {showNewPassword ? (
                             <EyeOff size={20} />
-                          ) : (
+                          ) : ( 
                             <Eye size={20} />
                           )}
                         </button>
                       </div>
 
-                      <p className="text-gray-600 font-medium text-sm mt-3">
+                      <p className="text-gray-600 font-medium text-base mt-3">
                         Your password must contain at least:
                       </p>
 
-                      <ul className="space-y-2 mt-2 text-sm">
+                      <ul className="space-y-2 mt-2 mb-5 text-base">
                         <ValidationItem valid={hasUpperCase} text="1 Upper case" />
                         <ValidationItem valid={hasLowerCase} text="1 lowercase" />
                         <ValidationItem valid={hasNumber} text="1 number" />
@@ -290,7 +291,7 @@ export default function ChangePassword() {
 
                       {newPassword && (
                         <p
-                          className={`text-sm mt-3 font-medium ${
+                          className={`text-base mt-3 font-medium ${
                             getPasswordStrength() === "Strong"
                               ? "text-green-600"
                               : getPasswordStrength() === "Medium"
@@ -307,17 +308,18 @@ export default function ChangePassword() {
                     <div>
                       <label
                         htmlFor="confirm-password"
-                        className="block text-sm font-medium text-gray-700 mb-2"
+                        className="block text-base font-medium text-gray-700 mb-3"
                       >
                         Confirm Password
                       </label>
-                      <div className="relative">
+                      <div className="relative mb-5">
                         <input
                           id="confirm-password"
                           type={showConfirmPassword ? "text" : "password"}
                           value={confirmPassword}
                           onChange={(e) => setConfirmPassword(e.target.value)}
-                          className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#064F32]/30 focus:border-[#064F32]/60  transition-all pr-10"
+                          className=" px-4 py-3 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#064F32]/30 focus:border-[#064F32]/60 transition-all pr-12"
+                          style={{ width: '500px' }}
                           placeholder="Confirm new password"
                         />
                         <button
@@ -336,15 +338,19 @@ export default function ChangePassword() {
                     </div>
                   </div>
 
-                  <div className="flex justify-end mt-8">
+                  <div className="flex justify-center mt-10 w-full">
                     <button
+                      type="button"
                       onClick={handleChangePassword}
                       disabled={loading}
-                      className={`px-8 py-2.5 rounded-lg font-medium transition-colors shadow-md flex items-center gap-2 ${
-                        loading
-                          ? "bg-gray-400 cursor-not-allowed text-white"
-                          : "bg-orange-500 hover:bg-orange-600 text-white"
-                      }`}
+                      className="text-base rounded-lg font-semibold transition-colors shadow-xl flex items-center gap-2 z-10 text-white"
+                      style={{ 
+                        backgroundColor: loading ? '#9ca3af' : '#f97316',
+                        paddingLeft: '32px',
+                        paddingRight: '32px',
+                        paddingTop: '12px',
+                        paddingBottom: '12px',
+                      }}
                     >
                       {loading ? (
                         <>
@@ -356,7 +362,6 @@ export default function ChangePassword() {
                       )}
                     </button>
                   </div>
-                </div>
               </div>
             </div>
           </div>

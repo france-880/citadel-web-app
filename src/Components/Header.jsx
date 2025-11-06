@@ -10,16 +10,70 @@ export default function Header() {
   // Debug: Log user data
   console.log('Header - User data:', user);
 
+  // ✅ Avatar generation functions (like mobile app)
+  const getInitials = (fullName) => {
+    if (!fullName || fullName.trim() === "" || fullName === "Guest" || fullName === "Unknown User") return "?";
+    
+    const parts = fullName.trim().split(" ");
+    if (parts.length === 1) {
+      // Single name: take first 2 letters
+      return parts[0].substring(0, parts[0].length >= 2 ? 2 : 1).toUpperCase();
+    } else {
+      // Multiple names: take first letter of first and last name
+      return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+    }
+  };
+
+  const getColorForName = (fullName) => {
+    const avatarColors = [
+      "#6366F1", // Indigo
+      "#EC4899", // Pink
+      "#8B5CF6", // Purple
+      "#06B6D4", // Cyan
+      "#10B981", // Green
+      "#F59E0B", // Amber
+      "#EF4444", // Red
+      "#3B82F6", // Blue
+      "#14B8A6", // Teal
+      "#F97316", // Orange
+    ];
+
+    if (!fullName || fullName === "" || fullName === "Guest" || fullName === "Unknown User") {
+      return avatarColors[0];
+    }
+
+    // Use sum of character codes to get consistent color
+    let sum = 0;
+    for (let i = 0; i < fullName.length; i++) {
+      sum += fullName.charCodeAt(i);
+    }
+
+    return avatarColors[sum % avatarColors.length];
+  };
+
   return (
     <header className="fixed top-0 left-0 right-0 h-[70px] bg-[#064F32] shadow-md flex items-center justify-between px-6 z-50">
       <div className="flex items-center text-ml font-semibold">
-        <img src="/images/citadel.png" alt="University Logo" className="w-[50px] h-[50px]" />
-        <h4 className="text-xl ml-5 font-bold text-white">Citadel</h4>
+        <img src="/images/logo.png" alt="University Logo" className="w-[70px] h-[70px]" />
+        <h4 className="text-xl font-bold font-montserrat text-white tracking-wide">CITADEL</h4>
       </div>
 
-      <div className="relative flex items-center gap-4">
+      <div className="relative flex items-center gap-4">  
         <div className="flex items-center">
-          <img className="h-10 w-10 rounded-full mr-3" src="/images/user.png" alt="User" />
+          {user?.profileImage && user.profileImage !== "/api/placeholder/150/150" ? (
+            <img 
+              className="h-10 w-10 rounded-full mr-3 object-cover" 
+              src={user.profileImage} 
+              alt="User" 
+            />
+          ) : (
+            <div 
+              className="h-10 w-10 rounded-full mr-3 flex items-center justify-center text-white font-bold text-sm"
+              style={{ backgroundColor: getColorForName(user?.fullname || "Guest") }}
+            >
+              {getInitials(user?.fullname || "Guest")}
+            </div>
+          )}
           <div className="text-white">
             <div className="font-medium text-sm">
               {user?.fullname && user.fullname !== 'Unknown User' ? user.fullname : "Guest"}

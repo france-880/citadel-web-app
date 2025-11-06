@@ -86,6 +86,7 @@ export const yearSectionAPI = {
 
 export const studentAPI = {
   getAll: (params = {}) => api.get("/students", { params }),
+  getAllWithLogs: () => api.get("/students-with-logs"), // NEW
   getById: (id) => api.get(`/students/${id}`),
   create: (data) => api.post("/students", data),
   update: (id, data) => api.put(`/students/${id}`, data),
@@ -94,10 +95,5 @@ export const studentAPI = {
     api.delete("/students/delete-multiple", { data: { ids } }),
 };
 
-export const dashboardAPI = {
-  getStatistics: () => api.get("/dashboard/statistics"),
-  getProgramStatistics: () => api.get("/dashboard/programs"),
-  getDeanStatistics: () => api.get("/dashboard/dean"),
-};
 
 export default api;

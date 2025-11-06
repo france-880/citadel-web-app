@@ -2,12 +2,43 @@ import { useState, useEffect } from "react";
 import Header from "../Components/Header";
 import Sidebar from "../Components/Sidebar";
 import { Users, UserCheck, UserX, CalendarCheck, Clock } from "lucide-react";
+import { dashboardAPI } from "../api/axios";
 
 export default function Dashboard() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(
     () => localStorage.getItem("sidebarCollapsed") === "true"
   );
+  
+  // State for dashboard data
+  const [summary, setSummary] = useState([
+    {
+      title: "Total Students Registered",
+      value: 0,
+      icon: Users,
+      color: "bg-green-700",
+    },
+    {
+      title: "Total Regular Students",
+      value: 0,
+      icon: UserCheck,
+      color: "bg-green-600",
+    },
+    {
+      title: "Total Irregular Students",
+      value: 0,
+      icon: UserX,
+      color: "bg-emerald-500",
+    },
+  ]);
+
+  const [attendanceOverview, setAttendanceOverview] = useState({
+    present: 0,
+    absent: 0,
+    lastUpdated: "Loading...",
+  });
+
+  const [recentActivities, setRecentActivities] = useState([]);
 
   // Listen to sidebar toggle events
   useEffect(() => {
@@ -19,38 +50,58 @@ export default function Dashboard() {
     return () => window.removeEventListener("sidebarToggle", handleSidebarToggle);
   }, []);
 
-  const summary = [
-    {
-      title: "Total Students Registered",
-      value: 1500,
-      icon: Users,
-      color: "bg-green-700",
-    },
-    {
-      title: "Total Regular Students",
-      value: 1000,
-      icon: UserCheck,
-      color: "bg-green-600",
-    },
-    {
-      title: "Total Irregular Students",
-      value: 500,
-      icon: UserX,
-      color: "bg-emerald-500",
-    },
-  ];
+  // Fetch dashboard data
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        setIsLoading(true);
+        const response = await dashboardAPI.getDeanStatistics();
+        
+        if (response.data.success && response.data.data) {
+          const data = response.data.data;
+          
+          // Update summary cards
+          setSummary([
+            {
+              title: "Total Students Registered",
+              value: data.summary?.totalStudents || 0,
+              icon: Users,
+              color: "bg-green-700",
+            },
+            {
+              title: "Total Regular Students",
+              value: data.summary?.regularStudents || 0,
+              icon: UserCheck,
+              color: "bg-green-600",
+            },
+            {
+              title: "Total Irregular Students",
+              value: data.summary?.irregularStudents || 0,
+              icon: UserX,
+              color: "bg-emerald-500",
+            },
+          ]);
 
-  const attendanceOverview = {
-    present: 1420,
-    absent: 80,
-    lastUpdated: "10:30 AM",
-  };
+          // Update attendance overview
+          setAttendanceOverview({
+            present: data.attendanceOverview?.present || 0,
+            absent: data.attendanceOverview?.absent || 0,
+            lastUpdated: data.attendanceOverview?.lastUpdated || "N/A",
+          });
 
-  const recentActivities = [
-    { activity: "Attendance report submitted", time: "2 hours ago" },
-    { activity: "New student registration approved", time: "5 hours ago" },
-    { activity: "Faculty attendance reviewed", time: "Yesterday" },
-  ];
+          // Update recent activities
+          setRecentActivities(data.recentActivities || []);
+        }
+      } catch (error) {
+        console.error("Error fetching dashboard data:", error);
+        // Keep default values on error
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchDashboardData();
+  }, []);
 
   const StatCard = ({ title, value, icon: Icon, color }) => (
     <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
@@ -68,10 +119,6 @@ export default function Dashboard() {
     </div>
   );
 
-  useEffect(() => {
-    const timer = setTimeout(() => setIsLoading(false), 1000);
-    return () => clearTimeout(timer);
-  }, []);
 
   if (isLoading) {
     return (
@@ -167,19 +214,25 @@ export default function Dashboard() {
                 </div>
               </div>
               <div className="p-6">
-                <ul className="space-y-3">
-                  {recentActivities.map((item, index) => (
-                    <li
-                      key={index}
-                      className="border-l-4 border-green-700 pl-4 py-2 hover:bg-gray-50 rounded-md transition-all duration-200"
-                    >
-                      <p className="text-gray-800 font-medium">
-                        {item.activity}
-                      </p>
-                      <p className="text-xs text-gray-500">{item.time}</p>
-                    </li>
-                  ))}
-                </ul>
+                {recentActivities.length > 0 ? (
+                  <ul className="space-y-3">
+                    {recentActivities.map((item, index) => (
+                      <li
+                        key={index}
+                        className="border-l-4 border-green-700 pl-4 py-2 hover:bg-gray-50 rounded-md transition-all duration-200"
+                      >
+                        <p className="text-gray-800 font-medium">
+                          {item.activity}
+                        </p>
+                        <p className="text-xs text-gray-500">{item.time}</p>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <div className="text-center py-8 text-gray-500">
+                    <p>No recent activities</p>
+                  </div>
+                )}
               </div>
             </div>
           </div>

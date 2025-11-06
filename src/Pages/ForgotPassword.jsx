@@ -32,10 +32,11 @@ export default function ForgotPassword() {
       <form onSubmit={handleSubmit} className="bg-white p-8 rounded-lg shadow-md w-full max-w-md">
         {/* Logo */}
         <div className="flex justify-center mb-6">
-          <img 
-            src="/images/ucc.png" 
+           <img 
+            src="/images/logo.png" 
             alt="UCC Logo" 
-            className="h-20 w-20 object-contain"
+            className="object-contain"
+            style={{ width: '100px', height: 'auto', maxWidth: '100%' }}
           />
         </div>
 

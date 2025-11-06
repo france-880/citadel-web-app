@@ -15,10 +15,11 @@ export default function CheckEmail() {
       <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8">
         {/* Logo */}
         <div className="flex justify-center mb-6">
-          <img 
-            src="/images/citadel.png" 
-            alt="Citadel Logo" 
-            className="h-20 w-20 object-contain"
+        <img 
+            src="/images/logo.png" 
+            alt="UCC Logo" 
+            className="object-contain"
+            style={{ width: '100px', height: 'auto', maxWidth: '100%' }}
           />
         </div>
 

@@ -94,10 +94,11 @@ export default function ResetPassword() {
       >
         {/* Logo */}
         <div className="flex justify-center mb-6">
-          <img 
-            src="/images/citadel.png" 
+        <img 
+            src="/images/logo.png" 
             alt="UCC Logo" 
-            className="h-20 w-20 object-contain"
+            className="object-contain"
+            style={{ width: '100px', height: 'auto', maxWidth: '100%' }}
           />
         </div>
 

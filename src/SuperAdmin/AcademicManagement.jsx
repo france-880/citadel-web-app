@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import Header from "../Components/Header";
 import Sidebar from "../Components/Sidebar";
-import { collegeAPI, programAPI, subjectAPI } from "../api/axios";
+import { collegeAPI, programAPI, subjectAPI, yearSectionAPI } from "../api/axios";
 import {
   Plus,
   Edit,
@@ -62,6 +62,8 @@ export default function AcademicManagement() {
   const [subjects, setSubjects] = useState([]);
   const [availableDeans, setAvailableDeans] = useState([]);
   const [availableProgramHeads, setAvailableProgramHeads] = useState([]); // ✅ SEPARATE STATE FOR PROGRAM HEADS
+  const [yearSections, setYearSections] = useState([]); // Year sections from database
+  const [availableYearLevels, setAvailableYearLevels] = useState([]); // Unique year levels from year_sections
   const [selectedDeanId, setSelectedDeanId] = useState("");
   const [selectedProgramHeadId, setSelectedProgramHeadId] = useState(""); // ✅ SEPARATE STATE FOR PROGRAM HEAD
 
@@ -83,6 +85,7 @@ export default function AcademicManagement() {
   // Load data from backend
   useEffect(() => {
     loadData();
+    fetchYearSections();
   }, []);
 
   const loadData = async () => {
@@ -108,6 +111,29 @@ export default function AcademicManagement() {
       setError("Failed to load data");
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // Fetch year sections and extract unique year levels
+  const fetchYearSections = async () => {
+    try {
+      const response = await yearSectionAPI.getAll();
+      console.log("Year sections fetched:", response.data);
+      
+      if (response.data.success && Array.isArray(response.data.data)) {
+        setYearSections(response.data.data);
+        // Extract unique year_level values
+        const uniqueYearLevels = Array.from(new Set(response.data.data.map(ys => ys.year_level))).sort();
+        setAvailableYearLevels(uniqueYearLevels);
+        console.log("Available year levels:", uniqueYearLevels);
+      } else if (Array.isArray(response.data)) {
+        setYearSections(response.data);
+        const uniqueYearLevels = Array.from(new Set(response.data.map(ys => ys.year_level))).sort();
+        setAvailableYearLevels(uniqueYearLevels);
+        console.log("Available year levels:", uniqueYearLevels);
+      }
+    } catch (error) {
+      console.error("Error fetching year sections:", error);
     }
   };
 
@@ -194,6 +220,12 @@ export default function AcademicManagement() {
     if (type === "assign-head") {
       setSelectedProgramHeadId(program?.program_head?.id || "");
       await loadAvailableProgramHeads(); // ✅ LOAD PROGRAM HEADS WHEN MODAL OPENS
+    }
+
+    if (type === "update-subject" && subject && program) {
+      setSelectedSubjectId(subject.id);
+      setSelectedSemester(subject.pivot?.semester || "");
+      setSelectedYearLevel(subject.pivot?.year_level || "");
     }
 
     setShowModal(true);
@@ -536,6 +568,47 @@ export default function AcademicManagement() {
     } catch (error) {
       console.error("Error assigning subject:", error);
       setError(error.response?.data?.message || "Failed to assign subject");
+    }
+  };
+
+  const updateSubjectAssignment = async (e) => {
+    e.preventDefault();
+    setError(null);
+
+    if (!selectedProgram || !selectedSubjectId) {
+      setError("Please select a subject");
+      return;
+    }
+
+    if (!selectedSemester || !selectedYearLevel) {
+      setError("Please select both semester and year level");
+      return;
+    }
+
+    try {
+      const response = await programAPI.updateSubjectAssignment(
+        selectedProgram.id,
+        selectedSubjectId,
+        selectedSemester,
+        selectedYearLevel
+      );
+
+      if (response.data.success) {
+        console.log("✅ Subject assignment updated, response:", response.data.data);
+        setPrograms((prev) =>
+          prev.map((p) =>
+            p.id === selectedProgram.id ? response.data.data : p
+          )
+        );
+        setSuccessMessage("Subject assignment updated successfully!");
+        setTimeout(() => setSuccessMessage(null), 2000);
+        closeModal();
+        // Reload data to ensure everything is in sync
+        await loadData();
+      }
+    } catch (error) {
+      console.error("Error updating subject assignment:", error);
+      setError(error.response?.data?.message || "Failed to update subject assignment");
     }
   };
 
@@ -885,25 +958,52 @@ export default function AcademicManagement() {
                               </div>
                               <div className="space-y-1 max-h-32 overflow-y-auto">
                                 {program.subjects && program.subjects.length > 0 ? (
-                                  program.subjects.map((subject) => (
-                                    <div
-                                      key={subject.id}
-                                      className="flex items-center justify-between text-xs bg-gray-50 p-2 rounded"
-                                    >
-                                      <span className="text-gray-700">
-                                        {subject.subject_code} - {subject.subject_name}
-                                      </span>
-                                      <button
-                                        onClick={() =>
-                                          unassignSubject(program.id, subject.id)
-                                        }
-                                        className="text-red-500 hover:text-red-700"
-                                        title="Unassign subject"
+                                  program.subjects.map((subject) => {
+                                    const hasNullData = !subject.pivot?.year_level || !subject.pivot?.semester;
+                                    return (
+                                      <div
+                                        key={subject.id}
+                                        className={`flex items-center justify-between text-xs p-2 rounded ${
+                                          hasNullData ? 'bg-yellow-50 border border-yellow-200' : 'bg-gray-50'
+                                        }`}
                                       >
-                                        <Trash2 className="w-3 h-3" />
-                                      </button>
-                                    </div>
-                                  ))
+                                        <div className="flex-1">
+                                          <span className="text-gray-700">
+                                            {subject.subject_code} - {subject.subject_name}
+                                          </span>
+                                          <div className="text-xs text-gray-500 mt-0.5">
+                                            {subject.pivot?.year_level && subject.pivot?.semester ? (
+                                              <span>{subject.pivot.year_level} - {subject.pivot.semester}</span>
+                                            ) : (
+                                              <span className="text-yellow-600 font-medium">⚠️ Missing year/semester</span>
+                                            )}
+                                          </div>
+                                        </div>
+                                        <div className="flex items-center gap-1 ml-2">
+                                          {hasNullData && (
+                                            <button
+                                              onClick={() =>
+                                                openModal("update-subject", subject, program)
+                                              }
+                                              className="text-[#064F32] hover:text-[#053d27] p-1"
+                                              title="Update year level and semester"
+                                            >
+                                              <Edit className="w-3 h-3" />
+                                            </button>
+                                          )}
+                                          <button
+                                            onClick={() =>
+                                              unassignSubject(program.id, subject.id)
+                                            }
+                                            className="text-red-500 hover:text-red-700 p-1"
+                                            title="Unassign subject"
+                                          >
+                                            <Trash2 className="w-3 h-3" />
+                                          </button>
+                                        </div>
+                                      </div>
+                                    );
+                                  })
                                 ) : (
                                   <p className="text-xs text-gray-400 italic">
                                     No subjects assigned yet
@@ -1021,6 +1121,8 @@ export default function AcademicManagement() {
                     ? "Assign Program Head"
                     : modalType === "assign-subject"
                     ? "Assign Subject to Program"
+                    : modalType === "update-subject"
+                    ? "Update Subject Assignment"
                     : ""}
                 </h3>
 
@@ -1166,11 +1268,14 @@ export default function AcademicManagement() {
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#064F32]"
                       >
                         <option value="">-- Select Year Level --</option>
-                        <option value="1">1st Year</option>
-                        <option value="2">2nd Year</option>
-                        <option value="3">3rd Year</option>
-                        <option value="4">4th Year</option>
-                        <option value="5">5th Year</option>
+                        {availableYearLevels.map((yearLevel) => (
+                          <option key={yearLevel} value={yearLevel}>
+                            {yearLevel}
+                          </option>
+                        ))}
+                        {availableYearLevels.length === 0 && (
+                          <option value="" disabled>Loading year levels...</option>
+                        )}
                       </select>
                     </div>
 
@@ -1184,8 +1289,8 @@ export default function AcademicManagement() {
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#064F32]"
                       >
                         <option value="">-- Select Semester --</option>
-                        <option value="1st Semester">1st Semester</option>
-                        <option value="2nd Semester">2nd Semester</option>
+                        <option value="First">First Semester</option>
+                        <option value="Second">Second Semester</option>
                         <option value="Summer">Summer</option>
                       </select>
                     </div>
@@ -1204,6 +1309,94 @@ export default function AcademicManagement() {
                         className="px-4 py-2 bg-[#064F32] text-white rounded-lg hover:bg-[#053d27] disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
                       >
                         Assign Subject
+                      </button>
+                    </div>
+                  </form>
+                ) : modalType === "update-subject" ? (
+                  <form onSubmit={updateSubjectAssignment} className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Program
+                      </label>
+                      <input
+                        type="text"
+                        value={selectedProgram?.program_name || ""}
+                        disabled
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-100 text-gray-700"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Subject
+                      </label>
+                      <input
+                        type="text"
+                        value={selectedSubject?.subject_code ? `${selectedSubject.subject_code} - ${selectedSubject.subject_name}` : ""}
+                        disabled
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-100 text-gray-700"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Year Level *
+                      </label>
+                      <select
+                        value={selectedYearLevel}
+                        onChange={(e) => setSelectedYearLevel(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#064F32]"
+                        required
+                      >
+                        <option value="">-- Select Year Level --</option>
+                        {availableYearLevels.map((yearLevel) => (
+                          <option key={yearLevel} value={yearLevel}>
+                            {yearLevel}
+                          </option>
+                        ))}
+                        {availableYearLevels.length === 0 && (
+                          <option value="" disabled>Loading year levels...</option>
+                        )}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Semester *
+                      </label>
+                      <select
+                        value={selectedSemester}
+                        onChange={(e) => setSelectedSemester(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#064F32]"
+                        required
+                      >
+                        <option value="">-- Select Semester --</option>
+                        <option value="First">First Semester</option>
+                        <option value="Second">Second Semester</option>
+                        <option value="Summer">Summer</option>
+                      </select>
+                    </div>
+
+                    {error && (
+                      <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+                        {error}
+                      </div>
+                    )}
+
+                    <div className="flex justify-end space-x-3 pt-4">
+                      <button
+                        type="button"
+                        onClick={closeModal}
+                        className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={!selectedYearLevel || !selectedSemester}
+                        className="px-4 py-2 bg-[#064F32] text-white rounded-lg hover:bg-[#053d27] disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+                      >
+                        Update Assignment
                       </button>
                     </div>
                   </form>

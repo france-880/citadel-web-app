@@ -1878,7 +1878,7 @@ const FacultyLoading = () => {
                     </option>
                     {availableSubjects.map(subject => (
                       <option key={subject.id} value={subject.id}>
-                        {subject.code} - {subject.name} ({subject.units} units) - Year {subject.year_level} Section {subject.section}
+                        {subject.code} - {subject.name} ({subject.units} units) - {subject.year_level} Section {subject.section}
                       </option>
                     ))}
                   </select>

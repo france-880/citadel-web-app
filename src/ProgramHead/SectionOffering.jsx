@@ -13,14 +13,15 @@ import {
   User
 } from 'lucide-react';
 import api from '../api/axios';
+import { yearSectionAPI } from '../api/axios';
 import toast from 'react-hot-toast';
 
 const FacultyLoading = () => {
   const [course, setCourse] = useState('');
   const [academicYear, setAcademicYear] = useState('2526');
   const [semester, setSemester] = useState('First');
-  const [yearLevel, setYearLevel] = useState('First Year');
-  const [parentSection, setParentSection] = useState('A-NORTH');
+  const [yearLevel, setYearLevel] = useState('');
+  const [parentSection, setParentSection] = useState('');
   const [facultyName, setFacultyName] = useState('');
   const [selectedFaculty, setSelectedFaculty] = useState(null);
   
@@ -57,6 +58,10 @@ const FacultyLoading = () => {
   const [availablePrograms, setAvailablePrograms] = useState([]);
   const [isLoadingPrograms, setIsLoadingPrograms] = useState(false);
   
+  // Year Sections State
+  const [yearSections, setYearSections] = useState([]);
+  const [isLoadingYearSections, setIsLoadingYearSections] = useState(false);
+  
   // Add Subject Modal State
   const [showAddSubjectModal, setShowAddSubjectModal] = useState(false);
   const [addSubjectForm, setAddSubjectForm] = useState({
@@ -85,6 +90,33 @@ const FacultyLoading = () => {
     room: '',
     type: 'Part-time'
   });
+
+  // Function to fetch year sections
+  const fetchYearSections = async () => {
+    try {
+      setIsLoadingYearSections(true);
+      console.log('Fetching year sections...');
+      const response = await yearSectionAPI.getAll();
+      console.log('Year sections API response:', response.data);
+      
+      if (response.data.success && Array.isArray(response.data.data)) {
+        setYearSections(response.data.data);
+        console.log('Successfully fetched year sections:', response.data.data);
+      } else if (Array.isArray(response.data)) {
+        setYearSections(response.data);
+        console.log('Successfully fetched year sections:', response.data);
+      } else {
+        console.error('Invalid year sections response format:', response.data);
+        setYearSections([]);
+      }
+    } catch (error) {
+      console.error('Error fetching year sections:', error);
+      toast.error(`Failed to load year sections: ${error.response?.data?.message || error.message}`);
+      setYearSections([]);
+    } finally {
+      setIsLoadingYearSections(false);
+    }
+  };
 
   // Function to fetch programs from AcademicManagement API
   const fetchPrograms = async () => {
@@ -273,6 +305,7 @@ const FacultyLoading = () => {
     console.log('Component mounted, fetching programs and subjects...');
     fetchPrograms();
     fetchSubjects();
+    fetchYearSections();
     fetchSelectedFaculty();
   }, []);
 
@@ -1842,15 +1875,53 @@ const FacultyLoading = () => {
       console.log('Academic Year:', academicYear);
       console.log('Semester:', semester);
       console.log('Year Level:', yearLevel);
-      console.log('Parent Section:', parentSection);
+      console.log('Section:', parentSection);
       
       console.log('Step 1: Fetching subjects for program...');
-      const response = await api.get(`/programs/${selectedProgramId}/subjects`);
+      console.log('Filtering by:', { year_level: yearLevel, semester: semester });
+      
+      // Validate that all required fields are filled
+      if (!yearLevel || !semester) {
+        toast.error('Please select both Year Level and Semester');
+        setLoading(false);
+        return;
+      }
+      
+      // Fetch subjects filtered by year_level and semester
+      const response = await api.get(`/programs/${selectedProgramId}/subjects`, {
+        params: {
+          year_level: yearLevel,
+          semester: semester
+        }
+      });
       console.log('Step 1 Response:', response.data);
 
       if (response.data.success) {
         const subjects = response.data.data || [];
         console.log(`Step 2: Found ${subjects.length} subjects`);
+        
+        // Check if no subjects found
+        if (subjects.length === 0) {
+          // Check if response has debug info
+          const debugInfo = response.data.debug_info;
+          let errorMessage = `No subjects found for ${yearLevel} - ${semester} semester.`;
+          
+          if (debugInfo && debugInfo.subjects_with_null_data > 0) {
+            errorMessage += ` Found ${debugInfo.total_subjects_in_program} subject(s) in this program, but ${debugInfo.subjects_with_null_data} don't have year_level or semester assigned. Please re-assign subjects with the correct year level and semester.`;
+          } else if (debugInfo && debugInfo.total_subjects_in_program === 0) {
+            errorMessage = `No subjects assigned to this program yet. Please assign subjects to this program first.`;
+          } else {
+            errorMessage += ` Please make sure subjects are assigned to this program with the correct year level and semester.`;
+          }
+          
+          toast.error(errorMessage, {
+            duration: 5000,
+            icon: '⚠️'
+          });
+          setProgramSubjects([]);
+          setLoading(false);
+          return;
+        }
         
         // Save each subject as a section offering and get the IDs
         console.log('Step 3: Creating/fetching section offerings...');
@@ -1943,8 +2014,8 @@ const FacultyLoading = () => {
         toast.success(`Loaded ${subjects.length} subject(s) for ${yearLevel} - ${parentSection}`);
         console.log('Final subjects with section:', subjectsWithSection);
       } else {
-        console.error('Step ERROR: response.data.success is false');
-        toast.error('Failed to load program subjects - Invalid response');
+        console.error('Step ERROR: response.data.success is false', response.data);
+        toast.error(response.data.message || 'Failed to load program subjects - Invalid response');
         setProgramSubjects([]);
       }
     } catch (error) {
@@ -1985,7 +2056,7 @@ const FacultyLoading = () => {
         <div className="bg-white rounded-lg shadow-sm">
           {/* Navigation Tabs */}
           <div className="border-b border-gray-200"> </div>
-          {/* Filters Section - Course, Academic Year, Semester, Year Level, Parent Section */}
+          {/* Filters Section - Course, Academic Year, Semester, Year Level, Section */}
           <div className="bg-white rounded-lg shadow-sm pb-6 mx-6 mt-6 mb-6 ml-3 mr-3">
             <div className="space-y-4">
               {/* Course - First Row */}
@@ -2019,7 +2090,7 @@ const FacultyLoading = () => {
                 </select>
               </div>
 
-              {/* Academic Year, Semester, Year Level, Parent Section - Second Row */}
+              {/* Academic Year, Semester, Year Level, Section - Second Row */}
               <div className="flex flex-nowrap gap-3 items-end overflow-x-auto">
                 {/* Academic Year */}
                 <div className="flex flex-col min-w-[140px] flex-1">
@@ -2055,28 +2126,52 @@ const FacultyLoading = () => {
                   <label className="text-sm font-medium text-gray-700 mb-2 whitespace-nowrap">Year Level</label>
                   <select
                     value={yearLevel}
-                    onChange={(e) => setYearLevel(e.target.value)}
+                    onChange={(e) => {
+                      setYearLevel(e.target.value);
+                      // Reset parent section when year level changes
+                      setParentSection('');
+                    }}
                     className="border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors w-full"
+                    disabled={isLoadingYearSections}
                   >
-                    <option value="First Year">First Year</option>
-                    <option value="Second Year">Second Year</option>
-                    <option value="Third Year">Third Year</option>
-                    <option value="Fourth Year">Fourth Year</option>
+                    <option value="">
+                      {isLoadingYearSections ? 'Loading...' : 'Select Year Level'}
+                    </option>
+                    {Array.from(new Set(yearSections.map(ys => ys.year_level)))
+                      .sort()
+                      .map((level) => (
+                        <option key={level} value={level}>
+                          {level}
+                        </option>
+                      ))}
+                    {!isLoadingYearSections && yearSections.length === 0 && (
+                      <option value="" disabled>No year levels available</option>
+                    )}
                   </select>
                 </div>
 
-                {/* Parent Section */}
+                {/* Section */}
                 <div className="flex flex-col min-w-[140px] flex-1">
-                  <label className="text-sm font-medium text-gray-700 mb-2 whitespace-nowrap">Parent Section</label>
+                  <label className="text-sm font-medium text-gray-700 mb-2 whitespace-nowrap">Section</label>
                   <select
                     value={parentSection}
                     onChange={(e) => setParentSection(e.target.value)}
                     className="border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors w-full"
+                    disabled={isLoadingYearSections || !yearLevel}
                   >
-                    <option value="A-NORTH">A-NORTH</option>
-                    <option value="B-SOUTH">B-SOUTH</option>
-                    <option value="C-EAST">C-EAST</option>
-                    <option value="D-WEST">D-WEST</option>
+                    <option value="">
+                      {isLoadingYearSections ? 'Loading...' : !yearLevel ? 'Select year level first' : 'Select Section'}
+                    </option>
+                    {yearLevel && yearSections
+                      .filter(ys => ys.year_level === yearLevel)
+                      .map((ys) => (
+                        <option key={ys.id} value={ys.section}>
+                          {ys.section}
+                        </option>
+                      ))}
+                    {!isLoadingYearSections && yearLevel && yearSections.filter(ys => ys.year_level === yearLevel).length === 0 && (
+                      <option value="" disabled>No sections available for this year level</option>
+                    )}
                   </select>
                 </div>
               </div>
@@ -2170,7 +2265,7 @@ const FacultyLoading = () => {
                             <p className="text-sm">No subjects loaded</p>
                             <p className="text-xs text-gray-400 mt-1">
                               {selectedProgramId 
-                                ? 'Fill in all fields above (Academic Year, Semester, Year Level, Parent Section) to load subjects' 
+                                ? 'Fill in all fields above (Academic Year, Semester, Year Level, Section) to load subjects' 
                                 : 'Please select a program and fill in all required fields'}
                             </p>
                           </div>

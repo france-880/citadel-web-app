@@ -64,6 +64,10 @@ export const programAPI = {
     semester: semester,
     year_level: yearLevel
   }),
+  updateSubjectAssignment: (programId, subjectId, semester, yearLevel) => api.put(`/programs/${programId}/subjects/${subjectId}`, {
+    semester: semester,
+    year_level: yearLevel
+  }),
   unassignSubject: (programId, subjectId) => api.delete(`/programs/${programId}/subjects/${subjectId}`),
 };
 
@@ -88,6 +92,12 @@ export const studentAPI = {
   delete: (id) => api.delete(`/students/${id}`),
   deleteMultiple: (ids) =>
     api.delete("/students/delete-multiple", { data: { ids } }),
+};
+
+export const dashboardAPI = {
+  getStatistics: () => api.get("/dashboard/statistics"),
+  getProgramStatistics: () => api.get("/dashboard/programs"),
+  getDeanStatistics: () => api.get("/dashboard/dean"),
 };
 
 export default api;

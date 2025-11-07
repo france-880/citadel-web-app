@@ -95,5 +95,11 @@ export const studentAPI = {
     api.delete("/students/delete-multiple", { data: { ids } }),
 };
 
+export const dashboardAPI = {
+  getStatistics: () => api.get("/dashboard/statistics"),
+  getProgramStatistics: () => api.get("/dashboard/programs"),
+  getDeanStatistics: () => api.get("/dashboard/dean"),
+};
+
 
 export default api;
